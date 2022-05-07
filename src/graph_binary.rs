@@ -37,7 +37,7 @@ pub const MAP_TYPE_CODE: u8 = 0x0a;
 
 #[derive(Debug, PartialEq)]
 pub enum GraphBinary {
-    Int(Option<i32>),
+    Int(i32),
     Long(i64),
     String(String),
     // Date(Date),
@@ -212,7 +212,7 @@ impl GraphBinary {
             GraphBinary::Binding(_) => CoreType::Binding,
             GraphBinary::ByteCode(_) => CoreType::ByteCode,
             GraphBinary::Cardinality(_) => CoreType::Cardinality,
-            GraphBinary::Column(_) => CoreType::Cloumn,
+            GraphBinary::Column(_) => CoreType::Column,
             GraphBinary::Direction(_) => CoreType::Direction,
             GraphBinary::Operator(_) => CoreType::Operator,
             GraphBinary::Order(_) => CoreType::Order,
@@ -299,6 +299,20 @@ impl GraphBinary {
 //     }
 // }
 
+impl Encode for GraphBinary {
+    fn type_code() -> u8 {
+        todo!()
+    }
+
+    fn gb_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+        todo!()
+    }
+
+    fn fq_gb_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+        self.build_fq_bytes(writer)
+    }
+}
+
 pub struct BigDecimal {}
 
 pub struct BigInteger {}
@@ -314,7 +328,7 @@ pub enum MapKeys {
 impl From<MapKeys> for GraphBinary {
     fn from(keys: MapKeys) -> GraphBinary {
         match keys {
-            MapKeys::Int(val) => GraphBinary::Int(Some(val)),
+            MapKeys::Int(val) => GraphBinary::Int(val),
             MapKeys::String(val) => GraphBinary::String(val),
             MapKeys::Long(val) => GraphBinary::Long(val),
             MapKeys::Uuid(val) => GraphBinary::Uuid(val),
@@ -325,7 +339,7 @@ impl From<MapKeys> for GraphBinary {
 impl From<&MapKeys> for GraphBinary {
     fn from(keys: &MapKeys) -> GraphBinary {
         match keys {
-            MapKeys::Int(val) => GraphBinary::Int(Some(*val)),
+            MapKeys::Int(val) => GraphBinary::Int(*val),
             MapKeys::String(val) => GraphBinary::String(val.clone()),
             MapKeys::Long(val) => GraphBinary::Long(*val),
             MapKeys::Uuid(val) => GraphBinary::Uuid(*val),
@@ -341,8 +355,7 @@ pub fn decode<R: Read>(reader: &mut R) -> Result<GraphBinary, DecodeError> {
     let value_flag = ValueFlag::try_from(buf[1])?;
 
     let gb = match (identifier, value_flag) {
-        (CoreType::Int32, ValueFlag::Set) => GraphBinary::Int(Some(i32::decode(reader)?)),
-        (CoreType::Int32, ValueFlag::Null) => GraphBinary::Int(None),
+        (CoreType::Int32, ValueFlag::Set) => GraphBinary::Int(i32::decode(reader)?),
         (CoreType::Long, ValueFlag::Set) => GraphBinary::Long(i64::decode(reader)?),
         (CoreType::Long, ValueFlag::Null) => todo!(),
         (CoreType::String, ValueFlag::Set) => GraphBinary::String(String::decode(reader)?),
@@ -379,8 +392,8 @@ pub fn decode<R: Read>(reader: &mut R) -> Result<GraphBinary, DecodeError> {
         (CoreType::Boolean, ValueFlag::Null) => todo!(),
         (CoreType::Cardinality, ValueFlag::Set) => todo!(),
         (CoreType::Cardinality, ValueFlag::Null) => todo!(),
-        (CoreType::Cloumn, ValueFlag::Set) => todo!(),
-        (CoreType::Cloumn, ValueFlag::Null) => todo!(),
+        (CoreType::Column, ValueFlag::Set) => todo!(),
+        (CoreType::Column, ValueFlag::Null) => todo!(),
         (CoreType::Direction, ValueFlag::Set) => todo!(),
         (CoreType::Direction, ValueFlag::Null) => todo!(),
         (CoreType::Operator, ValueFlag::Set) => todo!(),
@@ -425,6 +438,7 @@ pub fn decode<R: Read>(reader: &mut R) -> Result<GraphBinary, DecodeError> {
         (CoreType::Merge, ValueFlag::Null) => todo!(),
         (CoreType::UnspecifiedNullObject, ValueFlag::Set) => todo!(),
         (CoreType::UnspecifiedNullObject, ValueFlag::Null) => todo!(),
+        (CoreType::Int32, ValueFlag::Null) => todo!(),
         // (CoreType::Int32,0x00) => GraphBinary::Int(i32::decode(reader)?),
         // (0x02,0x00) => GraphBinary::Long(i64::decode(reader)?),
         // (LIST_TYPE_CODE,0x0) => GraphBinary::List(List::decode(reader)?),
