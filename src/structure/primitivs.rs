@@ -48,6 +48,12 @@ impl Decode for String {
     }
 }
 
+impl From<String> for GraphBinary {
+    fn from(s: String) -> Self {
+        GraphBinary::String(s)
+    }
+}
+
 impl Encode for &str {
     fn type_code() -> u8 {
         CoreType::String.into()
@@ -58,6 +64,12 @@ impl Encode for &str {
         writer.write_all(&len.to_be_bytes())?;
         writer.write_all(self.as_bytes())?;
         Ok(())
+    }
+}
+
+impl From<&str> for GraphBinary {
+    fn from(s: &str) -> Self {
+        GraphBinary::String(s.to_owned())
     }
 }
 
@@ -78,6 +90,12 @@ impl Decode for u8 {
         reader.read_exact(&mut int)?;
 
         Ok(u8::from_be_bytes(int))
+    }
+}
+
+impl From<u8> for GraphBinary {
+    fn from(v: u8) -> Self {
+        GraphBinary::Byte(v)
     }
 }
 
@@ -102,6 +120,12 @@ impl Decode for i16 {
     }
 }
 
+impl From<i16> for GraphBinary {
+    fn from(v: i16) -> Self {
+        GraphBinary::Short(v)
+    }
+}
+
 impl Encode for i32 {
     fn type_code() -> u8 {
         CoreType::Int32.into()
@@ -122,6 +146,12 @@ impl Decode for i32 {
     }
 }
 
+impl From<i32> for GraphBinary {
+    fn from(v: i32) -> Self {
+        GraphBinary::Int(v)
+    }
+}
+
 impl Encode for i64 {
     fn type_code() -> u8 {
         CoreType::Long.into()
@@ -139,6 +169,12 @@ impl Decode for i64 {
         reader.read_exact(&mut int)?;
 
         Ok(i64::from_be_bytes(int))
+    }
+}
+
+impl From<i64> for GraphBinary {
+    fn from(v: i64) -> Self {
+        GraphBinary::Long(v)
     }
 }
 
@@ -163,6 +199,12 @@ impl Decode for f32 {
     }
 }
 
+impl From<f32> for GraphBinary {
+    fn from(v: f32) -> Self {
+        GraphBinary::Float(v)
+    }
+}
+
 impl Encode for f64 {
     fn type_code() -> u8 {
         CoreType::Double.into()
@@ -184,6 +226,12 @@ impl Decode for f64 {
     }
 }
 
+impl From<f64> for GraphBinary {
+    fn from(v: f64) -> Self {
+        GraphBinary::Double(v)
+    }
+}
+
 impl Encode for Uuid {
     fn type_code() -> u8 {
         CoreType::Uuid.into()
@@ -202,6 +250,12 @@ impl Decode for Uuid {
         reader.read_exact(&mut buf)?;
 
         Ok(Uuid::from_bytes(buf))
+    }
+}
+
+impl From<Uuid> for GraphBinary {
+    fn from(v: Uuid) -> Self {
+        GraphBinary::Uuid(v)
     }
 }
 
@@ -235,6 +289,12 @@ impl Decode for bool {
     }
 }
 
+impl From<bool> for GraphBinary {
+    fn from(v: bool) -> Self {
+        GraphBinary::Boolean(v)
+    }
+}
+
 impl<T: Encode> Encode for Option<T> {
     fn type_code() -> u8 {
         T::type_code()
@@ -252,6 +312,23 @@ impl<T: Encode> Encode for Option<T> {
             Some(i) => i.fq_gb_bytes(writer),
             None => build_fq_null_bytes(writer),
         }
+    }
+}
+
+impl<T: Encode> Encode for &[T] {
+    fn type_code() -> u8 {
+        CoreType::List.into()
+    }
+
+    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+        let len = self.len() as i32;
+        len.gb_bytes(writer)?;
+
+        for item in *self {
+            item.fq_gb_bytes(writer)?;
+        }
+
+        Ok(())
     }
 }
 
