@@ -61,6 +61,26 @@ impl Encode for &str {
     }
 }
 
+impl Encode for u8 {
+    fn type_code() -> u8 {
+        CoreType::Byte.into()
+    }
+
+    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+        writer.write_all(&self.to_be_bytes())?;
+        Ok(())
+    }
+}
+
+impl Decode for u8 {
+    fn decode<R: Read>(reader: &mut R) -> Result<u8, DecodeError> {
+        let mut int = [0_u8; 1];
+        reader.read_exact(&mut int)?;
+
+        Ok(u8::from_be_bytes(int))
+    }
+}
+
 impl Encode for i16 {
     fn type_code() -> u8 {
         CoreType::Short.into()
