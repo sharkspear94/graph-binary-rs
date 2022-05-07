@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 use crate::{
     error::DecodeError,
     graph_binary::{Decode, Encode, GraphBinary},
@@ -43,7 +45,7 @@ impl Encode for Cardinality {
     }
 
     fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().gb_bytes(writer)
+        self.to_str().fq_gb_bytes(writer)
     }
 }
 
@@ -89,7 +91,7 @@ impl Encode for Column {
     }
 
     fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().gb_bytes(writer)
+        self.to_str().fq_gb_bytes(writer)
     }
 }
 
@@ -138,7 +140,7 @@ impl Encode for Direction {
     }
 
     fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().gb_bytes(writer)
+        self.to_str().fq_gb_bytes(writer)
     }
 }
 
@@ -211,7 +213,7 @@ impl Encode for Operator {
     }
 
     fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().gb_bytes(writer)
+        self.to_str().fq_gb_bytes(writer)
     }
 }
 
@@ -260,7 +262,7 @@ impl Encode for Order {
     }
 
     fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().gb_bytes(writer)
+        self.to_str().fq_gb_bytes(writer)
     }
 }
 
@@ -306,7 +308,7 @@ impl Encode for Pick {
     }
 
     fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().gb_bytes(writer)
+        self.to_str().fq_gb_bytes(writer)
     }
 }
 
@@ -358,7 +360,7 @@ impl Encode for Pop {
     }
 
     fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().gb_bytes(writer)
+        self.to_str().fq_gb_bytes(writer)
     }
 }
 
@@ -410,7 +412,8 @@ impl Encode for P {
     }
 
     fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().gb_bytes(writer)
+        self.to_str().fq_gb_bytes(writer);
+        todo!()
     }
 }
 
@@ -447,7 +450,7 @@ impl Encode for Scope {
     }
 
     fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().gb_bytes(writer)
+        self.to_str().fq_gb_bytes(writer)
     }
 }
 
@@ -499,7 +502,7 @@ impl Encode for T {
     }
 
     fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().gb_bytes(writer)
+        self.to_str().fq_gb_bytes(writer)
     }
 }
 
@@ -509,6 +512,17 @@ impl Decode for T {
         Self: std::marker::Sized,
     {
         T::try_from(String::decode(reader)?.as_str())
+    }
+}
+
+impl Serialize for T {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut buf = Vec::with_capacity(8);
+        self.fq_gb_bytes(&mut buf);
+        serializer.serialize_bytes(&buf[..])
     }
 }
 
@@ -542,7 +556,7 @@ impl Encode for TextP {
     }
 
     fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().gb_bytes(writer)
+        self.to_str().fq_gb_bytes(writer)
     }
 }
 
@@ -579,7 +593,7 @@ impl Encode for Merge {
     }
 
     fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().gb_bytes(writer)
+        self.to_str().fq_gb_bytes(writer)
     }
 }
 

@@ -1,8 +1,4 @@
-use core::panic;
-use std::{
-    collections::{hash_map, HashMap},
-    io::{Bytes, Write},
-};
+use std::collections::HashMap;
 
 use serde::{
     ser::{self, Impossible, SerializeMap, SerializeSeq, SerializeStruct, SerializeTuple},
@@ -10,10 +6,10 @@ use serde::{
 };
 
 use crate::{
-    error::{DecodeError, EncodeError},
-    graph_binary::{Encode, GraphBinary},
+    error::EncodeError,
+    graph_binary::{Encode, GraphBinary, MapKeys},
     specs::CoreType,
-    structure::{graph::Graph, list::List},
+    structure::{enums::T, list::List},
 };
 
 pub fn to_bytes<T>(value: T) -> Result<Vec<u8>, EncodeError>
@@ -54,7 +50,7 @@ impl ser::Serializer for &mut Serializer {
 
     type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
 
-    fn serialize_bool(mut self, v: bool) -> Result<Self::Ok, Self::Error> {
+    fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
         v.fq_gb_bytes(&mut self.writer)
     }
 
@@ -66,11 +62,11 @@ impl ser::Serializer for &mut Serializer {
         todo!()
     }
 
-    fn serialize_i32(mut self, v: i32) -> Result<Self::Ok, Self::Error> {
+    fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
         v.fq_gb_bytes(&mut self.writer)
     }
 
-    fn serialize_i64(mut self, v: i64) -> Result<Self::Ok, Self::Error> {
+    fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
         v.fq_gb_bytes(&mut self.writer)
     }
 
@@ -90,11 +86,11 @@ impl ser::Serializer for &mut Serializer {
         todo!()
     }
 
-    fn serialize_f32(mut self, v: f32) -> Result<Self::Ok, Self::Error> {
+    fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
         v.fq_gb_bytes(&mut self.writer)
     }
 
-    fn serialize_f64(mut self, v: f64) -> Result<Self::Ok, Self::Error> {
+    fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
         v.fq_gb_bytes(&mut self.writer)
     }
 
@@ -102,12 +98,13 @@ impl ser::Serializer for &mut Serializer {
         todo!()
     }
 
-    fn serialize_str(mut self, v: &str) -> Result<Self::Ok, Self::Error> {
+    fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
         v.fq_gb_bytes(&mut self.writer)
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.writer.extend_from_slice(v);
+        Ok(())
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
@@ -317,23 +314,28 @@ impl SerializeStruct for &mut Serializer {
     }
 }
 
-// impl serde::ser::SerializeSeq for Serializer {
-//     type Ok = () ;
-
-//     type Error = ;
-
-//     fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
-//     where
-//         T: serde::Serialize {
-//         todo!()
-//     }
-
-//     fn end(self) -> Result<Self::Ok, Self::Error> {
-//         todo!()
-//     }
-// }
-
 struct GraphBinarySerializer;
+
+impl SerializeStruct for GraphBinarySerializer {
+    type Ok = GraphBinary;
+
+    type Error = EncodeError;
+
+    fn serialize_field<T: ?Sized>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<(), Self::Error>
+    where
+        T: Serialize,
+    {
+        todo!()
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+}
 
 impl GraphBinarySerializer {
     fn new() -> GraphBinarySerializer {
@@ -353,9 +355,9 @@ impl serde::Serializer for GraphBinarySerializer {
     type Ok = GraphBinary;
     type Error = EncodeError;
 
-    type SerializeSeq = Impossible<Self::Ok, Self::Error>;
+    type SerializeSeq = GraphBinarySerializerSeq;
 
-    type SerializeTuple = Impossible<Self::Ok, Self::Error>;
+    type SerializeTuple = GraphBinarySerializerSeq;
 
     type SerializeTupleStruct = Impossible<Self::Ok, Self::Error>;
 
@@ -376,7 +378,7 @@ impl serde::Serializer for GraphBinarySerializer {
     }
 
     fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        Ok(GraphBinary::Short(v))
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
@@ -420,7 +422,7 @@ impl serde::Serializer for GraphBinarySerializer {
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        Ok(GraphBinary::ByteBuffer(Vec::from_iter(v.to_owned())))
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
@@ -435,11 +437,11 @@ impl serde::Serializer for GraphBinarySerializer {
     }
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        Ok(GraphBinary::UnspecifiedNullObject)
     }
 
     fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        Ok(GraphBinary::UnspecifiedNullObject)
     }
 
     fn serialize_unit_variant(
@@ -453,13 +455,13 @@ impl serde::Serializer for GraphBinarySerializer {
 
     fn serialize_newtype_struct<T: ?Sized>(
         self,
-        name: &'static str,
+        _name: &'static str,
         value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
         T: serde::Serialize,
     {
-        todo!()
+        value.serialize(self)
     }
 
     fn serialize_newtype_variant<T: ?Sized>(
@@ -472,15 +474,18 @@ impl serde::Serializer for GraphBinarySerializer {
     where
         T: serde::Serialize,
     {
-        todo!()
+        value.serialize(self)
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
-        todo!()
+        match len {
+            Some(l) => Ok(GraphBinarySerializerSeq(Vec::with_capacity(l))),
+            None => Ok(GraphBinarySerializerSeq(Vec::new())),
+        }
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
-        todo!()
+        self.serialize_seq(Some(len))
     }
 
     fn serialize_tuple_struct(
@@ -531,15 +536,15 @@ impl Serialize for GraphBinary {
     {
         match self {
             GraphBinary::Int(_) => todo!(),
-            GraphBinary::Long(_) => todo!(),
-            GraphBinary::String(_) => todo!(),
-            GraphBinary::Class(_) => todo!(),
-            GraphBinary::Double(_) => todo!(),
-            GraphBinary::Float(_) => todo!(),
+            GraphBinary::Long(v) => v.serialize(serializer),
+            GraphBinary::String(s) => s.serialize(serializer),
+            GraphBinary::Class(c) => c.serialize(serializer),
+            GraphBinary::Double(v) => v.serialize(serializer),
+            GraphBinary::Float(v) => v.serialize(serializer),
             GraphBinary::List(list) => list.serialize(serializer),
             GraphBinary::Set(_) => todo!(),
-            GraphBinary::Map(_) => todo!(),
-            GraphBinary::Uuid(_) => todo!(),
+            GraphBinary::Map(m) => todo!(),
+            GraphBinary::Uuid(u) => todo!(),
             GraphBinary::Edge(_) => todo!(),
             GraphBinary::Path(_) => todo!(),
             GraphBinary::Property(_) => todo!(),
@@ -550,7 +555,7 @@ impl Serialize for GraphBinary {
             GraphBinary::Binding(_) => todo!(),
             GraphBinary::ByteCode(_) => todo!(),
             GraphBinary::Cardinality(_) => todo!(),
-            GraphBinary::Column(_) => todo!(),
+            GraphBinary::Column(c) => todo!(),
             GraphBinary::Direction(_) => todo!(),
             GraphBinary::Operator(_) => todo!(),
             GraphBinary::Order(_) => todo!(),
@@ -559,12 +564,12 @@ impl Serialize for GraphBinary {
             GraphBinary::Lambda(_) => todo!(),
             GraphBinary::P(_) => todo!(),
             GraphBinary::Scope(_) => todo!(),
-            GraphBinary::T(_) => todo!(),
+            GraphBinary::T(t) => t.serialize(serializer),
             GraphBinary::Traverser(_) => todo!(),
             GraphBinary::Byte(_) => todo!(),
             GraphBinary::ByteBuffer(_) => todo!(),
             GraphBinary::Short(_) => todo!(),
-            GraphBinary::Boolean(_) => todo!(),
+            GraphBinary::Boolean(b) => b.serialize(serializer),
             GraphBinary::TextP(_) => todo!(),
             GraphBinary::TraversalStrategy(_) => todo!(),
             GraphBinary::Tree(_) => todo!(),
@@ -574,6 +579,65 @@ impl Serialize for GraphBinary {
         }
     }
 }
+struct GraphBinarySerializerSeq(Vec<GraphBinary>);
+
+impl SerializeSeq for GraphBinarySerializerSeq {
+    type Ok = GraphBinary;
+
+    type Error = EncodeError;
+
+    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
+    where
+        T: Serialize,
+    {
+        self.0.push(value.serialize(GraphBinarySerializer)?);
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(GraphBinary::List(List(self.0)))
+    }
+}
+
+impl SerializeTuple for GraphBinarySerializerSeq {
+    type Ok = GraphBinary;
+
+    type Error = EncodeError;
+
+    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
+    where
+        T: Serialize,
+    {
+        self.0.push(value.serialize(GraphBinarySerializer)?);
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(GraphBinary::List(List(self.0)))
+    }
+}
+// struct GraphBinarySerializerMap(HashMap<MapKeys,GraphBinary>);
+
+// impl SerializeMap for GraphBinarySerializerMap {
+//     type Ok = GraphBinary;
+
+//     type Error = EncodeError;
+
+//     fn serialize_key<T: ?Sized>(&mut self, key: &T) -> Result<(), Self::Error>
+//     where
+//         T: Serialize {
+//     }
+
+//     fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
+//     where
+//         T: Serialize {
+//         todo!()
+//     }
+
+//     fn end(self) -> Result<Self::Ok, Self::Error> {
+//         todo!()
+//     }
+// }
 
 #[test]
 fn ser_test() {
@@ -622,7 +686,7 @@ fn ser_seq_test() {
 }
 
 #[test]
-fn ser_newtype_test() {
+fn ser_newtype1_test() {
     #[derive(Debug, Serialize)]
     struct Millimeters(i32);
 
@@ -667,6 +731,87 @@ fn ser_struct_test() {
         0x01, 0x00, 0x00, 0x0, 0x0, 0x1, 0x03, 0x00, 0x00, 0x0, 0x0, 0x3, b'a', b'b', b'c', 0x27,
         0x00, 0x00, 0x03, 0x00, 0x00, 0x0, 0x0, 0x5, b'm', b'i', b'l', b'l', b'i', 0x01, 0x00,
         0x00, 0x0, 0x0, 0x1,
+    ];
+    assert_eq!(map_bytes[..], bytes.unwrap());
+}
+
+#[test]
+fn ser_struct_GB_test() {
+    #[derive(Debug, Serialize)]
+    struct Millimeters(i32);
+
+    #[derive(Debug, Serialize)]
+    struct TestStruct {
+        test: i32,
+        abc: GraphBinary,
+        milli: Millimeters,
+    }
+    let test = TestStruct {
+        test: 1,
+        abc: GraphBinary::Boolean(true),
+        milli: Millimeters(1),
+    };
+
+    let bytes = to_bytes(test);
+    let map_bytes = [
+        0x0a_u8, 0x0, 0x00, 0x0, 0x0, 0x3, 0x03, 0x00, 0x00, 0x0, 0x0, 0x4, b't', b'e', b's', b't',
+        0x01, 0x00, 0x00, 0x0, 0x0, 0x1, 0x03, 0x00, 0x00, 0x0, 0x0, 0x3, b'a', b'b', b'c', 0x27,
+        0x00, 0x00, 0x03, 0x00, 0x00, 0x0, 0x0, 0x5, b'm', b'i', b'l', b'l', b'i', 0x01, 0x00,
+        0x00, 0x0, 0x0, 0x1,
+    ];
+    assert_eq!(map_bytes[..], bytes.unwrap());
+}
+
+#[test]
+fn ser_struct_option_GB_test() {
+    #[derive(Debug, Serialize)]
+    struct Millimeters(i32);
+
+    #[derive(Debug, Serialize)]
+    struct TestStruct {
+        test: i32,
+        abc: Option<GraphBinary>,
+        milli: Millimeters,
+    }
+    let test = TestStruct {
+        test: 1,
+        abc: None,
+        milli: Millimeters(1),
+    };
+
+    let bytes = to_bytes(test);
+    let map_bytes = [
+        0x0a_u8, 0x0, 0x00, 0x0, 0x0, 0x3, 0x03, 0x00, 0x00, 0x0, 0x0, 0x4, b't', b'e', b's', b't',
+        0x01, 0x00, 0x00, 0x0, 0x0, 0x1, 0x03, 0x00, 0x00, 0x0, 0x0, 0x3, b'a', b'b', b'c', 0xFE,
+        0x01, 0x03, 0x00, 0x00, 0x0, 0x0, 0x5, b'm', b'i', b'l', b'l', b'i', 0x01, 0x00, 0x00, 0x0,
+        0x0, 0x1,
+    ];
+    assert_eq!(map_bytes[..], bytes.unwrap());
+}
+
+#[test]
+fn ser__test() {
+    #[derive(Debug, Serialize)]
+    struct Millimeters(i32);
+
+    #[derive(Debug, Serialize)]
+    struct TestStruct {
+        test: i32,
+        abc: Option<GraphBinary>,
+        milli: Millimeters,
+    }
+    let test = TestStruct {
+        test: 1,
+        abc: Some(GraphBinary::T(T::Id)),
+        milli: Millimeters(1),
+    };
+
+    let bytes = to_bytes(test);
+    let map_bytes = [
+        0x0a_u8, 0x0, 0x00, 0x0, 0x0, 0x3, 0x03, 0x00, 0x00, 0x0, 0x0, 0x4, b't', b'e', b's', b't',
+        0x01, 0x00, 0x00, 0x0, 0x0, 0x1, 0x03, 0x00, 0x00, 0x0, 0x0, 0x3, b'a', b'b', b'c', 0x20,
+        0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x02, b'i', b'd', 0x03, 0x00, 0x00, 0x0, 0x0,
+        0x5, b'm', b'i', b'l', b'l', b'i', 0x01, 0x00, 0x00, 0x0, 0x0, 0x1,
     ];
     assert_eq!(map_bytes[..], bytes.unwrap());
 }

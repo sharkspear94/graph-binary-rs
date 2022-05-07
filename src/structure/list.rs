@@ -3,13 +3,11 @@ use crate::{
     graph_binary::{self, Decode, Encode},
     specs::CoreType,
 };
-use std::{collections::VecDeque, fmt::Debug, ops::Deref};
+use std::{collections::{VecDeque, btree_map::IterMut}, fmt::Debug, ops::Deref};
 
 use crate::graph_binary::GraphBinary;
 #[derive(Debug, PartialEq)]
-pub struct List {
-    pub list: Vec<GraphBinary>,
-}
+pub struct List(pub Vec<GraphBinary>);
 
 #[derive(Debug, PartialEq)]
 pub struct List1<T: Encode> {
@@ -116,7 +114,7 @@ impl Decode for List {
         for _ in 0..len {
             list.push(graph_binary::decode(reader)?)
         }
-        Ok(List { list })
+        Ok(List(list))
     }
 }
 
@@ -131,8 +129,8 @@ fn list_decode_test() {
 
     assert!(s.is_ok());
     let s = s.unwrap();
-    assert_eq!(4, s.list.len());
-    for gb in s.list {
+    assert_eq!(4, s.0.len());
+    for gb in s.0 {
         assert_eq!(
             Some(4),
             match gb {
@@ -153,7 +151,7 @@ impl Deref for List {
     type Target = Vec<GraphBinary>;
 
     fn deref(&self) -> &Self::Target {
-        &self.list
+        &self.0
     }
 }
 
@@ -198,9 +196,7 @@ impl From<i32> for GraphBinary {
 fn testing_list() {
     use crate::specs;
 
-    let list = List {
-        list: vec![0.into(), 1.into(), 2.into()],
-    };
+    let list = List(vec![0.into(), 1.into(), 2.into()]);
 
     pub const VALUE_PRESENT: u8 = 0x00;
     pub const VALUE_NULL: u8 = 0x01;

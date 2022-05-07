@@ -86,6 +86,11 @@ pub enum GraphBinary {
     // Custom
 }
 
+pub fn build_fq_null_bytes<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
+    writer.write_all(&[CoreType::UnspecifiedNullObject.into(), 0x01])?;
+    Ok(())
+}
+
 impl GraphBinary {
     pub fn build_fq_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         match self {
@@ -134,7 +139,7 @@ impl GraphBinary {
             GraphBinary::Tree(_) => todo!(),
             GraphBinary::Metrics(_) => todo!(),
             GraphBinary::TraversalMetrics(_) => todo!(),
-            GraphBinary::UnspecifiedNullObject => todo!(),
+            GraphBinary::UnspecifiedNullObject => build_fq_null_bytes(writer),
             // GraphBinary::Custom => todo!(),
             // _ =>  Bytes::new()
         }

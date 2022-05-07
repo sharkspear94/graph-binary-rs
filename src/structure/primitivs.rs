@@ -4,8 +4,8 @@ use crate::{error::EncodeError, graph_binary::Encode};
 use uuid::Uuid;
 
 use crate::graph_binary::{
-    Decode, GraphBinary, INT32_LEN, INT32_TYPE_CODE, INT64_TYPE_CODE, STRING_TYPE_CODE,
-    VALUE_PRESENT,
+    build_fq_null_bytes, Decode, GraphBinary, INT32_LEN, INT32_TYPE_CODE, INT64_TYPE_CODE,
+    STRING_TYPE_CODE, VALUE_PRESENT,
 };
 
 use std::io::Read;
@@ -223,7 +223,14 @@ impl<T: Encode> Encode for Option<T> {
     fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         match self {
             Some(i) => i.gb_bytes(writer),
-            None => Self::fq_null(writer),
+            None => build_fq_null_bytes(writer),
+        }
+    }
+
+    fn fq_gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+        match self {
+            Some(i) => i.fq_gb_bytes(writer),
+            None => build_fq_null_bytes(writer),
         }
     }
 }
