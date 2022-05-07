@@ -7,7 +7,28 @@ use crate::{
 };
 
 #[derive(Debug, PartialEq)]
-pub enum Barrier {}
+pub enum Barrier {
+    NormSack,
+}
+
+impl TryFrom<&str> for Barrier {
+    type Error = DecodeError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "normSack" => Ok(Barrier::NormSack),
+            _ => Err(DecodeError::ConvertError("Barrier")),
+        }
+    }
+}
+
+impl Barrier {
+    fn to_str(&self) -> &str {
+        match self {
+            Barrier::NormSack => "normSack",
+        }
+    }
+}
 
 #[derive(Debug, PartialEq)]
 pub enum Cardinality {
@@ -39,24 +60,24 @@ impl Cardinality {
     }
 }
 
-impl Encode for Cardinality {
-    fn type_code() -> u8 {
-        CoreType::Cardinality.into()
-    }
+// impl Encode for Cardinality {
+//     fn type_code() -> u8 {
+//         CoreType::Cardinality.into()
+//     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().fq_gb_bytes(writer)
-    }
-}
+//     fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
+//         self.to_str().fq_gb_bytes(writer)
+//     }
+// }
 
-impl Decode for Cardinality {
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        Cardinality::try_from(String::decode(reader)?.as_str())
-    }
-}
+// impl Decode for Cardinality {
+//     fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
+//     where
+//         Self: std::marker::Sized,
+//     {
+//         Cardinality::try_from(String::decode(reader)?.as_str())
+//     }
+// }
 
 #[derive(Debug, PartialEq)]
 pub enum Column {
@@ -82,25 +103,6 @@ impl TryFrom<&str> for Column {
             "values" => Ok(Column::Values),
             _ => Err(DecodeError::ConvertError("Column")),
         }
-    }
-}
-
-impl Encode for Column {
-    fn type_code() -> u8 {
-        CoreType::Cloumn.into()
-    }
-
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().fq_gb_bytes(writer)
-    }
-}
-
-impl Decode for Column {
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        Column::try_from(String::decode(reader)?.as_str())
     }
 }
 
@@ -131,25 +133,6 @@ impl Direction {
             Direction::In => "in",
             Direction::Out => "out",
         }
-    }
-}
-
-impl Encode for Direction {
-    fn type_code() -> u8 {
-        CoreType::Direction.into()
-    }
-
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().fq_gb_bytes(writer)
-    }
-}
-
-impl Decode for Direction {
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        Direction::try_from(String::decode(reader)?.as_str())
     }
 }
 
@@ -207,25 +190,6 @@ impl TryFrom<&str> for Operator {
     }
 }
 
-impl Encode for Operator {
-    fn type_code() -> u8 {
-        CoreType::Operator.into()
-    }
-
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().fq_gb_bytes(writer)
-    }
-}
-
-impl Decode for Operator {
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        Operator::try_from(String::decode(reader)?.as_str())
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub enum Order {
     Shuffle,
@@ -256,25 +220,6 @@ impl Order {
     }
 }
 
-impl Encode for Order {
-    fn type_code() -> u8 {
-        CoreType::Order.into()
-    }
-
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().fq_gb_bytes(writer)
-    }
-}
-
-impl Decode for Order {
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        Order::try_from(String::decode(reader)?.as_str())
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub enum Pick {
     Any,
@@ -299,25 +244,6 @@ impl Pick {
             Pick::Any => "any",
             Pick::None => "none",
         }
-    }
-}
-
-impl Encode for Pick {
-    fn type_code() -> u8 {
-        CoreType::Pick.into()
-    }
-
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().fq_gb_bytes(writer)
-    }
-}
-
-impl Decode for Pick {
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        Pick::try_from(String::decode(reader)?.as_str())
     }
 }
 
@@ -351,25 +277,6 @@ impl Pop {
             Pop::Last => "last",
             Pop::Mixed => "mixed",
         }
-    }
-}
-
-impl Encode for Pop {
-    fn type_code() -> u8 {
-        CoreType::Pop.into()
-    }
-
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().fq_gb_bytes(writer)
-    }
-}
-
-impl Decode for Pop {
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        Pop::try_from(String::decode(reader)?.as_str())
     }
 }
 
@@ -444,25 +351,6 @@ impl TryFrom<&str> for Scope {
     }
 }
 
-impl Encode for Scope {
-    fn type_code() -> u8 {
-        CoreType::Scope.into()
-    }
-
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().fq_gb_bytes(writer)
-    }
-}
-
-impl Decode for Scope {
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        Scope::try_from(String::decode(reader)?.as_str())
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub enum T {
     Id,
@@ -493,36 +381,6 @@ impl TryFrom<&str> for T {
             "value" => Ok(T::Value),
             _ => Err(DecodeError::ConvertError("T")),
         }
-    }
-}
-
-impl Encode for T {
-    fn type_code() -> u8 {
-        CoreType::T.into()
-    }
-
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().fq_gb_bytes(writer)
-    }
-}
-
-impl Decode for T {
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        T::try_from(String::decode(reader)?.as_str())
-    }
-}
-
-impl Serialize for T {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut buf = Vec::with_capacity(8);
-        self.fq_gb_bytes(&mut buf);
-        serializer.serialize_bytes(&buf[..])
     }
 }
 
@@ -587,21 +445,54 @@ impl TryFrom<&str> for Merge {
     }
 }
 
-impl Encode for Merge {
-    fn type_code() -> u8 {
-        CoreType::Merge.into()
-    }
+#[macro_export]
+macro_rules! de_serialize_impls {
+    (  $($t:ident),* ) => {
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().fq_gb_bytes(writer)
-    }
+        $(
+        impl Encode for $t {
+            fn type_code() -> u8 {
+                CoreType::$t.into()
+            }
+
+            fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
+                self.to_str().fq_gb_bytes(writer)
+            }
+        }
+
+        impl Decode for $t {
+            fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
+            where
+                Self: std::marker::Sized,
+            {
+                $t::try_from(String::decode(reader)?.as_str())
+            }
+        }
+
+        impl serde::Serialize for $t {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                let mut buf = Vec::with_capacity(16);
+                self.fq_gb_bytes(&mut buf)
+                    .expect(concat!("error during write of ", stringify!($t)));
+                serializer.serialize_bytes(&buf[..])
+            }
+        }
+    )*
+    };
 }
 
-impl Decode for Merge {
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        Merge::try_from(String::decode(reader)?.as_str())
-    }
-}
+de_serialize_impls!(
+    Barrier,
+    Cardinality,
+    Column,
+    Direction,
+    Operator,
+    Order,
+    Pick,
+    Pop,
+    T,
+    Merge
+);
