@@ -238,6 +238,19 @@ impl GraphBinary {
 
     fn decode<R: Read>(reader: R) {}
 }
+
+impl Decode for GraphBinary {
+    fn decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        decode(reader)
+    }
+
+    fn expected_type_code() -> u8 {
+        todo!()
+    }
+}
 // pub enum Number{
 //     Int32(i32),
 //     Int64(i64),
@@ -467,9 +480,28 @@ impl TryFrom<u8> for ValueFlag {
 }
 
 pub trait Decode {
+    fn expected_type_code() -> u8;
+
     fn decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized;
+
+    fn fully_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let mut buf = [0; 2];
+        reader.read_exact(&mut buf)?;
+        let type_code = Self::expected_type_code();
+        match (buf[0], buf[1]) {
+            (type_code, 0) => Self::decode(reader),
+            (t, _) => Err(DecodeError::DecodeError(format!(
+                "Type Code Error, expected type {}, found {}",
+                Self::expected_type_code(),
+                t
+            ))),
+        }
+    }
 }
 
 use crate::error::{DecodeError, EncodeError};
