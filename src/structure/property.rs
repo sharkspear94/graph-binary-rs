@@ -1,6 +1,6 @@
 use crate::{
     graph_binary::{decode, Decode, Encode, GraphBinary},
-    specs,
+    specs::{self, CoreType},
 };
 
 #[derive(Debug, PartialEq)]
@@ -23,6 +23,11 @@ impl Encode for Property {
 }
 
 impl Decode for Property {
+
+    fn expected_type_code() -> u8 {
+        CoreType::Property.into()
+    }
+
     fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,

@@ -1,6 +1,6 @@
 use crate::{
     graph_binary::{Decode, Encode, GraphBinary, decode},
-    specs,
+    specs::{self, CoreType},
 };
 
 use super::{vertex_property::VertexProperty, property};
@@ -26,6 +26,12 @@ impl Encode for Vertex {
 }
 
 impl Decode for Vertex {
+
+
+    fn expected_type_code() -> u8 {
+        CoreType::Vertex.into()
+    }
+
     fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
