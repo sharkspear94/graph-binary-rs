@@ -25,6 +25,12 @@ impl Encode for String {
 }
 
 impl Decode for String {
+
+
+    fn expected_type_code() -> u8 {
+        CoreType::String.into()
+    }
+
     fn decode<R: Read>(reader: &mut R) -> Result<String, DecodeError> {
         let mut buf = [0_u8; 4];
         reader.read_exact(&mut buf)?;
@@ -42,7 +48,7 @@ impl Decode for String {
         )?;
 
         match s.len() {
-            l if l != len as usize => Err(DecodeError::DecodeError("String".to_string())),
+            l if l != len as usize => Err(DecodeError::DecodeError(format!("String {} len not expected lenth of {}",s,len))),
             _ => Ok(s),
         }
     }
@@ -85,6 +91,11 @@ impl Encode for u8 {
 }
 
 impl Decode for u8 {
+
+    fn expected_type_code() -> u8 {
+        CoreType::Byte.into()
+    }
+
     fn decode<R: Read>(reader: &mut R) -> Result<u8, DecodeError> {
         let mut int = [0_u8; 1];
         reader.read_exact(&mut int)?;
@@ -112,6 +123,11 @@ impl Encode for i16 {
 }
 
 impl Decode for i16 {
+
+    fn expected_type_code() -> u8 {
+        CoreType::Short.into()
+    }
+
     fn decode<R: Read>(reader: &mut R) -> Result<i16, DecodeError> {
         let mut int = [0_u8; 2];
         reader.read_exact(&mut int)?;
@@ -138,6 +154,11 @@ impl Encode for i32 {
 }
 
 impl Decode for i32 {
+
+    fn expected_type_code() -> u8 {
+        CoreType::Int32.into()
+    }
+
     fn decode<R: Read>(reader: &mut R) -> Result<i32, DecodeError> {
         let mut int = [0_u8; 4];
         reader.read_exact(&mut int)?;
@@ -164,6 +185,11 @@ impl Encode for i64 {
 }
 
 impl Decode for i64 {
+
+    fn expected_type_code() -> u8 {
+        CoreType::Long.into()
+    }
+
     fn decode<R: Read>(reader: &mut R) -> Result<i64, DecodeError> {
         let mut int = [0_u8; 8];
         reader.read_exact(&mut int)?;
@@ -191,6 +217,11 @@ impl Encode for f32 {
 }
 
 impl Decode for f32 {
+
+    fn expected_type_code() -> u8 {
+        CoreType::Float.into()
+    }
+
     fn decode<R: Read>(reader: &mut R) -> Result<f32, DecodeError> {
         let mut int = [0_u8; 4];
         reader.read_exact(&mut int)?;
@@ -218,6 +249,11 @@ impl Encode for f64 {
 }
 
 impl Decode for f64 {
+
+    fn expected_type_code() -> u8 {
+        CoreType::Double.into()
+    }
+
     fn decode<R: Read>(reader: &mut R) -> Result<f64, DecodeError> {
         let mut int = [0_u8; 8];
         reader.read_exact(&mut int)?;
@@ -245,6 +281,11 @@ impl Encode for Uuid {
 }
 
 impl Decode for Uuid {
+
+    fn expected_type_code() -> u8 {
+        CoreType::Uuid.into()
+    }
+
     fn decode<R: Read>(reader: &mut R) -> Result<Uuid, DecodeError> {
         let mut buf = [0_u8; 16];
         reader.read_exact(&mut buf)?;
@@ -277,6 +318,11 @@ impl Encode for bool {
 }
 
 impl Decode for bool {
+
+    fn expected_type_code() -> u8 {
+        CoreType::Boolean.into()
+    }
+
     fn decode<R: Read>(reader: &mut R) -> Result<bool, DecodeError> {
         let mut buf = [0_u8; 1];
         reader.read_exact(&mut buf)?;
@@ -330,6 +376,26 @@ impl<T: Encode> Encode for &[T] {
 
         Ok(())
     }
+}
+
+macro_rules! tuple_impls {
+    ( $( $name:ident )+ ) => {
+        impl<$($name: Encode),+> Encode for ($($name,)+)
+        {
+            fn type_code() -> u8 {
+                CoreType::List.into()
+            }
+        
+            fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+                let len = self.len() as i32;
+                len.gb_bytes(writer)?;
+        
+                    item.fq_gb_bytes(writer)?;
+        
+                Ok(())
+            }
+        }
+    };
 }
 
 #[test]
