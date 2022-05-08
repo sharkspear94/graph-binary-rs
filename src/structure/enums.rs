@@ -1,8 +1,10 @@
+use std::vec;
+
 use serde::Serialize;
 
 use crate::{
     error::DecodeError,
-    graph_binary::{Decode, Encode, GraphBinary},
+    graph_binary::{self, decode, Decode, Encode, GraphBinary},
     specs::CoreType,
 };
 
@@ -291,8 +293,8 @@ pub enum P {
     Inside(Box<GraphBinary>, Box<GraphBinary>),
     Outside(Box<GraphBinary>, Box<GraphBinary>),
     Between(Box<GraphBinary>, Box<GraphBinary>),
-    Within(Box<GraphBinary>),
-    Without(Box<GraphBinary>),
+    Within(Vec<GraphBinary>),
+    Without(Vec<GraphBinary>),
 }
 
 impl P {
@@ -311,6 +313,55 @@ impl P {
             P::Without(_) => "without",
         }
     }
+
+    fn write_variant<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), crate::error::EncodeError> {
+        match self {
+            P::Eq(v) => write_name_value("eq", v, writer),
+            P::Neq(v) => write_name_value("neq", v, writer),
+            P::Lt(v) => write_name_value("lt", v, writer),
+            P::Lte(v) => write_name_value("lte", v, writer),
+            P::Gt(v) => write_name_value("gt", v, writer),
+            P::Gte(v) => write_name_value("gte", v, writer),
+            P::Inside(v1, v2) => {
+                "inside".fq_gb_bytes(writer)?;
+                2_i32.gb_bytes(writer)?; // len of tuple only two will be used
+                v1.build_fq_bytes(writer)?;
+                v2.build_fq_bytes(writer)
+            }
+            P::Outside(v1, v2) => {
+                "outside".fq_gb_bytes(writer)?;
+                2_i32.gb_bytes(writer)?; // len of tuple only two will be used
+                v1.build_fq_bytes(writer)?;
+                v2.build_fq_bytes(writer)
+            }
+            P::Between(v1, v2) => {
+                "between".fq_gb_bytes(writer)?;
+                2_i32.gb_bytes(writer)?; // len of tuple only two will be used
+                v1.build_fq_bytes(writer)?;
+                v2.build_fq_bytes(writer)
+            }
+            P::Within(v) => {
+                "within".fq_gb_bytes(writer)?;
+                v.gb_bytes(writer)
+            }
+            P::Without(v) => {
+                "without".fq_gb_bytes(writer)?;
+                v.gb_bytes(writer)
+            }
+        }
+    }
+}
+
+fn write_name_value<W: std::io::Write>(
+    name: &str,
+    value: &GraphBinary,
+    writer: &mut W,
+) -> Result<(), crate::error::EncodeError> {
+    name.fq_gb_bytes(writer)?;
+    value.build_fq_bytes(writer)
 }
 
 impl Encode for P {
@@ -319,8 +370,56 @@ impl Encode for P {
     }
 
     fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().fq_gb_bytes(writer);
-        todo!()
+        self.write_variant(writer)
+    }
+}
+
+impl serde::Serialize for P {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut buf = Vec::new(); // TODO capacity??
+        self.fq_gb_bytes(&mut buf).expect("error during write of P");
+        serializer.serialize_bytes(&buf[..])
+    }
+}
+
+impl Decode for P {
+    fn expected_type_code() -> u8 {
+        CoreType::P.into()
+    }
+
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        match String::fully_decode(reader)?.as_str() {
+            "eq" => Ok(P::Eq(Box::new(decode(reader)?))),
+            "neq" => Ok(P::Neq(Box::new(decode(reader)?))),
+            "lt" => Ok(P::Lt(Box::new(decode(reader)?))),
+            "lte" => Ok(P::Lte(Box::new(decode(reader)?))),
+            "gt" => Ok(P::Gt(Box::new(decode(reader)?))),
+            "gte" => Ok(P::Gte(Box::new(decode(reader)?))),
+            "inside" => Ok(P::Inside(
+                Box::new(decode(reader)?),
+                Box::new(decode(reader)?),
+            )),
+            "outside" => Ok(P::Outside(
+                Box::new(decode(reader)?),
+                Box::new(decode(reader)?),
+            )),
+            "between" => Ok(P::Between(
+                Box::new(decode(reader)?),
+                Box::new(decode(reader)?),
+            )),
+            "within" => Ok(P::Within(Vec::decode(reader)?)),
+            "without" => Ok(P::Without(Vec::decode(reader)?)),
+            v => Err(DecodeError::DecodeError(format!(
+                "expected P found variant text: {}",
+                v
+            ))),
+        }
     }
 }
 
@@ -387,12 +486,12 @@ impl TryFrom<&str> for T {
 #[derive(Debug, PartialEq)]
 pub enum TextP {
     // TODO not sure if graphbinray or String
-    StartingWith(Box<GraphBinary>),
-    EndingWith(Box<GraphBinary>),
-    Containing(Box<GraphBinary>),
-    NotStartingWith(Box<GraphBinary>),
-    NotEndingWith(Box<GraphBinary>),
-    NotContaining(Box<GraphBinary>),
+    StartingWith(Vec<GraphBinary>),
+    EndingWith(Vec<GraphBinary>),
+    Containing(Vec<GraphBinary>),
+    NotStartingWith(Vec<GraphBinary>),
+    NotEndingWith(Vec<GraphBinary>),
+    NotContaining(Vec<GraphBinary>),
 }
 
 impl TextP {
@@ -408,13 +507,65 @@ impl TextP {
     }
 }
 
+fn combine_text_value<W: std::io::Write>(
+    name: &str,
+    value: &[GraphBinary],
+    writer: &mut W,
+) -> Result<(), crate::error::EncodeError> {
+    name.fq_gb_bytes(writer)?;
+    value.gb_bytes(writer)
+}
+
 impl Encode for TextP {
     fn type_code() -> u8 {
         CoreType::TextP.into()
     }
 
     fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.to_str().fq_gb_bytes(writer)
+        match self {
+            TextP::StartingWith(text) => combine_text_value("startingWith", text, writer),
+            TextP::EndingWith(text) => combine_text_value("endingWith", text, writer),
+            TextP::Containing(text) => combine_text_value("containing", text, writer),
+            TextP::NotStartingWith(text) => combine_text_value("notStartingWith", text, writer),
+            TextP::NotEndingWith(text) => combine_text_value("notEndingWith", text, writer),
+            TextP::NotContaining(text) => combine_text_value("notContaining", text, writer),
+        }
+    }
+}
+
+impl serde::Serialize for TextP {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut buf = Vec::new(); // TODO capacity??
+        self.fq_gb_bytes(&mut buf)
+            .expect("error during write of TextP");
+        serializer.serialize_bytes(&buf[..])
+    }
+}
+
+impl Decode for TextP {
+    fn expected_type_code() -> u8 {
+        CoreType::TextP.into()
+    }
+
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        match String::fully_decode(reader)?.as_str() {
+            "startingWith" => Ok(TextP::StartingWith(Vec::decode(reader)?)),
+            "endingWith" => Ok(TextP::EndingWith(Vec::decode(reader)?)),
+            "containing" => Ok(TextP::Containing(Vec::decode(reader)?)),
+            "notStartingWith" => Ok(TextP::NotStartingWith(Vec::decode(reader)?)),
+            "notEndingWith" => Ok(TextP::NotEndingWith(Vec::decode(reader)?)),
+            "notContaining" => Ok(TextP::NotContaining(Vec::decode(reader)?)),
+            v => Err(DecodeError::DecodeError(format!(
+                "expected TextP found variant text: {}",
+                v
+            ))),
+        }
     }
 }
 
@@ -461,11 +612,16 @@ macro_rules! de_serialize_impls {
         }
 
         impl Decode for $t {
+
+            fn expected_type_code() -> u8 {
+                CoreType::$t.into()
+            }
+
             fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
             where
                 Self: std::marker::Sized,
             {
-                $t::try_from(String::decode(reader)?.as_str())
+                $t::try_from(String::fully_decode(reader)?.as_str())
             }
         }
 
@@ -493,6 +649,48 @@ de_serialize_impls!(
     Order,
     Pick,
     Pop,
+    Scope,
     T,
     Merge
 );
+
+#[test]
+fn t_decode_test() {
+    let reader = vec![0x03, 0x0, 0x0, 0x0, 0x0, 0x02, b'i', b'd'];
+
+    let p = T::decode(&mut &reader[..]);
+
+    // assert!(p.is_ok());
+
+    assert_eq!(T::Id, p.unwrap());
+}
+
+#[test]
+fn p_decode_test() {
+    let reader = vec![
+        0x03, 0x0, 0x0, 0x0, 0x0, 0x07, b'w', b'i', b't', b'h', b'o', b'u', b't', 0x0, 0x0, 0x0,
+        0x03, 0x1, 0x0, 0x0, 0x0, 0x0, 0x01, 0x01, 0x0, 0x0, 0x0, 0x0, 0x2, 0x01, 0x00, 0x0, 0x0,
+        0x0, 0x3,
+    ];
+
+    let p = P::decode(&mut &reader[..]);
+
+    // assert!(p.is_ok());
+
+    assert_eq!(P::Without(vec![1.into(), 2.into(), 3.into()]), p.unwrap());
+}
+
+#[test]
+fn text_p_fq_decode_test() {
+    let reader = vec![
+        0x28, 0x00, 0x03, 0x0, 0x0, 0x0, 0x0, 0x0c, b's', b't', b'a', b'r', b't', b'i', b'n', b'g',
+        b'W', b'i', b't', b'h', 0x0, 0x0, 0x0, 0x01, 0x3, 0x0, 0x0, 0x0, 0x0, 0x04, b't', b'e',
+        b's', b't',
+    ];
+
+    let p = TextP::fully_decode(&mut &reader[..]);
+
+    // assert!(p.is_ok());
+
+    assert_eq!(TextP::StartingWith(vec!["test".into()]), p.unwrap());
+}
