@@ -1,3 +1,7 @@
+use std::io::Bytes;
+
+use serde::Serialize;
+
 use crate::{graph_binary::Encode, specs};
 
 use super::{property::Property, vertex::Vertex};
@@ -32,5 +36,16 @@ impl Encode for Edge {
             property.fq_gb_bytes(writer)?;
         }
         Ok(())
+    }
+}
+
+impl Serialize for Edge {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut buf: Vec<u8> = Vec::with_capacity(64);
+        self.fq_gb_bytes(&mut buf).expect("error during Edge write");
+        serializer.serialize_bytes(&buf)
     }
 }
