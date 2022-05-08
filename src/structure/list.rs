@@ -3,7 +3,11 @@ use crate::{
     graph_binary::{self, Decode, Encode},
     specs::CoreType,
 };
-use std::{collections::{VecDeque, btree_map::IterMut}, fmt::Debug, ops::Deref};
+use std::{
+    collections::{btree_map::IterMut, VecDeque},
+    fmt::Debug,
+    ops::Deref,
+};
 
 use crate::graph_binary::GraphBinary;
 #[derive(Debug, PartialEq)]
@@ -46,6 +50,32 @@ impl<T: Encode> Encode for Vec<T> {
 
         Ok(())
     }
+}
+
+impl<T: Decode> Decode for Vec<T> {
+
+
+    fn expected_type_code() -> u8 {
+        CoreType::List.into()
+    }
+
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let mut len_buf = [0_u8; 4];
+        reader.read_exact(&mut len_buf)?;
+        let len = i32::from_be_bytes(len_buf);
+        if len.is_negative() {
+            return Err(DecodeError::DecodeError("vec len negativ".to_string()));
+        }
+        let mut list: Vec<T> = Vec::with_capacity(len as usize);
+        for _ in 0..len {
+            list.push(T::decode(reader)?)
+        }
+        Ok(list)
+    }
+
 }
 
 // // importent to garanty that all types are same type
@@ -100,6 +130,12 @@ impl<T: Encode> Encode for Vec<T> {
 // }
 
 impl Decode for List {
+
+
+    fn expected_type_code() -> u8 {
+        CoreType::List.into()
+    }
+
     fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -132,10 +168,10 @@ fn list_decode_test() {
     assert_eq!(4, s.0.len());
     for gb in s.0 {
         assert_eq!(
-            Some(4),
+            4,
             match gb {
                 GraphBinary::Int(s) => s,
-                _ => None,
+                _ => panic!(),
             }
         )
     }
@@ -185,12 +221,6 @@ impl Encode for List {
 //         ret.freeze()
 //     }
 // }
-
-impl From<i32> for GraphBinary {
-    fn from(i: i32) -> GraphBinary {
-        GraphBinary::Int(Some(i))
-    }
-}
 
 #[test]
 fn testing_list() {
