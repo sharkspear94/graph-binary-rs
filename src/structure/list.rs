@@ -10,30 +10,30 @@ use std::{
 };
 
 use crate::graph_binary::GraphBinary;
-#[derive(Debug, PartialEq)]
-pub struct List(pub Vec<GraphBinary>);
+// #[derive(Debug, PartialEq)]
+// pub struct List(pub Vec<GraphBinary>);
 
-#[derive(Debug, PartialEq)]
-pub struct List1<T: Encode> {
-    pub list: Vec<T>,
-}
+// #[derive(Debug, PartialEq)]
+// pub struct List1<T: Encode> {
+//     pub list: Vec<T>,
+// }
 
-impl<T: Encode> Encode for List1<T> {
-    fn type_code() -> u8 {
-        CoreType::List.into()
-    }
+// impl<T: Encode> Encode for List1<T> {
+//     fn type_code() -> u8 {
+//         CoreType::List.into()
+//     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        let len = self.list.len() as i32;
-        len.gb_bytes(writer)?;
+//     fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
+//         let len = self.list.len() as i32;
+//         len.gb_bytes(writer)?;
 
-        for item in &self.list {
-            item.fq_gb_bytes(writer)?;
-        }
+//         for item in &self.list {
+//             item.fq_gb_bytes(writer)?;
+//         }
 
-        Ok(())
-    }
-}
+//         Ok(())
+//     }
+// }
 
 impl<T: Encode> Encode for Vec<T> {
     fn type_code() -> u8 {
@@ -52,9 +52,19 @@ impl<T: Encode> Encode for Vec<T> {
     }
 }
 
+impl<T: Into<GraphBinary> + Clone> From<Vec<T>> for GraphBinary {
+    fn from(v: Vec<T>) -> Self {
+        GraphBinary::List(v.iter().map(|v| v.into()).collect())
+    }
+}
+
+impl<T: Into<GraphBinary> + Clone> From<&T> for GraphBinary {
+    fn from(v: &T) -> Self {
+        v.clone().into()
+    }
+}
+
 impl<T: Decode> Decode for Vec<T> {
-
-
     fn expected_type_code() -> u8 {
         CoreType::List.into()
     }
@@ -75,8 +85,32 @@ impl<T: Decode> Decode for Vec<T> {
         }
         Ok(list)
     }
-
 }
+
+
+#[test]
+fn vec_decode_test() {
+    let reader: Vec<u8> = vec![
+        0x0, 0x0, 0x0, 0x04, 0x01, 0x0, 0x0, 0x0, 0x0, 0x04, 0x01, 0x0, 0x0, 0x0, 0x0, 0x04, 0x01,
+        0x0, 0x0, 0x0, 0x0, 0x04, 0x01, 0x0, 0x0, 0x0, 0x0, 0x04,
+    ];
+
+    let s = Vec::decode(&mut &reader[..]);
+
+    assert!(s.is_ok());
+    let s = s.unwrap();
+    assert_eq!(4, s.len());
+    for gb in s {
+        assert_eq!(
+            4,
+            match gb {
+                GraphBinary::Int(s) => s,
+                _ => panic!(),
+            }
+        )
+    }
+}
+
 
 // // importent to garanty that all types are same type
 // // maybe move type logic to serde traits
@@ -129,84 +163,61 @@ impl<T: Decode> Decode for Vec<T> {
 //     }
 // }
 
-impl Decode for List {
+// impl Decode for List {
+//     fn expected_type_code() -> u8 {
+//         CoreType::List.into()
+//     }
+
+//     fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
+//     where
+//         Self: std::marker::Sized,
+//     {
+//         let mut len_buf = [0_u8; 4];
+//         reader.read_exact(&mut len_buf)?;
+//         let len = i32::from_be_bytes(len_buf);
+//         if len.is_negative() {
+//             return Err(DecodeError::DecodeError("array len negativ".to_string()));
+//         }
+//         let mut list: Vec<GraphBinary> = Vec::with_capacity(len as usize);
+//         for _ in 0..len {
+//             list.push(graph_binary::decode(reader)?)
+//         }
+//         Ok(List(list))
+//     }
+// }
 
 
-    fn expected_type_code() -> u8 {
-        CoreType::List.into()
-    }
 
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        let mut len_buf = [0_u8; 4];
-        reader.read_exact(&mut len_buf)?;
-        let len = i32::from_be_bytes(len_buf);
-        if len.is_negative() {
-            return Err(DecodeError::DecodeError("array len negativ".to_string()));
-        }
-        let mut list: Vec<GraphBinary> = Vec::with_capacity(len as usize);
-        for _ in 0..len {
-            list.push(graph_binary::decode(reader)?)
-        }
-        Ok(List(list))
-    }
-}
+// impl<T: Encode> List1<T> {
+//     pub fn new(list: Vec<T>) -> List1<T> {
+//         List1 { list }
+//     }
+// }
 
-#[test]
-fn list_decode_test() {
-    let reader: Vec<u8> = vec![
-        0x0, 0x0, 0x0, 0x04, 0x01, 0x0, 0x0, 0x0, 0x0, 0x04, 0x01, 0x0, 0x0, 0x0, 0x0, 0x04, 0x01,
-        0x0, 0x0, 0x0, 0x0, 0x04, 0x01, 0x0, 0x0, 0x0, 0x0, 0x04,
-    ];
+// impl Deref for List {
+//     type Target = Vec<GraphBinary>;
 
-    let s = List::decode(&mut &reader[..]);
+//     fn deref(&self) -> &Self::Target {
+//         &self.0
+//     }
+// }
 
-    assert!(s.is_ok());
-    let s = s.unwrap();
-    assert_eq!(4, s.0.len());
-    for gb in s.0 {
-        assert_eq!(
-            4,
-            match gb {
-                GraphBinary::Int(s) => s,
-                _ => panic!(),
-            }
-        )
-    }
-}
+// impl Encode for List {
+//     fn type_code() -> u8 {
+//         CoreType::List.into()
+//     }
 
-impl<T: Encode> List1<T> {
-    pub fn new(list: Vec<T>) -> List1<T> {
-        List1 { list }
-    }
-}
+//     fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
+//         let len = self.len() as i32;
+//         len.gb_bytes(writer)?;
 
-impl Deref for List {
-    type Target = Vec<GraphBinary>;
+//         for item in self.iter() {
+//             item.build_fq_bytes(writer)?;
+//         }
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl Encode for List {
-    fn type_code() -> u8 {
-        CoreType::List.into()
-    }
-
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        let len = self.len() as i32;
-        len.gb_bytes(writer)?;
-
-        for item in self.iter() {
-            item.build_fq_bytes(writer)?;
-        }
-
-        Ok(())
-    }
-}
+//         Ok(())
+//     }
+// }
 
 // impl FullyQualifiedBytes for List {
 //     fn get_type_code(&self) -> Bytes {
@@ -222,42 +233,66 @@ impl Encode for List {
 //     }
 // }
 
-#[test]
-fn testing_list() {
-    use crate::specs;
+// #[test]
+// fn testing_list() {
+//     use crate::specs;
 
-    let list = List(vec![0.into(), 1.into(), 2.into()]);
+//     let list = List(vec![0.into(), 1.into(), 2.into()]);
 
-    pub const VALUE_PRESENT: u8 = 0x00;
-    pub const VALUE_NULL: u8 = 0x01;
+//     pub const VALUE_PRESENT: u8 = 0x00;
+//     pub const VALUE_NULL: u8 = 0x01;
 
-    let msg = [
-        specs::CORE_TYPE_LIST,
-        VALUE_PRESENT,
-        0x0,
-        0x0,
-        0x0,
-        0x3, // List len
-        specs::CORE_TYPE_INT,
-        VALUE_PRESENT,
-        0x0,
-        0x0,
-        0x0,
-        0x0, // List[0]
-        specs::CORE_TYPE_INT,
-        VALUE_PRESENT,
-        0x0,
-        0x0,
-        0x0,
-        0x1, // List[1]
-        specs::CORE_TYPE_INT,
-        VALUE_PRESENT,
-        0x0,
-        0x0,
-        0x0,
-        0x2, // List[2]
-    ];
-    let mut buf: Vec<u8> = vec![];
-    list.fq_gb_bytes(&mut buf);
-    assert_eq!(&msg[..], &buf);
-}
+//     let msg = [
+//         specs::CORE_TYPE_LIST,
+//         VALUE_PRESENT,
+//         0x0,
+//         0x0,
+//         0x0,
+//         0x3, // List len
+//         specs::CORE_TYPE_INT,
+//         VALUE_PRESENT,
+//         0x0,
+//         0x0,
+//         0x0,
+//         0x0, // List[0]
+//         specs::CORE_TYPE_INT,
+//         VALUE_PRESENT,
+//         0x0,
+//         0x0,
+//         0x0,
+//         0x1, // List[1]
+//         specs::CORE_TYPE_INT,
+//         VALUE_PRESENT,
+//         0x0,
+//         0x0,
+//         0x0,
+//         0x2, // List[2]
+//     ];
+//     let mut buf: Vec<u8> = vec![];
+//     list.fq_gb_bytes(&mut buf);
+//     assert_eq!(&msg[..], &buf);
+// }
+
+
+// #[test]
+// fn list_decode_test() {
+//     let reader: Vec<u8> = vec![
+//         0x0, 0x0, 0x0, 0x04, 0x01, 0x0, 0x0, 0x0, 0x0, 0x04, 0x01, 0x0, 0x0, 0x0, 0x0, 0x04, 0x01,
+//         0x0, 0x0, 0x0, 0x0, 0x04, 0x01, 0x0, 0x0, 0x0, 0x0, 0x04,
+//     ];
+
+//     let s = List::decode(&mut &reader[..]);
+
+//     assert!(s.is_ok());
+//     let s = s.unwrap();
+//     assert_eq!(4, s.0.len());
+//     for gb in s.0 {
+//         assert_eq!(
+//             4,
+//             match gb {
+//                 GraphBinary::Int(s) => s,
+//                 _ => panic!(),
+//             }
+//         )
+//     }
+// }

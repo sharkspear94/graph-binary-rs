@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::io::{Read, Write};
 
 use crate::structure::binding::Binding;
@@ -7,7 +7,7 @@ use crate::structure::enums::{
 };
 use crate::structure::graph::Graph;
 use crate::structure::lambda::Lambda;
-use crate::structure::list::List1;
+// use crate::structure::list::List1;
 use crate::structure::metrics::{Metrics, TraversalMetrics};
 use crate::structure::path::Path;
 use crate::structure::property::Property;
@@ -17,7 +17,7 @@ use crate::structure::vertex_property::VertexProperty;
 use crate::{specs::CoreType, structure::edge::Edge};
 use uuid::Uuid;
 
-use super::structure::list::List;
+// use super::structure::list::List;
 use super::structure::map::Map;
 
 pub const VALUE_PRESENT: u8 = 0x00;
@@ -45,8 +45,8 @@ pub enum GraphBinary {
     Class(String),
     Double(f64),
     Float(f32),
-    List(List),
-    Set(List),
+    List(Vec<GraphBinary>),
+    Set(Vec<GraphBinary>),
     Map(Map),
     Uuid(Uuid),
     Edge(Edge),
@@ -379,9 +379,9 @@ pub fn decode<R: Read>(reader: &mut R) -> Result<GraphBinary, DecodeError> {
         (CoreType::Double, ValueFlag::Null) => todo!(),
         (CoreType::Float, ValueFlag::Set) => GraphBinary::Float(f32::decode(reader)?),
         (CoreType::Float, ValueFlag::Null) => todo!(),
-        (CoreType::List, ValueFlag::Set) => GraphBinary::List(List::decode(reader)?),
+        (CoreType::List, ValueFlag::Set) => GraphBinary::List(Vec::decode(reader)?),
         (CoreType::List, ValueFlag::Null) => todo!(),
-        (CoreType::Set, ValueFlag::Set) => GraphBinary::Set(List::decode(reader)?),
+        (CoreType::Set, ValueFlag::Set) => GraphBinary::Set(Vec::decode(reader)?),
         (CoreType::Set, ValueFlag::Null) => todo!(),
         (CoreType::Map, ValueFlag::Set) => todo!(),
         (CoreType::Map, ValueFlag::Null) => todo!(),
@@ -490,11 +490,11 @@ pub trait Decode {
     where
         Self: std::marker::Sized,
     {
-        let mut buf = [0; 2];
+        let mut buf = [255_u8; 2];
         reader.read_exact(&mut buf)?;
         let type_code = Self::expected_type_code();
         match (buf[0], buf[1]) {
-            (type_code, 0) => Self::decode(reader),
+            (code, 0) if code == type_code => Self::decode(reader),
             (t, _) => Err(DecodeError::DecodeError(format!(
                 "Type Code Error, expected type {}, found {}",
                 Self::expected_type_code(),
