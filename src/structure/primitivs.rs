@@ -25,8 +25,6 @@ impl Encode for String {
 }
 
 impl Decode for String {
-
-
     fn expected_type_code() -> u8 {
         CoreType::String.into()
     }
@@ -48,7 +46,10 @@ impl Decode for String {
         )?;
 
         match s.len() {
-            l if l != len as usize => Err(DecodeError::DecodeError(format!("String {} len not expected lenth of {}",s,len))),
+            l if l != len as usize => Err(DecodeError::DecodeError(format!(
+                "String {} len not expected lenth of {}",
+                s, len
+            ))),
             _ => Ok(s),
         }
     }
@@ -91,7 +92,6 @@ impl Encode for u8 {
 }
 
 impl Decode for u8 {
-
     fn expected_type_code() -> u8 {
         CoreType::Byte.into()
     }
@@ -123,7 +123,6 @@ impl Encode for i16 {
 }
 
 impl Decode for i16 {
-
     fn expected_type_code() -> u8 {
         CoreType::Short.into()
     }
@@ -154,7 +153,6 @@ impl Encode for i32 {
 }
 
 impl Decode for i32 {
-
     fn expected_type_code() -> u8 {
         CoreType::Int32.into()
     }
@@ -185,7 +183,6 @@ impl Encode for i64 {
 }
 
 impl Decode for i64 {
-
     fn expected_type_code() -> u8 {
         CoreType::Long.into()
     }
@@ -217,7 +214,6 @@ impl Encode for f32 {
 }
 
 impl Decode for f32 {
-
     fn expected_type_code() -> u8 {
         CoreType::Float.into()
     }
@@ -249,7 +245,6 @@ impl Encode for f64 {
 }
 
 impl Decode for f64 {
-
     fn expected_type_code() -> u8 {
         CoreType::Double.into()
     }
@@ -281,7 +276,6 @@ impl Encode for Uuid {
 }
 
 impl Decode for Uuid {
-
     fn expected_type_code() -> u8 {
         CoreType::Uuid.into()
     }
@@ -318,7 +312,6 @@ impl Encode for bool {
 }
 
 impl Decode for bool {
-
     fn expected_type_code() -> u8 {
         CoreType::Boolean.into()
     }
@@ -361,6 +354,44 @@ impl<T: Encode> Encode for Option<T> {
     }
 }
 
+impl<T: Decode> Decode for Option<T> {
+    fn expected_type_code() -> u8 {
+        T::expected_type_code()
+    }
+
+    fn decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        Ok(Some(T::decode(reader)?))
+    }
+
+    fn fully_self_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let mut buf = [255_u8; 2];
+        reader.read_exact(&mut buf)?;
+        let type_code = Self::expected_type_code();
+        match (buf[0], buf[1]) {
+            (code, 0) if code == type_code => Self::decode(reader),
+            (code, 1) if code == type_code => Ok(None),
+            (0xFE, 1) => Ok(None),
+            (t, value_byte @ 2..=255) => Err(DecodeError::DecodeError(format!(
+                "Type Code and Value Byte does not hold valid value flag, found: TypeCode[{}] expected TypeCode[{}] and ValueFlag[{}]",
+                t,
+                Self::expected_type_code(),
+                value_byte
+            ))),
+            (t, _) => Err(DecodeError::DecodeError(format!(
+                "Type Code Error, expected type {} or 0xfe, found {}",
+                Self::expected_type_code(),
+                t
+            ))),
+        }
+    }
+}
+
 impl<T: Encode> Encode for &[T] {
     fn type_code() -> u8 {
         CoreType::List.into()
@@ -385,13 +416,13 @@ macro_rules! tuple_impls {
             fn type_code() -> u8 {
                 CoreType::List.into()
             }
-        
+
             fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
                 let len = self.len() as i32;
                 len.gb_bytes(writer)?;
-        
+
                     item.fq_gb_bytes(writer)?;
-        
+
                 Ok(())
             }
         }
@@ -455,6 +486,19 @@ fn encode_empty_string_test() {
 }
 
 #[test]
+fn decode_fq_empty_string_test() {
+    let buf: Vec<u8> = vec![0x03, VALUE_PRESENT, 0x00, 0x00, 0x00, 0x00];
+
+    let s = String::fully_self_decode(&mut &buf[..]);
+
+    assert_eq!(String::new(), s.unwrap());
+    // assert_eq!(
+    //     Bytes::from_static(&[STRING_TYPE_CODE, VALUE_PRESENT, 0x00, 0x00, 0x00, 0x00]),
+    //     s2.generate_fully_qualiffied_bytes()
+    // );
+}
+
+#[test]
 fn decode_string_test() {
     let reader: Vec<u8> = vec![0x0, 0x0, 0x0, 0x04, b'h', b'o', b's', b't'];
 
@@ -510,4 +554,49 @@ fn encode_uuid_test() {
         ][..],
         buf
     )
+}
+
+#[test]
+fn option_decode_test() {
+    let reader: Vec<u8> = vec![0x03, 0x0, 0x0, 0x0, 0x0, 0x04, b'h', b'o', b's', b't'];
+
+    let option: Option<String> = Option::fully_self_decode(&mut &reader[..]).unwrap();
+
+    assert_eq!(option.unwrap(), String::from("host"))
+}
+
+#[test]
+fn option_none_decode_test() {
+    let reader: Vec<u8> = vec![0x03, 0x1];
+
+    let option: Option<String> = Option::fully_self_decode(&mut &reader[..]).unwrap();
+
+    assert!(option.is_none());
+
+    let reader: Vec<u8> = vec![0xfe, 0x1];
+
+    let option: Option<String> = Option::fully_self_decode(&mut &reader[..]).unwrap();
+
+    assert!(option.is_none())
+}
+
+#[test]
+fn option_should_fail_decode_test() {
+    let reader: Vec<u8> = vec![0x04, 0x1];
+
+    let option: Result<Option<String>, _> = Option::fully_self_decode(&mut &reader[..]);
+
+    assert!(option.is_err());
+
+    let reader: Vec<u8> = vec![0xfe, 0x0];
+
+    let option: Result<Option<String>, _> = Option::fully_self_decode(&mut &reader[..]);
+
+    assert!(option.is_err());
+
+    let reader: Vec<u8> = vec![0xfe, 0x2];
+
+    let option: Result<Option<String>, _> = Option::fully_self_decode(&mut &reader[..]);
+
+    assert!(option.is_err())
 }
