@@ -432,9 +432,9 @@ macro_rules! tuple_impls {
 #[test]
 fn encode_string_test() {
     let s = String::from("test");
-    let s2 = "test";
+
     let mut buf: Vec<u8> = vec![];
-    s.fq_gb_bytes(&mut buf);
+    s.fq_gb_bytes(&mut buf).unwrap();
     assert_eq!(
         &[
             STRING_TYPE_CODE,
@@ -470,10 +470,9 @@ fn encode_string_test() {
 #[test]
 fn encode_empty_string_test() {
     let s = String::new();
-    let s2 = "";
 
     let mut buf: Vec<u8> = vec![];
-    s.fq_gb_bytes(&mut buf);
+    s.fq_gb_bytes(&mut buf).unwrap();
 
     assert_eq!(
         &[STRING_TYPE_CODE, VALUE_PRESENT, 0x00, 0x00, 0x00, 0x00][..],
@@ -521,7 +520,7 @@ fn decode_string_fail_test() {
 #[test]
 fn encode_int32_test() {
     let mut buf: Vec<u8> = vec![];
-    i32::MAX.fq_gb_bytes(&mut buf);
+    i32::MAX.fq_gb_bytes(&mut buf).unwrap();
 
     assert_eq!(
         &[INT32_TYPE_CODE, VALUE_PRESENT, 0x7F, 0xFF, 0xFF, 0xFF][..],
@@ -529,7 +528,7 @@ fn encode_int32_test() {
     );
 
     buf.clear();
-    i32::MIN.fq_gb_bytes(&mut buf);
+    i32::MIN.fq_gb_bytes(&mut buf).unwrap();
 
     assert_eq!(
         &[INT32_TYPE_CODE, VALUE_PRESENT, 0x80, 0x00, 0x00, 0x00][..],
@@ -545,7 +544,7 @@ fn encode_uuid_test() {
         0xff,
     ]);
 
-    uuid.fq_gb_bytes(&mut buf);
+    uuid.fq_gb_bytes(&mut buf).unwrap();
 
     assert_eq!(
         [

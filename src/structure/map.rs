@@ -87,7 +87,7 @@ fn testing_map() {
     let map = Map::new(map);
 
     let mut buf: Vec<u8> = vec![];
-    map.fq_gb_bytes(&mut buf);
+    map.fq_gb_bytes(&mut buf).unwrap();
 
     let msg = [
         MAP_TYPE_CODE,
@@ -125,7 +125,7 @@ fn testing_nestet_map() {
     let map = Map::new(map);
 
     let mut buf: Vec<u8> = vec![];
-    map.fq_gb_bytes(&mut buf);
+    map.fq_gb_bytes(&mut buf).unwrap();
 
     let msg = [
         MAP_TYPE_CODE,
