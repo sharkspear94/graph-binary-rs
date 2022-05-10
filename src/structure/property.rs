@@ -5,8 +5,8 @@ use crate::{
 
 #[derive(Debug, PartialEq)]
 pub struct Property {
-    key: String,
-    value: Box<GraphBinary>,
+    pub key: String,
+    pub value: Box<GraphBinary>,
     // parent: Option<Parent>,
 }
 
@@ -23,7 +23,6 @@ impl Encode for Property {
 }
 
 impl Decode for Property {
-
     fn expected_type_code() -> u8 {
         CoreType::Property.into()
     }
