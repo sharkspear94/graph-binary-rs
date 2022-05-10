@@ -394,7 +394,7 @@ impl Decode for P {
     where
         Self: std::marker::Sized,
     {
-        match String::fully_decode(reader)?.as_str() {
+        match String::fully_self_decode(reader)?.as_str() {
             "eq" => Ok(P::Eq(Box::new(decode(reader)?))),
             "neq" => Ok(P::Neq(Box::new(decode(reader)?))),
             "lt" => Ok(P::Lt(Box::new(decode(reader)?))),
@@ -554,7 +554,7 @@ impl Decode for TextP {
     where
         Self: std::marker::Sized,
     {
-        match String::fully_decode(reader)?.as_str() {
+        match String::fully_self_decode(reader)?.as_str() {
             "startingWith" => Ok(TextP::StartingWith(Vec::decode(reader)?)),
             "endingWith" => Ok(TextP::EndingWith(Vec::decode(reader)?)),
             "containing" => Ok(TextP::Containing(Vec::decode(reader)?)),
@@ -621,7 +621,7 @@ macro_rules! de_serialize_impls {
             where
                 Self: std::marker::Sized,
             {
-                $t::try_from(String::fully_decode(reader)?.as_str())
+                $t::try_from(String::fully_self_decode(reader)?.as_str())
             }
         }
 
@@ -688,7 +688,7 @@ fn text_p_fq_decode_test() {
         b's', b't',
     ];
 
-    let p = TextP::fully_decode(&mut &reader[..]);
+    let p = TextP::fully_self_decode(&mut &reader[..]);
 
     // assert!(p.is_ok());
 

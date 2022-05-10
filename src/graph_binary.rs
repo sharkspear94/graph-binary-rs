@@ -236,6 +236,13 @@ impl GraphBinary {
         }
     }
 
+    pub fn to_option(self) -> Option<GraphBinary> {
+        match self {
+            GraphBinary::UnspecifiedNullObject => None,
+            graph_binary => Some(graph_binary),
+        }
+    }
+
     fn decode<R: Read>(reader: R) {}
 }
 
@@ -248,7 +255,14 @@ impl Decode for GraphBinary {
     }
 
     fn expected_type_code() -> u8 {
-        todo!()
+        unimplemented!()
+    }
+
+    fn fully_self_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        decode(reader)
     }
 }
 // pub enum Number{
@@ -391,7 +405,7 @@ pub fn decode<R: Read>(reader: &mut R) -> Result<GraphBinary, DecodeError> {
         (CoreType::Edge, ValueFlag::Null) => todo!(),
         (CoreType::Path, ValueFlag::Set) => todo!(),
         (CoreType::Path, ValueFlag::Null) => todo!(),
-        (CoreType::Property, ValueFlag::Set) => todo!(),
+        (CoreType::Property, ValueFlag::Set) => GraphBinary::Property(Property::decode(reader)?),
         (CoreType::Property, ValueFlag::Null) => todo!(),
         (CoreType::Graph, ValueFlag::Set) => todo!(),
         (CoreType::Graph, ValueFlag::Null) => todo!(),
@@ -450,7 +464,7 @@ pub fn decode<R: Read>(reader: &mut R) -> Result<GraphBinary, DecodeError> {
         (CoreType::Merge, ValueFlag::Set) => todo!(),
         (CoreType::Merge, ValueFlag::Null) => todo!(),
         (CoreType::UnspecifiedNullObject, ValueFlag::Set) => todo!(),
-        (CoreType::UnspecifiedNullObject, ValueFlag::Null) => todo!(),
+        (CoreType::UnspecifiedNullObject, ValueFlag::Null) => GraphBinary::UnspecifiedNullObject,
         (CoreType::Int32, ValueFlag::Null) => todo!(),
         // (CoreType::Int32,0x00) => GraphBinary::Int(i32::decode(reader)?),
         // (0x02,0x00) => GraphBinary::Long(i64::decode(reader)?),
@@ -486,15 +500,14 @@ pub trait Decode {
     where
         Self: std::marker::Sized;
 
-    fn fully_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    fn fully_self_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
         let mut buf = [255_u8; 2];
         reader.read_exact(&mut buf)?;
-        let type_code = Self::expected_type_code();
         match (buf[0], buf[1]) {
-            (code, 0) if code == type_code => Self::decode(reader),
+            (code, 0) if code == Self::expected_type_code() => Self::decode(reader),
             (t, _) => Err(DecodeError::DecodeError(format!(
                 "Type Code Error, expected type {}, found {}",
                 Self::expected_type_code(),
