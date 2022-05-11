@@ -40,12 +40,15 @@ impl<T: Encode> Encode for Vec<T> {
         CoreType::List.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
+    fn write_patial_bytes<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), crate::error::EncodeError> {
         let len = self.len() as i32;
-        len.gb_bytes(writer)?;
+        len.write_patial_bytes(writer)?;
 
         for item in self {
-            item.fq_gb_bytes(writer)?;
+            item.write_full_qualified_bytes(writer)?;
         }
 
         Ok(())
@@ -69,7 +72,7 @@ impl<T: Decode> Decode for Vec<T> {
         CoreType::List.into()
     }
 
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, DecodeError>
+    fn partial_decode<R: std::io::Read>(reader: &mut R) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -81,12 +84,11 @@ impl<T: Decode> Decode for Vec<T> {
         }
         let mut list: Vec<T> = Vec::with_capacity(len as usize);
         for _ in 0..len {
-            list.push(T::decode(reader)?)
+            list.push(T::partial_decode(reader)?)
         }
         Ok(list)
     }
 }
-
 
 #[test]
 fn vec_decode_test() {
@@ -95,7 +97,7 @@ fn vec_decode_test() {
         0x0, 0x0, 0x0, 0x0, 0x04, 0x01, 0x0, 0x0, 0x0, 0x0, 0x04,
     ];
 
-    let s = Vec::decode(&mut &reader[..]);
+    let s = Vec::partial_decode(&mut &reader[..]);
 
     assert!(s.is_ok());
     let s = s.unwrap();
@@ -110,7 +112,6 @@ fn vec_decode_test() {
         )
     }
 }
-
 
 // // importent to garanty that all types are same type
 // // maybe move type logic to serde traits
@@ -185,8 +186,6 @@ fn vec_decode_test() {
 //         Ok(List(list))
 //     }
 // }
-
-
 
 // impl<T: Encode> List1<T> {
 //     pub fn new(list: Vec<T>) -> List1<T> {
@@ -272,7 +271,6 @@ fn vec_decode_test() {
 //     list.fq_gb_bytes(&mut buf);
 //     assert_eq!(&msg[..], &buf);
 // }
-
 
 // #[test]
 // fn list_decode_test() {

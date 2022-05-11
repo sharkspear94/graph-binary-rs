@@ -30,9 +30,9 @@ impl Encode for Map {
         MAP_TYPE_CODE
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         let len = self.len() as i32;
-        len.gb_bytes(writer)?;
+        len.write_patial_bytes(writer)?;
 
         for (k, v) in self.iter() {
             GraphBinary::from(k).build_fq_bytes(writer)?;
@@ -52,13 +52,13 @@ where
         CoreType::Map.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         let len = self.len() as i32;
-        len.gb_bytes(writer)?;
+        len.write_patial_bytes(writer)?;
 
         for (key, value) in self.iter() {
-            key.fq_gb_bytes(writer)?;
-            value.fq_gb_bytes(writer)?;
+            key.write_full_qualified_bytes(writer)?;
+            value.write_full_qualified_bytes(writer)?;
         }
         Ok(())
     }
@@ -87,7 +87,7 @@ fn testing_map() {
     let map = Map::new(map);
 
     let mut buf: Vec<u8> = vec![];
-    map.fq_gb_bytes(&mut buf).unwrap();
+    map.write_full_qualified_bytes(&mut buf).unwrap();
 
     let msg = [
         MAP_TYPE_CODE,
@@ -125,7 +125,7 @@ fn testing_nestet_map() {
     let map = Map::new(map);
 
     let mut buf: Vec<u8> = vec![];
-    map.fq_gb_bytes(&mut buf).unwrap();
+    map.write_full_qualified_bytes(&mut buf).unwrap();
 
     let msg = [
         MAP_TYPE_CODE,

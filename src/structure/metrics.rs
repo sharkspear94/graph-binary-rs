@@ -26,13 +26,16 @@ impl Encode for Metrics {
         CoreType::Metrics.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.id.gb_bytes(writer)?;
-        self.name.gb_bytes(writer)?;
-        self.duration.gb_bytes(writer)?;
-        self.counts.gb_bytes(writer)?;
-        self.annotation.gb_bytes(writer)?;
-        self.nested_metrics.gb_bytes(writer)
+    fn write_patial_bytes<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), crate::error::EncodeError> {
+        self.id.write_patial_bytes(writer)?;
+        self.name.write_patial_bytes(writer)?;
+        self.duration.write_patial_bytes(writer)?;
+        self.counts.write_patial_bytes(writer)?;
+        self.annotation.write_patial_bytes(writer)?;
+        self.nested_metrics.write_patial_bytes(writer)
     }
 }
 
@@ -53,9 +56,12 @@ impl Encode for TraversalMetrics {
         CoreType::TraversalMetrics.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.duration.gb_bytes(writer)?;
-        self.metrics.gb_bytes(writer)
+    fn write_patial_bytes<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), crate::error::EncodeError> {
+        self.duration.write_patial_bytes(writer)?;
+        self.metrics.write_patial_bytes(writer)
     }
 }
 
@@ -73,7 +79,7 @@ fn metric_test() {
         nested_metrics: Vec::new(),
     };
     let mut buf = vec![];
-    metric.fq_gb_bytes(&mut buf).unwrap();
+    metric.write_full_qualified_bytes(&mut buf).unwrap();
 
     let msg = [
         0x2c, 0x0, 0x0, 0x0, 0x0, 0x7, 0x34, 0x2e, 0x30, 0x2e, 0x30, 0x28, 0x29, 0x0, 0x0, 0x0,
@@ -105,7 +111,9 @@ fn traversal_metric_test() {
         metrics: vec![metric],
     };
     let mut buf = vec![];
-    traversal_metric.fq_gb_bytes(&mut buf).unwrap();
+    traversal_metric
+        .write_full_qualified_bytes(&mut buf)
+        .unwrap();
 
     let msg = [
         0x2d, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x3, 0x46, 0xa4, 0x0, 0x0, 0x0, 0x1, 0x2c, 0x0, 0x0,

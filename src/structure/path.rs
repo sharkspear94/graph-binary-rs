@@ -3,8 +3,6 @@ use crate::{
     specs::CoreType,
 };
 
-use super::list::{List, List1};
-
 #[derive(Debug, PartialEq)]
 pub struct Path {
     labels: Vec<Vec<String>>,  // List<Set<String>>
@@ -16,8 +14,11 @@ impl Encode for Path {
         CoreType::Path.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.labels.fq_gb_bytes(writer);
+    fn write_patial_bytes<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), crate::error::EncodeError> {
+        self.labels.write_full_qualified_bytes(writer)?;
 
         todo!() // objects
     }

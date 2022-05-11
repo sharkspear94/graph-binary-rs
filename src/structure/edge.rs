@@ -26,15 +26,18 @@ impl Encode for Edge {
         specs::CoreType::Edge.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.id.fq_gb_bytes(writer)?;
-        self.label.gb_bytes(writer)?;
-        self.in_v_id.fq_gb_bytes(writer)?;
-        self.in_v_label.gb_bytes(writer)?;
-        self.out_v_id.fq_gb_bytes(writer)?;
-        self.out_v_label.gb_bytes(writer)?;
-        self.parent.fq_gb_bytes(writer)?;
-        self.properties.fq_gb_bytes(writer)
+    fn write_patial_bytes<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), crate::error::EncodeError> {
+        self.id.write_full_qualified_bytes(writer)?;
+        self.label.write_patial_bytes(writer)?;
+        self.in_v_id.write_full_qualified_bytes(writer)?;
+        self.in_v_label.write_patial_bytes(writer)?;
+        self.out_v_id.write_full_qualified_bytes(writer)?;
+        self.out_v_label.write_patial_bytes(writer)?;
+        self.parent.write_full_qualified_bytes(writer)?;
+        self.properties.write_full_qualified_bytes(writer)
     }
 }
 
@@ -44,7 +47,8 @@ impl Serialize for Edge {
         S: serde::Serializer,
     {
         let mut buf: Vec<u8> = Vec::with_capacity(64);
-        self.fq_gb_bytes(&mut buf).expect("error during Edge write");
+        self.write_full_qualified_bytes(&mut buf)
+            .expect("error during Edge write");
         serializer.serialize_bytes(&buf)
     }
 }
@@ -70,7 +74,7 @@ fn edge_none_encode_test() {
     };
 
     let mut buf = Vec::new();
-    let e = e.fq_gb_bytes(&mut buf);
+    let e = e.write_full_qualified_bytes(&mut buf);
     assert!(e.is_ok());
     assert_eq!(expected, buf[..])
 }
@@ -105,7 +109,7 @@ fn edge_some_encode_test() {
     };
 
     let mut buf = Vec::new();
-    let e = e.fq_gb_bytes(&mut buf);
+    let e = e.write_full_qualified_bytes(&mut buf);
     assert!(e.is_ok());
     assert_eq!(expected, buf[..])
 }

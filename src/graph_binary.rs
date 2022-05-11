@@ -94,24 +94,26 @@ pub fn build_fq_null_bytes<W: Write>(writer: &mut W) -> Result<(), EncodeError> 
 impl GraphBinary {
     pub fn build_fq_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         match self {
-            GraphBinary::Int(val) => val.fq_gb_bytes(writer),
-            GraphBinary::Long(val) => val.fq_gb_bytes(writer),
-            GraphBinary::String(s) => s.fq_gb_bytes(writer),
+            GraphBinary::Int(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Long(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::String(s) => s.write_full_qualified_bytes(writer),
             // CoreType::Date(_) => todo!(),
             // CoreType::Timestamp(_) => todo!(),
-            GraphBinary::Class(class) => class.fq_gb_bytes(writer),
-            GraphBinary::Double(val) => val.fq_gb_bytes(writer),
-            GraphBinary::Float(val) => val.fq_gb_bytes(writer),
-            GraphBinary::List(list) => list.fq_gb_bytes(writer),
-            GraphBinary::Set(set) => set.fq_gb_bytes(writer),
-            GraphBinary::Map(map) => map.fq_gb_bytes(writer),
-            GraphBinary::Uuid(uuid) => uuid.fq_gb_bytes(writer),
-            GraphBinary::Edge(edge) => edge.fq_gb_bytes(writer),
-            GraphBinary::Path(path) => path.fq_gb_bytes(writer),
-            GraphBinary::Property(prop) => prop.fq_gb_bytes(writer),
-            GraphBinary::Graph(graph) => graph.fq_gb_bytes(writer),
-            GraphBinary::Vertex(vertex) => vertex.fq_gb_bytes(writer),
-            GraphBinary::VertexProperty(vertex_prop) => vertex_prop.fq_gb_bytes(writer),
+            GraphBinary::Class(class) => class.write_full_qualified_bytes(writer),
+            GraphBinary::Double(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Float(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::List(list) => list.write_full_qualified_bytes(writer),
+            GraphBinary::Set(set) => set.write_full_qualified_bytes(writer),
+            GraphBinary::Map(map) => map.write_full_qualified_bytes(writer),
+            GraphBinary::Uuid(uuid) => uuid.write_full_qualified_bytes(writer),
+            GraphBinary::Edge(edge) => edge.write_full_qualified_bytes(writer),
+            GraphBinary::Path(path) => path.write_full_qualified_bytes(writer),
+            GraphBinary::Property(prop) => prop.write_full_qualified_bytes(writer),
+            GraphBinary::Graph(graph) => graph.write_full_qualified_bytes(writer),
+            GraphBinary::Vertex(vertex) => vertex.write_full_qualified_bytes(writer),
+            GraphBinary::VertexProperty(vertex_prop) => {
+                vertex_prop.write_full_qualified_bytes(writer)
+            }
             GraphBinary::Barrier(_) => todo!(),
             GraphBinary::Binding(binding) => todo!(),
             GraphBinary::ByteCode(_) => todo!(),
@@ -247,7 +249,7 @@ impl GraphBinary {
 }
 
 impl Decode for GraphBinary {
-    fn decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -331,11 +333,11 @@ impl Encode for GraphBinary {
         todo!()
     }
 
-    fn gb_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_patial_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         todo!()
     }
 
-    fn fq_gb_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_full_qualified_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         self.build_fq_bytes(writer)
     }
 }
@@ -381,21 +383,25 @@ pub fn decode<R: Read>(reader: &mut R) -> Result<GraphBinary, DecodeError> {
     let identifier = CoreType::try_from(buf[0])?;
     let value_flag = ValueFlag::try_from(buf[1])?;
 
-    let gb = match (identifier, value_flag) {
-        (CoreType::Int32, ValueFlag::Set) => GraphBinary::Int(i32::decode(reader)?),
-        (CoreType::Long, ValueFlag::Set) => GraphBinary::Long(i64::decode(reader)?),
+    match (identifier, value_flag) {
+        (CoreType::Int32, ValueFlag::Set) => Ok(GraphBinary::Int(i32::partial_decode(reader)?)),
+        (CoreType::Long, ValueFlag::Set) => Ok(GraphBinary::Long(i64::partial_decode(reader)?)),
         (CoreType::Long, ValueFlag::Null) => todo!(),
-        (CoreType::String, ValueFlag::Set) => GraphBinary::String(String::decode(reader)?),
+        (CoreType::String, ValueFlag::Set) => {
+            Ok(GraphBinary::String(String::partial_decode(reader)?))
+        }
         (CoreType::String, ValueFlag::Null) => todo!(),
-        (CoreType::Class, ValueFlag::Set) => GraphBinary::Class(String::decode(reader)?),
+        (CoreType::Class, ValueFlag::Set) => {
+            Ok(GraphBinary::Class(String::partial_decode(reader)?))
+        }
         (CoreType::Class, ValueFlag::Null) => todo!(),
-        (CoreType::Double, ValueFlag::Set) => GraphBinary::Double(f64::decode(reader)?),
+        (CoreType::Double, ValueFlag::Set) => Ok(GraphBinary::Double(f64::partial_decode(reader)?)),
         (CoreType::Double, ValueFlag::Null) => todo!(),
-        (CoreType::Float, ValueFlag::Set) => GraphBinary::Float(f32::decode(reader)?),
+        (CoreType::Float, ValueFlag::Set) => Ok(GraphBinary::Float(f32::partial_decode(reader)?)),
         (CoreType::Float, ValueFlag::Null) => todo!(),
-        (CoreType::List, ValueFlag::Set) => GraphBinary::List(Vec::decode(reader)?),
+        (CoreType::List, ValueFlag::Set) => Ok(GraphBinary::List(Vec::partial_decode(reader)?)),
         (CoreType::List, ValueFlag::Null) => todo!(),
-        (CoreType::Set, ValueFlag::Set) => GraphBinary::Set(Vec::decode(reader)?),
+        (CoreType::Set, ValueFlag::Set) => Ok(GraphBinary::Set(Vec::partial_decode(reader)?)),
         (CoreType::Set, ValueFlag::Null) => todo!(),
         (CoreType::Map, ValueFlag::Set) => todo!(),
         (CoreType::Map, ValueFlag::Null) => todo!(),
@@ -405,7 +411,9 @@ pub fn decode<R: Read>(reader: &mut R) -> Result<GraphBinary, DecodeError> {
         (CoreType::Edge, ValueFlag::Null) => todo!(),
         (CoreType::Path, ValueFlag::Set) => todo!(),
         (CoreType::Path, ValueFlag::Null) => todo!(),
-        (CoreType::Property, ValueFlag::Set) => GraphBinary::Property(Property::decode(reader)?),
+        (CoreType::Property, ValueFlag::Set) => {
+            Ok(GraphBinary::Property(Property::partial_decode(reader)?))
+        }
         (CoreType::Property, ValueFlag::Null) => todo!(),
         (CoreType::Graph, ValueFlag::Set) => todo!(),
         (CoreType::Graph, ValueFlag::Null) => todo!(),
@@ -464,15 +472,18 @@ pub fn decode<R: Read>(reader: &mut R) -> Result<GraphBinary, DecodeError> {
         (CoreType::Merge, ValueFlag::Set) => todo!(),
         (CoreType::Merge, ValueFlag::Null) => todo!(),
         (CoreType::UnspecifiedNullObject, ValueFlag::Set) => todo!(),
-        (CoreType::UnspecifiedNullObject, ValueFlag::Null) => GraphBinary::UnspecifiedNullObject,
+        (CoreType::UnspecifiedNullObject, ValueFlag::Null) => {
+            Ok(GraphBinary::UnspecifiedNullObject)
+        }
         (CoreType::Int32, ValueFlag::Null) => todo!(),
         // (CoreType::Int32,0x00) => GraphBinary::Int(i32::decode(reader)?),
         // (0x02,0x00) => GraphBinary::Long(i64::decode(reader)?),
         // (LIST_TYPE_CODE,0x0) => GraphBinary::List(List::decode(reader)?),
         // (_,_) => return Err(DecodeError::DecodeError("qualifier not known".to_string())),
-    };
-
-    Ok(gb)
+        (_, _) => Err(DecodeError::DecodeError(
+            "Coretype not Implemented".to_string(),
+        )),
+    }
 }
 
 #[repr(u8)]
@@ -496,7 +507,7 @@ impl TryFrom<u8> for ValueFlag {
 pub trait Decode {
     fn expected_type_code() -> u8;
 
-    fn decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized;
 
@@ -507,11 +518,12 @@ pub trait Decode {
         let mut buf = [255_u8; 2];
         reader.read_exact(&mut buf)?;
         match (buf[0], buf[1]) {
-            (code, 0) if code == Self::expected_type_code() => Self::decode(reader),
-            (t, _) => Err(DecodeError::DecodeError(format!(
-                "Type Code Error, expected type {}, found {}",
+            (code, 0) if code == Self::expected_type_code() => Self::partial_decode(reader),
+            (t, value_flag) => Err(DecodeError::DecodeError(format!(
+                "Type Code Error, expected type {:#X}, found {:#X} and value_flag {:#X}",
                 Self::expected_type_code(),
-                t
+                t,
+                value_flag
             ))),
         }
     }
@@ -522,32 +534,32 @@ use crate::error::{DecodeError, EncodeError};
 pub trait Encode {
     fn type_code() -> u8;
 
-    fn gb_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError>;
+    fn write_patial_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError>;
 
-    fn fq_null<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
+    fn write_full_qualified_null_bytes<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
         writer.write_all(&[Self::type_code(), VALUE_NULL])?;
         Ok(())
     }
 
-    fn fq_gb_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_full_qualified_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         writer.write_all(&[Self::type_code(), VALUE_PRESENT])?;
-        self.gb_bytes(writer)
+        self.write_patial_bytes(writer)
     }
 
-    fn nullable_gb_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_nullable_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         writer.write_all(&[VALUE_PRESENT])?;
-        self.gb_bytes(writer)
+        self.write_patial_bytes(writer)
     }
 }
 
 #[test]
 fn testing() {
     let mut buf: Vec<u8> = vec![];
-    15_i32.gb_bytes(&mut buf);
+    15_i32.write_patial_bytes(&mut buf);
     assert_eq!([0x00, 0x00, 0x00, 0x0F], buf.as_slice());
 
     buf.clear();
-    15_i32.fq_gb_bytes(&mut buf);
+    15_i32.write_full_qualified_bytes(&mut buf);
     assert_eq!([0x01, 0x00, 0x00, 0x00, 0x00, 0x0F], buf.as_slice());
 }
 

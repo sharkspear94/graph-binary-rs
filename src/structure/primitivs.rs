@@ -16,7 +16,7 @@ impl Encode for String {
         CoreType::String.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         let len = self.len() as i32;
         writer.write_all(&len.to_be_bytes())?;
         writer.write_all(self.as_bytes())?;
@@ -29,7 +29,7 @@ impl Decode for String {
         CoreType::String.into()
     }
 
-    fn decode<R: Read>(reader: &mut R) -> Result<String, DecodeError> {
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<String, DecodeError> {
         let mut buf = [0_u8; 4];
         reader.read_exact(&mut buf)?;
         let len = i32::from_be_bytes(buf);
@@ -66,7 +66,7 @@ impl Encode for &str {
         CoreType::String.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         let len = self.len() as i32;
         writer.write_all(&len.to_be_bytes())?;
         writer.write_all(self.as_bytes())?;
@@ -85,7 +85,7 @@ impl Encode for u8 {
         CoreType::Byte.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         writer.write_all(&self.to_be_bytes())?;
         Ok(())
     }
@@ -96,7 +96,7 @@ impl Decode for u8 {
         CoreType::Byte.into()
     }
 
-    fn decode<R: Read>(reader: &mut R) -> Result<u8, DecodeError> {
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<u8, DecodeError> {
         let mut int = [0_u8; 1];
         reader.read_exact(&mut int)?;
 
@@ -115,7 +115,7 @@ impl Encode for i16 {
         CoreType::Short.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         writer.write_all(&self.to_be_bytes())?;
 
         Ok(())
@@ -127,7 +127,7 @@ impl Decode for i16 {
         CoreType::Short.into()
     }
 
-    fn decode<R: Read>(reader: &mut R) -> Result<i16, DecodeError> {
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<i16, DecodeError> {
         let mut int = [0_u8; 2];
         reader.read_exact(&mut int)?;
 
@@ -146,7 +146,7 @@ impl Encode for i32 {
         CoreType::Int32.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         writer.write_all(&self.to_be_bytes())?;
         Ok(())
     }
@@ -157,7 +157,7 @@ impl Decode for i32 {
         CoreType::Int32.into()
     }
 
-    fn decode<R: Read>(reader: &mut R) -> Result<i32, DecodeError> {
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<i32, DecodeError> {
         let mut int = [0_u8; 4];
         reader.read_exact(&mut int)?;
 
@@ -176,7 +176,7 @@ impl Encode for i64 {
         CoreType::Long.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         writer.write_all(&self.to_be_bytes())?;
         Ok(())
     }
@@ -187,7 +187,7 @@ impl Decode for i64 {
         CoreType::Long.into()
     }
 
-    fn decode<R: Read>(reader: &mut R) -> Result<i64, DecodeError> {
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<i64, DecodeError> {
         let mut int = [0_u8; 8];
         reader.read_exact(&mut int)?;
 
@@ -206,7 +206,7 @@ impl Encode for f32 {
         CoreType::Float.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         writer.write_all(&self.to_be_bytes())?;
 
         Ok(())
@@ -218,7 +218,7 @@ impl Decode for f32 {
         CoreType::Float.into()
     }
 
-    fn decode<R: Read>(reader: &mut R) -> Result<f32, DecodeError> {
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<f32, DecodeError> {
         let mut int = [0_u8; 4];
         reader.read_exact(&mut int)?;
 
@@ -237,7 +237,7 @@ impl Encode for f64 {
         CoreType::Double.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         writer.write_all(&self.to_be_bytes())?;
 
         Ok(())
@@ -249,7 +249,7 @@ impl Decode for f64 {
         CoreType::Double.into()
     }
 
-    fn decode<R: Read>(reader: &mut R) -> Result<f64, DecodeError> {
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<f64, DecodeError> {
         let mut int = [0_u8; 8];
         reader.read_exact(&mut int)?;
 
@@ -268,7 +268,7 @@ impl Encode for Uuid {
         CoreType::Uuid.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         writer.write_all(self.as_bytes())?;
 
         Ok(())
@@ -280,7 +280,7 @@ impl Decode for Uuid {
         CoreType::Uuid.into()
     }
 
-    fn decode<R: Read>(reader: &mut R) -> Result<Uuid, DecodeError> {
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<Uuid, DecodeError> {
         let mut buf = [0_u8; 16];
         reader.read_exact(&mut buf)?;
 
@@ -299,7 +299,7 @@ impl Encode for bool {
         CoreType::Boolean.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         let b = match self {
             true => 0x00_u8,
             false => 0x01_u8,
@@ -316,7 +316,7 @@ impl Decode for bool {
         CoreType::Boolean.into()
     }
 
-    fn decode<R: Read>(reader: &mut R) -> Result<bool, DecodeError> {
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<bool, DecodeError> {
         let mut buf = [0_u8; 1];
         reader.read_exact(&mut buf)?;
 
@@ -339,16 +339,19 @@ impl<T: Encode> Encode for Option<T> {
         T::type_code()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         match self {
-            Some(i) => i.gb_bytes(writer),
+            Some(i) => i.write_patial_bytes(writer),
             None => build_fq_null_bytes(writer),
         }
     }
 
-    fn fq_gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_full_qualified_bytes<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), EncodeError> {
         match self {
-            Some(i) => i.fq_gb_bytes(writer),
+            Some(i) => i.write_full_qualified_bytes(writer),
             None => build_fq_null_bytes(writer),
         }
     }
@@ -359,11 +362,11 @@ impl<T: Decode> Decode for Option<T> {
         T::expected_type_code()
     }
 
-    fn decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
-        Ok(Some(T::decode(reader)?))
+        Ok(Some(T::partial_decode(reader)?))
     }
 
     fn fully_self_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
@@ -374,19 +377,20 @@ impl<T: Decode> Decode for Option<T> {
         reader.read_exact(&mut buf)?;
         let type_code = Self::expected_type_code();
         match (buf[0], buf[1]) {
-            (code, 0) if code == type_code => Self::decode(reader),
+            (code, 0) if code == type_code => Self::partial_decode(reader),
             (code, 1) if code == type_code => Ok(None),
             (0xFE, 1) => Ok(None),
             (t, value_byte @ 2..=255) => Err(DecodeError::DecodeError(format!(
-                "Type Code and Value Byte does not hold valid value flag, found: TypeCode[{}] expected TypeCode[{}] and ValueFlag[{}]",
+                "Type Code and Value Byte does not hold valid value flag, found: TypeCode[{:#X}] expected TypeCode[{:#X}] and ValueFlag[{:#X}]",
                 t,
                 Self::expected_type_code(),
                 value_byte
             ))),
-            (t, _) => Err(DecodeError::DecodeError(format!(
-                "Type Code Error, expected type {} or 0xfe, found {}",
+            (t, flag) => Err(DecodeError::DecodeError(format!(
+                "Type Code Error, expected type {:#X} or 0xfe, found {:#X} and value_flag {:#X}",
                 Self::expected_type_code(),
-                t
+                t,
+                flag
             ))),
         }
     }
@@ -397,12 +401,12 @@ impl<T: Encode> Encode for &[T] {
         CoreType::List.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         let len = self.len() as i32;
-        len.gb_bytes(writer)?;
+        len.write_patial_bytes(writer)?;
 
         for item in *self {
-            item.fq_gb_bytes(writer)?;
+            item.write_full_qualified_bytes(writer)?;
         }
 
         Ok(())
@@ -434,7 +438,7 @@ fn encode_string_test() {
     let s = String::from("test");
 
     let mut buf: Vec<u8> = vec![];
-    s.fq_gb_bytes(&mut buf).unwrap();
+    s.write_full_qualified_bytes(&mut buf).unwrap();
     assert_eq!(
         &[
             STRING_TYPE_CODE,
@@ -472,7 +476,7 @@ fn encode_empty_string_test() {
     let s = String::new();
 
     let mut buf: Vec<u8> = vec![];
-    s.fq_gb_bytes(&mut buf).unwrap();
+    s.write_full_qualified_bytes(&mut buf).unwrap();
 
     assert_eq!(
         &[STRING_TYPE_CODE, VALUE_PRESENT, 0x00, 0x00, 0x00, 0x00][..],
@@ -501,7 +505,7 @@ fn decode_fq_empty_string_test() {
 fn decode_string_test() {
     let reader: Vec<u8> = vec![0x0, 0x0, 0x0, 0x04, b'h', b'o', b's', b't'];
 
-    let s = String::decode(&mut &reader[..]);
+    let s = String::partial_decode(&mut &reader[..]);
 
     assert!(s.is_ok());
 
@@ -512,7 +516,7 @@ fn decode_string_test() {
 fn decode_string_fail_test() {
     let reader: Vec<u8> = vec![0x0, 0x0, 0x0, 0x04, b'h', b'o', b's'];
 
-    let s = String::decode(&mut &reader[..]);
+    let s = String::partial_decode(&mut &reader[..]);
 
     assert!(s.is_err());
 }
@@ -520,7 +524,7 @@ fn decode_string_fail_test() {
 #[test]
 fn encode_int32_test() {
     let mut buf: Vec<u8> = vec![];
-    i32::MAX.fq_gb_bytes(&mut buf).unwrap();
+    i32::MAX.write_full_qualified_bytes(&mut buf).unwrap();
 
     assert_eq!(
         &[INT32_TYPE_CODE, VALUE_PRESENT, 0x7F, 0xFF, 0xFF, 0xFF][..],
@@ -528,7 +532,7 @@ fn encode_int32_test() {
     );
 
     buf.clear();
-    i32::MIN.fq_gb_bytes(&mut buf).unwrap();
+    i32::MIN.write_full_qualified_bytes(&mut buf).unwrap();
 
     assert_eq!(
         &[INT32_TYPE_CODE, VALUE_PRESENT, 0x80, 0x00, 0x00, 0x00][..],
@@ -544,7 +548,7 @@ fn encode_uuid_test() {
         0xff,
     ]);
 
-    uuid.fq_gb_bytes(&mut buf).unwrap();
+    uuid.write_full_qualified_bytes(&mut buf).unwrap();
 
     assert_eq!(
         [

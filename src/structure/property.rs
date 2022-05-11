@@ -15,8 +15,11 @@ impl Encode for Property {
         specs::CoreType::Property.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.key.gb_bytes(writer)?;
+    fn write_patial_bytes<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), crate::error::EncodeError> {
+        self.key.write_patial_bytes(writer)?;
 
         self.value.build_fq_bytes(writer)
     }
@@ -27,11 +30,11 @@ impl Decode for Property {
         CoreType::Property.into()
     }
 
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
+    fn partial_decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
     {
-        let key = String::decode(reader)?;
+        let key = String::partial_decode(reader)?;
         let value = Box::new(decode(reader)?);
 
         Ok(Property { key, value })

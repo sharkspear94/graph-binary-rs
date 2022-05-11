@@ -326,30 +326,30 @@ impl P {
             P::Gt(v) => write_name_value("gt", v, writer),
             P::Gte(v) => write_name_value("gte", v, writer),
             P::Inside(v1, v2) => {
-                "inside".fq_gb_bytes(writer)?;
-                2_i32.gb_bytes(writer)?; // len of tuple only two will be used
+                "inside".write_full_qualified_bytes(writer)?;
+                2_i32.write_patial_bytes(writer)?; // len of tuple only two will be used
                 v1.build_fq_bytes(writer)?;
                 v2.build_fq_bytes(writer)
             }
             P::Outside(v1, v2) => {
-                "outside".fq_gb_bytes(writer)?;
-                2_i32.gb_bytes(writer)?; // len of tuple only two will be used
+                "outside".write_full_qualified_bytes(writer)?;
+                2_i32.write_patial_bytes(writer)?; // len of tuple only two will be used
                 v1.build_fq_bytes(writer)?;
                 v2.build_fq_bytes(writer)
             }
             P::Between(v1, v2) => {
-                "between".fq_gb_bytes(writer)?;
-                2_i32.gb_bytes(writer)?; // len of tuple only two will be used
+                "between".write_full_qualified_bytes(writer)?;
+                2_i32.write_patial_bytes(writer)?; // len of tuple only two will be used
                 v1.build_fq_bytes(writer)?;
                 v2.build_fq_bytes(writer)
             }
             P::Within(v) => {
-                "within".fq_gb_bytes(writer)?;
-                v.gb_bytes(writer)
+                "within".write_full_qualified_bytes(writer)?;
+                v.write_patial_bytes(writer)
             }
             P::Without(v) => {
-                "without".fq_gb_bytes(writer)?;
-                v.gb_bytes(writer)
+                "without".write_full_qualified_bytes(writer)?;
+                v.write_patial_bytes(writer)
             }
         }
     }
@@ -360,7 +360,7 @@ fn write_name_value<W: std::io::Write>(
     value: &GraphBinary,
     writer: &mut W,
 ) -> Result<(), crate::error::EncodeError> {
-    name.fq_gb_bytes(writer)?;
+    name.write_full_qualified_bytes(writer)?;
     value.build_fq_bytes(writer)
 }
 
@@ -369,7 +369,10 @@ impl Encode for P {
         CoreType::P.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
+    fn write_patial_bytes<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), crate::error::EncodeError> {
         self.write_variant(writer)
     }
 }
@@ -380,7 +383,8 @@ impl serde::Serialize for P {
         S: serde::Serializer,
     {
         let mut buf = Vec::new(); // TODO capacity??
-        self.fq_gb_bytes(&mut buf).expect("error during write of P");
+        self.write_full_qualified_bytes(&mut buf)
+            .expect("error during write of P");
         serializer.serialize_bytes(&buf[..])
     }
 }
@@ -390,7 +394,7 @@ impl Decode for P {
         CoreType::P.into()
     }
 
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, DecodeError>
+    fn partial_decode<R: std::io::Read>(reader: &mut R) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -413,8 +417,8 @@ impl Decode for P {
                 Box::new(decode(reader)?),
                 Box::new(decode(reader)?),
             )),
-            "within" => Ok(P::Within(Vec::decode(reader)?)),
-            "without" => Ok(P::Without(Vec::decode(reader)?)),
+            "within" => Ok(P::Within(Vec::partial_decode(reader)?)),
+            "without" => Ok(P::Without(Vec::partial_decode(reader)?)),
             v => Err(DecodeError::DecodeError(format!(
                 "expected P found variant text: {}",
                 v
@@ -512,8 +516,8 @@ fn combine_text_value<W: std::io::Write>(
     value: &[GraphBinary],
     writer: &mut W,
 ) -> Result<(), crate::error::EncodeError> {
-    name.fq_gb_bytes(writer)?;
-    value.gb_bytes(writer)
+    name.write_full_qualified_bytes(writer)?;
+    value.write_patial_bytes(writer)
 }
 
 impl Encode for TextP {
@@ -521,7 +525,10 @@ impl Encode for TextP {
         CoreType::TextP.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
+    fn write_patial_bytes<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), crate::error::EncodeError> {
         match self {
             TextP::StartingWith(text) => combine_text_value("startingWith", text, writer),
             TextP::EndingWith(text) => combine_text_value("endingWith", text, writer),
@@ -539,7 +546,7 @@ impl serde::Serialize for TextP {
         S: serde::Serializer,
     {
         let mut buf = Vec::new(); // TODO capacity??
-        self.fq_gb_bytes(&mut buf)
+        self.write_full_qualified_bytes(&mut buf)
             .expect("error during write of TextP");
         serializer.serialize_bytes(&buf[..])
     }
@@ -550,17 +557,17 @@ impl Decode for TextP {
         CoreType::TextP.into()
     }
 
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, DecodeError>
+    fn partial_decode<R: std::io::Read>(reader: &mut R) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
         match String::fully_self_decode(reader)?.as_str() {
-            "startingWith" => Ok(TextP::StartingWith(Vec::decode(reader)?)),
-            "endingWith" => Ok(TextP::EndingWith(Vec::decode(reader)?)),
-            "containing" => Ok(TextP::Containing(Vec::decode(reader)?)),
-            "notStartingWith" => Ok(TextP::NotStartingWith(Vec::decode(reader)?)),
-            "notEndingWith" => Ok(TextP::NotEndingWith(Vec::decode(reader)?)),
-            "notContaining" => Ok(TextP::NotContaining(Vec::decode(reader)?)),
+            "startingWith" => Ok(TextP::StartingWith(Vec::partial_decode(reader)?)),
+            "endingWith" => Ok(TextP::EndingWith(Vec::partial_decode(reader)?)),
+            "containing" => Ok(TextP::Containing(Vec::partial_decode(reader)?)),
+            "notStartingWith" => Ok(TextP::NotStartingWith(Vec::partial_decode(reader)?)),
+            "notEndingWith" => Ok(TextP::NotEndingWith(Vec::partial_decode(reader)?)),
+            "notContaining" => Ok(TextP::NotContaining(Vec::partial_decode(reader)?)),
             v => Err(DecodeError::DecodeError(format!(
                 "expected TextP found variant text: {}",
                 v
@@ -606,8 +613,8 @@ macro_rules! de_serialize_impls {
                 CoreType::$t.into()
             }
 
-            fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-                self.to_str().fq_gb_bytes(writer)
+            fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
+                self.to_str().write_full_qualified_bytes(writer)
             }
         }
 
@@ -617,7 +624,7 @@ macro_rules! de_serialize_impls {
                 CoreType::$t.into()
             }
 
-            fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
+            fn partial_decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
             where
                 Self: std::marker::Sized,
             {
@@ -631,7 +638,7 @@ macro_rules! de_serialize_impls {
                 S: serde::Serializer,
             {
                 let mut buf = Vec::with_capacity(16);
-                self.fq_gb_bytes(&mut buf)
+                self.write_full_qualified_bytes(&mut buf)
                     .expect(concat!("error during write of ", stringify!($t)));
                 serializer.serialize_bytes(&buf[..])
             }
@@ -658,7 +665,7 @@ de_serialize_impls!(
 fn t_decode_test() {
     let reader = vec![0x03, 0x0, 0x0, 0x0, 0x0, 0x02, b'i', b'd'];
 
-    let p = T::decode(&mut &reader[..]);
+    let p = T::partial_decode(&mut &reader[..]);
 
     // assert!(p.is_ok());
 
@@ -673,7 +680,7 @@ fn p_decode_test() {
         0x0, 0x3,
     ];
 
-    let p = P::decode(&mut &reader[..]);
+    let p = P::partial_decode(&mut &reader[..]);
 
     // assert!(p.is_ok());
 

@@ -18,10 +18,13 @@ impl Encode for Vertex {
         specs::CoreType::Vertex.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.id.fq_gb_bytes(writer)?;
-        self.label.gb_bytes(writer)?;
-        self.properties.fq_gb_bytes(writer)
+    fn write_patial_bytes<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), crate::error::EncodeError> {
+        self.id.write_full_qualified_bytes(writer)?;
+        self.label.write_patial_bytes(writer)?;
+        self.properties.write_full_qualified_bytes(writer)
     }
 }
 
@@ -30,13 +33,13 @@ impl Decode for Vertex {
         CoreType::Vertex.into()
     }
 
-    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
+    fn partial_decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
     {
         let id = Box::new(decode(reader)?);
-        let label = String::decode(reader)?;
-        let mut properties: Box<Option<GraphBinary>> = Box::new(Option::decode(reader)?);
+        let label = String::partial_decode(reader)?;
+        let mut properties: Box<Option<GraphBinary>> = Box::new(Option::partial_decode(reader)?);
         if let Some(GraphBinary::UnspecifiedNullObject) = *properties {
             *properties = None
         }
@@ -60,7 +63,7 @@ fn test_vertex_none_encode() {
         properties: Box::new(None),
     };
     let mut buf = Vec::new();
-    let v = v.fq_gb_bytes(&mut buf);
+    let v = v.write_full_qualified_bytes(&mut buf);
     assert!(v.is_ok());
     assert_eq!(expected, buf[..])
 }
@@ -81,7 +84,7 @@ fn test_vertex_some_encode() {
         }))),
     };
     let mut buf = Vec::new();
-    let v = v.fq_gb_bytes(&mut buf);
+    let v = v.write_full_qualified_bytes(&mut buf);
     assert!(v.is_ok());
     assert_eq!(expected, buf[..])
 }

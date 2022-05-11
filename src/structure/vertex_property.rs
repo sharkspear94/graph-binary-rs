@@ -19,13 +19,16 @@ impl Encode for VertexProperty {
         specs::CoreType::VertexProperty.into()
     }
 
-    fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-        self.id.fq_gb_bytes(writer)?;
-        self.label.gb_bytes(writer)?;
+    fn write_patial_bytes<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), crate::error::EncodeError> {
+        self.id.write_full_qualified_bytes(writer)?;
+        self.label.write_patial_bytes(writer)?;
         self.value.build_fq_bytes(writer)?;
         //self.parent.fq_null(writer)?; // TODO: not sure if correct impl
         for property in &self.properties {
-            property.fq_gb_bytes(writer)?;
+            property.write_full_qualified_bytes(writer)?;
         }
         Ok(())
     }
