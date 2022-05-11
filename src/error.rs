@@ -27,6 +27,9 @@ pub enum DecodeError {
 
     #[error("converting from u8 to `{0}`")]
     ConvertError(&'static str),
+
+    #[error("serialiezing")]
+    DeserilizationError(String),
 }
 
 impl ser::Error for EncodeError {
@@ -35,5 +38,14 @@ impl ser::Error for EncodeError {
         T: std::fmt::Display,
     {
         EncodeError::SerilizationError(msg.to_string())
+    }
+}
+
+impl serde::de::Error for DecodeError {
+    fn custom<T>(msg: T) -> Self
+    where
+        T: std::fmt::Display,
+    {
+        DecodeError::DeserilizationError(msg.to_string())
     }
 }
