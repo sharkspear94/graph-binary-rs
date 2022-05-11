@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, io::Write};
 
 use serde::{
     ser::{self, Impossible, SerializeMap, SerializeSeq, SerializeStruct, SerializeTuple},
@@ -9,7 +9,8 @@ use crate::{
     error::EncodeError,
     graph_binary::{Encode, GraphBinary, MapKeys},
     specs::CoreType,
-    structure::{enums::T, list::List},
+    structure::enums::T,
+    // structure::{enums::T, list::List},
 };
 
 pub fn to_bytes<T>(value: T) -> Result<Vec<u8>, EncodeError>
@@ -51,7 +52,7 @@ impl ser::Serializer for &mut Serializer {
     type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
-        v.fq_gb_bytes(&mut self.writer)
+        v.write_full_qualified_bytes(&mut self.writer)
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
@@ -63,15 +64,15 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        v.fq_gb_bytes(&mut self.writer)
+        v.write_full_qualified_bytes(&mut self.writer)
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
-        v.fq_gb_bytes(&mut self.writer)
+        v.write_full_qualified_bytes(&mut self.writer)
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        v.write_full_qualified_bytes(&mut self.writer)
     }
 
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
@@ -87,11 +88,11 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
-        v.fq_gb_bytes(&mut self.writer)
+        v.write_full_qualified_bytes(&mut self.writer)
     }
 
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
-        v.fq_gb_bytes(&mut self.writer)
+        v.write_full_qualified_bytes(&mut self.writer)
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
@@ -99,11 +100,11 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        v.fq_gb_bytes(&mut self.writer)
+        v.write_full_qualified_bytes(&mut self.writer)
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        self.writer.extend_from_slice(v);
+        self.writer.write_all(v)?;
         Ok(())
     }
 
@@ -382,7 +383,7 @@ impl serde::Serializer for GraphBinarySerializer {
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        Ok(GraphBinary::Int(Some(v)))
+        Ok(GraphBinary::Int(v))
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
@@ -595,7 +596,7 @@ impl SerializeSeq for GraphBinarySerializerSeq {
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(GraphBinary::List(List(self.0)))
+        Ok(GraphBinary::List(self.0))
     }
 }
 
@@ -613,7 +614,7 @@ impl SerializeTuple for GraphBinarySerializerSeq {
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(GraphBinary::List(List(self.0)))
+        Ok(GraphBinary::List(self.0))
     }
 }
 // struct GraphBinarySerializerMap(HashMap<MapKeys,GraphBinary>);
@@ -810,8 +811,8 @@ fn ser__test() {
     let map_bytes = [
         0x0a_u8, 0x0, 0x00, 0x0, 0x0, 0x3, 0x03, 0x00, 0x00, 0x0, 0x0, 0x4, b't', b'e', b's', b't',
         0x01, 0x00, 0x00, 0x0, 0x0, 0x1, 0x03, 0x00, 0x00, 0x0, 0x0, 0x3, b'a', b'b', b'c', 0x20,
-        0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x02, b'i', b'd', 0x03, 0x00, 0x00, 0x0, 0x0,
-        0x5, b'm', b'i', b'l', b'l', b'i', 0x01, 0x00, 0x00, 0x0, 0x0, 0x1,
+        0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x02, b'i', b'd', 0x03, 0x00, 0x00, 0x0, 0x0, 0x5,
+        b'm', b'i', b'l', b'l', b'i', 0x01, 0x00, 0x00, 0x0, 0x0, 0x1,
     ];
     assert_eq!(map_bytes[..], bytes.unwrap());
 }
