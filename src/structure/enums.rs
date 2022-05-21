@@ -1,10 +1,8 @@
-use std::vec;
-
-use serde::Serialize;
+use serde::Deserialize;
 
 use crate::{
     error::DecodeError,
-    graph_binary::{self, decode, Decode, Encode, GraphBinary},
+    graph_binary::{decode, Decode, Encode, GraphBinary},
     specs::CoreType,
 };
 
@@ -19,7 +17,7 @@ impl TryFrom<&str> for Barrier {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             "normSack" => Ok(Barrier::NormSack),
-            _ => Err(DecodeError::ConvertError("Barrier")),
+            _ => Err(DecodeError::ConvertError("Barrier".to_string())),
         }
     }
 }
@@ -47,7 +45,7 @@ impl TryFrom<&str> for Cardinality {
             "list" => Ok(Cardinality::List),
             "set" => Ok(Cardinality::Set),
             "single" => Ok(Cardinality::Single),
-            _ => Err(DecodeError::ConvertError("Cardinality")),
+            _ => Err(DecodeError::ConvertError("Cardinality".to_string())),
         }
     }
 }
@@ -103,7 +101,7 @@ impl TryFrom<&str> for Column {
         match value {
             "keys" => Ok(Column::Keys),
             "values" => Ok(Column::Values),
-            _ => Err(DecodeError::ConvertError("Column")),
+            _ => Err(DecodeError::ConvertError("Column".to_string())),
         }
     }
 }
@@ -123,7 +121,7 @@ impl TryFrom<&str> for Direction {
             "both" => Ok(Direction::Both),
             "in" => Ok(Direction::In),
             "out" => Ok(Direction::Out),
-            _ => Err(DecodeError::ConvertError("Direction")),
+            _ => Err(DecodeError::ConvertError("Direction".to_string())),
         }
     }
 }
@@ -187,7 +185,7 @@ impl TryFrom<&str> for Operator {
             "or" => Ok(Operator::Or),
             "sum" => Ok(Operator::Sum),
             "sumLong" => Ok(Operator::SumLong),
-            _ => Err(DecodeError::ConvertError("Operator")),
+            _ => Err(DecodeError::ConvertError("Operator".to_string())),
         }
     }
 }
@@ -207,7 +205,7 @@ impl TryFrom<&str> for Order {
             "shuffle" => Ok(Order::Shuffle),
             "asc" => Ok(Order::Asc),
             "desc" => Ok(Order::Desc),
-            _ => Err(DecodeError::ConvertError("Order")),
+            _ => Err(DecodeError::ConvertError("Order".to_string())),
         }
     }
 }
@@ -235,7 +233,7 @@ impl TryFrom<&str> for Pick {
         match value {
             "any" => Ok(Pick::Any),
             "none" => Ok(Pick::None),
-            _ => Err(DecodeError::ConvertError("Pick")),
+            _ => Err(DecodeError::ConvertError("Pick".to_string())),
         }
     }
 }
@@ -266,7 +264,7 @@ impl TryFrom<&str> for Pop {
             "first" => Ok(Pop::First),
             "last" => Ok(Pop::Last),
             "mixed" => Ok(Pop::Mixed),
-            _ => Err(DecodeError::ConvertError("Pop")),
+            _ => Err(DecodeError::ConvertError("Pop".to_string())),
         }
     }
 }
@@ -327,19 +325,19 @@ impl P {
             P::Gte(v) => write_name_value("gte", v, writer),
             P::Inside(v1, v2) => {
                 "inside".write_full_qualified_bytes(writer)?;
-                2_i32.write_patial_bytes(writer)?; // len of tuple only two will be used
+                2_i32.write_patial_bytes(writer)?; // len of tuple only len = 2 will be used
                 v1.build_fq_bytes(writer)?;
                 v2.build_fq_bytes(writer)
             }
             P::Outside(v1, v2) => {
                 "outside".write_full_qualified_bytes(writer)?;
-                2_i32.write_patial_bytes(writer)?; // len of tuple only two will be used
+                2_i32.write_patial_bytes(writer)?; // len of tuple only len = 2 will be used
                 v1.build_fq_bytes(writer)?;
                 v2.build_fq_bytes(writer)
             }
             P::Between(v1, v2) => {
                 "between".write_full_qualified_bytes(writer)?;
-                2_i32.write_patial_bytes(writer)?; // len of tuple only two will be used
+                2_i32.write_patial_bytes(writer)?; // len of tuple only len = 2 will be used
                 v1.build_fq_bytes(writer)?;
                 v2.build_fq_bytes(writer)
             }
@@ -399,24 +397,51 @@ impl Decode for P {
         Self: std::marker::Sized,
     {
         match String::fully_self_decode(reader)?.as_str() {
-            "eq" => Ok(P::Eq(Box::new(decode(reader)?))),
-            "neq" => Ok(P::Neq(Box::new(decode(reader)?))),
-            "lt" => Ok(P::Lt(Box::new(decode(reader)?))),
-            "lte" => Ok(P::Lte(Box::new(decode(reader)?))),
-            "gt" => Ok(P::Gt(Box::new(decode(reader)?))),
-            "gte" => Ok(P::Gte(Box::new(decode(reader)?))),
-            "inside" => Ok(P::Inside(
-                Box::new(decode(reader)?),
-                Box::new(decode(reader)?),
-            )),
-            "outside" => Ok(P::Outside(
-                Box::new(decode(reader)?),
-                Box::new(decode(reader)?),
-            )),
-            "between" => Ok(P::Between(
-                Box::new(decode(reader)?),
-                Box::new(decode(reader)?),
-            )),
+            "eq" => Ok({
+                i32::partial_decode(reader)?;
+                P::Eq(Box::new(decode(reader)?))
+            }),
+            "neq" => {
+                i32::partial_decode(reader)?;
+                Ok(P::Neq(Box::new(decode(reader)?)))
+            }
+            "lt" => {
+                i32::partial_decode(reader)?;
+                Ok(P::Lt(Box::new(decode(reader)?)))
+            }
+            "lte" => {
+                i32::partial_decode(reader)?;
+                Ok(P::Lte(Box::new(decode(reader)?)))
+            }
+            "gt" => {
+                i32::partial_decode(reader)?;
+                Ok(P::Gt(Box::new(decode(reader)?)))
+            }
+            "gte" => {
+                i32::partial_decode(reader)?;
+                Ok(P::Gte(Box::new(decode(reader)?)))
+            }
+            "inside" => {
+                i32::partial_decode(reader)?;
+                Ok(P::Inside(
+                    Box::new(decode(reader)?),
+                    Box::new(decode(reader)?),
+                ))
+            }
+            "outside" => {
+                i32::partial_decode(reader)?;
+                Ok(P::Outside(
+                    Box::new(decode(reader)?),
+                    Box::new(decode(reader)?),
+                ))
+            }
+            "between" => {
+                i32::partial_decode(reader)?;
+                Ok(P::Between(
+                    Box::new(decode(reader)?),
+                    Box::new(decode(reader)?),
+                ))
+            }
             "within" => Ok(P::Within(Vec::partial_decode(reader)?)),
             "without" => Ok(P::Without(Vec::partial_decode(reader)?)),
             v => Err(DecodeError::DecodeError(format!(
@@ -424,6 +449,12 @@ impl Decode for P {
                 v
             ))),
         }
+    }
+
+    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
+        let mut len = String::consumed_bytes(bytes)?;
+        len += Vec::<GraphBinary>::partial_count_bytes(&bytes[len..])?;
+        Ok(len)
     }
 }
 
@@ -449,7 +480,7 @@ impl TryFrom<&str> for Scope {
         match value {
             "local" => Ok(Scope::Local),
             "global" => Ok(Scope::Global),
-            _ => Err(DecodeError::ConvertError("Scope")),
+            _ => Err(DecodeError::ConvertError("Scope".to_string())),
         }
     }
 }
@@ -482,7 +513,7 @@ impl TryFrom<&str> for T {
             "key" => Ok(T::Key),
             "label" => Ok(T::Lable),
             "value" => Ok(T::Value),
-            _ => Err(DecodeError::ConvertError("T")),
+            _ => Err(DecodeError::ConvertError("T".to_string())),
         }
     }
 }
@@ -574,6 +605,11 @@ impl Decode for TextP {
             ))),
         }
     }
+    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
+        let mut len = String::consumed_bytes(bytes)?;
+        len += Vec::<GraphBinary>::partial_count_bytes(&bytes[len..])?;
+        Ok(len)
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -598,14 +634,50 @@ impl TryFrom<&str> for Merge {
         match value {
             "onCreate" => Ok(Merge::OnCreate),
             "onMatch" => Ok(Merge::OnMatch),
-            _ => Err(DecodeError::ConvertError("Merge")),
+            _ => Err(DecodeError::ConvertError("Merge".to_string())),
         }
     }
 }
 
 #[macro_export]
+macro_rules! enum_deserialize {
+    ($(($t:ident,$visitor:ident)),*) => {
+        $(
+            impl<'de> Deserialize<'de> for $t {
+                fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+                where
+                    D: serde::Deserializer<'de>,
+                {
+                    deserializer.deserialize_bytes($visitor)
+                }
+            }
+
+            struct $visitor;
+
+            impl<'de> serde::de::Visitor<'de> for $visitor {
+                type Value = $t;
+
+                fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                    write!(formatter, concat!("a enum ", stringify!($t)))
+                }
+
+                fn visit_bytes<E>(self, mut v: &[u8]) -> Result<Self::Value, E>
+                where
+                    E: serde::de::Error,
+                {
+                    match $t::fully_self_decode(&mut v) {
+                        Ok(val) => Ok(val),
+                        Err(_) => Err(E::custom(concat!(stringify!($t)," Visitor Decode Error"))),
+                    }
+                }
+            }
+         )*
+    };
+}
+
+#[macro_export]
 macro_rules! de_serialize_impls {
-    (  $($t:ident),* ) => {
+    (  $(($t:ident,$v:ident)),* ) => {
 
         $(
         impl Encode for $t {
@@ -630,6 +702,10 @@ macro_rules! de_serialize_impls {
             {
                 $t::try_from(String::fully_self_decode(reader)?.as_str())
             }
+
+            fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
+                String::consumed_bytes(bytes)
+            }
         }
 
         impl serde::Serialize for $t {
@@ -643,23 +719,27 @@ macro_rules! de_serialize_impls {
                 serializer.serialize_bytes(&buf[..])
             }
         }
+
+        enum_deserialize!(($t,$v));
     )*
     };
 }
 
 de_serialize_impls!(
-    Barrier,
-    Cardinality,
-    Column,
-    Direction,
-    Operator,
-    Order,
-    Pick,
-    Pop,
-    Scope,
-    T,
-    Merge
+    (Barrier, BarrierVisitor),
+    (Cardinality, CardinalityVisitor),
+    (Column, ColumnVisitor),
+    (Direction, DirectionVisitor),
+    (Operator, OperatorVisitor),
+    (Order, OrderVisitor),
+    (Pick, PickVisitor),
+    (Pop, PopVisitor),
+    (Scope, ScopeVisitor),
+    (T, TVisitor),
+    (Merge, MergeVisitor)
 );
+
+enum_deserialize!((TextP, TextPVisitor), (P, PVisitor));
 
 #[test]
 fn t_decode_test() {
@@ -700,4 +780,19 @@ fn text_p_fq_decode_test() {
     // assert!(p.is_ok());
 
     assert_eq!(TextP::StartingWith(vec!["test".into()]), p.unwrap());
+}
+
+#[test]
+fn text_p_consumed_bytes() {
+    let reader = vec![
+        0x28, 0x00, 0x03, 0x0, 0x0, 0x0, 0x0, 0x0c, b's', b't', b'a', b'r', b't', b'i', b'n', b'g',
+        b'W', b'i', b't', b'h', 0x0, 0x0, 0x0, 0x01, 0x3, 0x0, 0x0, 0x0, 0x0, 0x04, b't', b'e',
+        b's', b't',
+    ];
+
+    let p = TextP::consumed_bytes(&reader);
+
+    // assert!(p.is_ok());
+
+    assert_eq!(reader.len(), p.unwrap());
 }
