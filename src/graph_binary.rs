@@ -15,6 +15,8 @@ use crate::structure::traverser::{TraversalStrategy, Traverser};
 use crate::structure::vertex::Vertex;
 use crate::structure::vertex_property::VertexProperty;
 use crate::{specs::CoreType, structure::edge::Edge};
+use serde::de::Visitor;
+use serde::Deserialize;
 use uuid::Uuid;
 
 // use super::structure::list::List;
@@ -266,6 +268,57 @@ impl Decode for GraphBinary {
     {
         decode(reader)
     }
+
+    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
+        todo!()
+    }
+
+    fn consumed_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
+        match CoreType::try_from(bytes[0])? {
+            CoreType::Int32 => Ok(6),
+            CoreType::Long => Ok(10),
+            CoreType::String => String::consumed_bytes(bytes),
+            CoreType::Class => String::consumed_bytes(bytes),
+            CoreType::Double => Ok(10),
+            CoreType::Float => Ok(6),
+            CoreType::List => Vec::<GraphBinary>::consumed_bytes(bytes),
+            CoreType::Set => todo!(),
+            CoreType::Map => todo!(),
+            CoreType::Uuid => todo!(),
+            CoreType::Edge => todo!(),
+            CoreType::Path => todo!(),
+            CoreType::Property => Property::consumed_bytes(bytes),
+            CoreType::Graph => todo!(),
+            CoreType::Vertex => Vertex::consumed_bytes(bytes),
+            CoreType::VertexProperty => todo!(),
+            CoreType::Barrier => todo!(),
+            CoreType::Binding => todo!(),
+            CoreType::ByteCode => todo!(),
+            CoreType::Cardinality => todo!(),
+            CoreType::Column => todo!(),
+            CoreType::Direction => todo!(),
+            CoreType::Operator => todo!(),
+            CoreType::Order => todo!(),
+            CoreType::Pick => todo!(),
+            CoreType::Pop => todo!(),
+            CoreType::Lambda => todo!(),
+            CoreType::P => todo!(),
+            CoreType::Scope => todo!(),
+            CoreType::T => T::consumed_bytes(bytes),
+            CoreType::Traverser => todo!(),
+            CoreType::Byte => Ok(3),
+            CoreType::ByteBuffer => todo!(),
+            CoreType::Short => todo!(),
+            CoreType::Boolean => Ok(3),
+            CoreType::TextP => todo!(),
+            CoreType::TraversalStrategy => todo!(),
+            CoreType::Tree => todo!(),
+            CoreType::Metrics => todo!(),
+            CoreType::TraversalMetrics => todo!(),
+            CoreType::Merge => todo!(),
+            CoreType::UnspecifiedNullObject => Ok(2),
+        }
+    }
 }
 // pub enum Number{
 //     Int32(i32),
@@ -499,8 +552,51 @@ impl TryFrom<u8> for ValueFlag {
         match value {
             0x00 => Ok(ValueFlag::Set),
             0x01 => Ok(ValueFlag::Null),
-            _ => Err(DecodeError::ConvertError("value_flag")),
+            rest => Err(DecodeError::ConvertError(format!(
+                "Expected ValueFlag found {rest}"
+            ))),
         }
+    }
+}
+
+impl From<ValueFlag> for u8 {
+    fn from(v: ValueFlag) -> Self {
+        match v {
+            ValueFlag::Set => 0,
+            ValueFlag::Null => 1,
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for ValueFlag {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct ValueFlagVisitor;
+
+        impl<'de> Visitor<'de> for ValueFlagVisitor {
+            type Value = ValueFlag;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(formatter, "a enum ValueFlag")
+            }
+
+            fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match ValueFlag::try_from(v) {
+                    Ok(v) => Ok(v),
+                    Err(e) => Err(E::custom(format!(
+                        "conversion of ValueFlag in Deserialize failed: Error Message: {}",
+                        e
+                    ))),
+                }
+            }
+        }
+
+        deserializer.deserialize_u8(ValueFlagVisitor)
     }
 }
 
@@ -526,6 +622,13 @@ pub trait Decode {
                 value_flag
             ))),
         }
+    }
+
+    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError>;
+
+    fn consumed_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
+        let partial_bytes = Self::partial_count_bytes(&bytes[2..])?;
+        Ok(partial_bytes + 2)
     }
 }
 
