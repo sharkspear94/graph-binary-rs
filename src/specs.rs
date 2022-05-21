@@ -63,7 +63,7 @@ pub const EXTENDED_TYPE_YEAR_MONTH: u8 = 0x8c;
 pub const EXTENDED_TYPE_ZONED_DATETIME: u8 = 0x8d;
 pub const EXTENDED_TYPE_ZONED_OFFSET: u8 = 0x8f;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum CoreType {
     Int32,
     Long,
@@ -163,6 +163,10 @@ impl From<CoreType> for u8 {
     }
 }
 
+use std::fmt::{format, write};
+
+use serde::{de::Visitor, Deserialize};
+
 use crate::error::DecodeError;
 
 impl TryFrom<u8> for CoreType {
@@ -218,7 +222,39 @@ impl TryFrom<u8> for CoreType {
             CORE_TYPE_MERGE => Ok(CoreType::Merge),
             CORE_TYPE_UNSPECIFIED_NULL => Ok(CoreType::UnspecifiedNullObject),
             // CORE_TYPE_CUSTOM => Ok(CoreType::),
-            _ => Err(DecodeError::ConvertError("type identifier")),
+            rest => Err(DecodeError::ConvertError(format!("found {rest}"))),
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for CoreType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct CoreTypeVisitor;
+
+        impl<'de> Visitor<'de> for CoreTypeVisitor {
+            type Value = CoreType;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(formatter, "a enum CoreType")
+            }
+
+            fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                match CoreType::try_from(v) {
+                    Ok(v) => Ok(v),
+                    Err(e) => Err(E::custom(format!(
+                        "conversion of Coretype in Deserialize failed: Error Message: {}",
+                        e
+                    ))),
+                }
+            }
+        }
+
+        deserializer.deserialize_u8(CoreTypeVisitor)
     }
 }
