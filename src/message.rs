@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 
-use crate::graph_binary::{Encode, GraphBinary, MapKeys, VALUE_PRESENT};
+use serde::de::Visitor;
+use serde::Deserialize;
+use uuid::Uuid;
+
+use crate::graph_binary::{Decode, Encode, GraphBinary, MapKeys, VALUE_PRESENT};
 use crate::specs::{CORE_TYPE_BINDING, CORE_TYPE_INT, CORE_TYPE_STRING};
 
 use super::graph_binary;
@@ -31,125 +35,14 @@ impl Request {
 #[test]
 fn request_message_test() {
     let msg = [
-        0x81, // Graphbinary version
-        0x00,
-        0x11,
-        0x22,
-        0x33,
-        0x44,
-        0x55,
-        0x66,
-        0x77,
-        0x88,
-        0x99,
-        0xaa,
-        0xbb,
-        0xcc,
-        0xdd,
-        0xee,
-        0xff, // Uuid 00112233-4455-6677-8899-aabbccddeeff
-        0x00,
-        0x00,
-        0x00,
-        0x04,
-        b'e',
-        b'v',
-        b'a',
-        b'l', // op = "eval"
-        0x00,
-        0x00,
-        0x00,
-        0x00, // processor empty string
-        0x00,
-        0x00,
-        0x00,
-        0x03, // args map length
-        CORE_TYPE_STRING,
-        VALUE_PRESENT, //string key
-        0x00,
-        0x00,
-        0x00,
-        0x07, //string length
-        b'g',
-        b'r',
-        b'e',
-        b'm',
-        b'l',
-        b'i',
-        b'n', //gremlin
-        CORE_TYPE_STRING,
-        VALUE_PRESENT, //string value
-        0x00,
-        0x00,
-        0x00,
-        0x06, //string lenth
-        b'g',
-        b'.',
-        b'V',
-        b'(',
-        b'x',
-        b')', // g.V(x)
-        CORE_TYPE_STRING,
-        VALUE_PRESENT, //string key
-        0x00,
-        0x00,
-        0x00,
-        0x08, //string length
-        b'l',
-        b'a',
-        b'n',
-        b'g',
-        b'u',
-        b'a',
-        b'g',
-        b'e', //language
-        CORE_TYPE_STRING,
-        VALUE_PRESENT, //string value
-        0x00,
-        0x00,
-        0x00,
-        0x0e, //string length
-        b'g',
-        b'r',
-        b'e',
-        b'm',
-        b'l',
-        b'i',
-        b'n',
-        b'-',
-        b'g',
-        b'r',
-        b'o',
-        b'o',
-        b'v',
-        b'y', //gremlin-groovy
-        CORE_TYPE_STRING,
-        VALUE_PRESENT, // string key bindings
-        0x00,
-        0x00,
-        0x00,
-        0x08,
-        b'b',
-        b'i',
-        b'n',
-        b'd',
-        b'i',
-        b'n',
-        b'g',
-        b's',
-        CORE_TYPE_BINDING,
-        VALUE_PRESENT, //binding
-        0x00,
-        0x00,
-        0x00,
-        0x01, //string lenth of binding key
-        b'x', //key
-        CORE_TYPE_INT,
-        VALUE_PRESENT, //fq int with value 1
-        0x00,
-        0x00,
-        0x00,
-        0x01,
+        0x81, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
+        0xee, 0xff, 0x00, 0x00, 0x00, 0x04, b'e', b'v', b'a', b'l', 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x03, 0x03, 0x0, 0x00, 0x00, 0x00, 0x07, b'g', b'r', b'e', b'm', b'l', b'i',
+        b'n', 0x03, 0x0, 0x00, 0x00, 0x00, 0x06, b'g', b'.', b'V', b'(', b'x', b')', 0x03, 0x0,
+        0x00, 0x00, 0x00, 0x08, b'l', b'a', b'n', b'g', b'u', b'a', b'g', b'e', 0x03, 0x0, 0x00,
+        0x00, 0x00, 0x0e, b'g', b'r', b'e', b'm', b'l', b'i', b'n', b'-', b'g', b'r', b'o', b'o',
+        b'v', b'y', 0x3, 0x0, 0x00, 0x00, 0x00, 0x08, b'b', b'i', b'n', b'd', b'i', b'n', b'g',
+        b's', 0x14, 0x0, 0x00, 0x00, 0x00, 0x01, b'x', 0x1, 0x0, 0x00, 0x00, 0x00, 0x01,
     ];
 
     // let mut client = ClientBuilder::new("ws://127.0.0.1:8182/")
@@ -208,14 +101,147 @@ fn request_message_test() {
     // assert_eq!(msg,req.build_fq_bytes()[..])
 }
 
+#[derive(Debug)]
 struct Response {
     version: u8,
     request_id: Option<uuid::Uuid>,
     status_code: i32,
     status_message: Option<String>,
-    status_attribute: Map,
-    result_meta: Map,
+    status_attribute: HashMap<GraphBinary, GraphBinary>,
+    result_meta: HashMap<GraphBinary, GraphBinary>,
     result_data: GraphBinary,
+}
+
+impl Default for Response {
+    fn default() -> Self {
+        Self {
+            version: 0x81,
+            request_id: None,
+            status_code: 200,
+            status_message: None,
+            status_attribute: HashMap::new(),
+            result_meta: HashMap::new(),
+            result_data: GraphBinary::UnspecifiedNullObject,
+        }
+    }
+}
+
+impl Response {
+    fn new() -> Self {
+        Response {
+            version: u8::default(),
+            request_id: None,
+            status_code: i32::default(),
+            status_message: None,
+            status_attribute: HashMap::new(),
+            result_meta: HashMap::new(),
+            result_data: GraphBinary::UnspecifiedNullObject,
+        }
+    }
+
+    pub fn builder() -> ResponseBuilder {
+        ResponseBuilder {
+            resp: Response::new(),
+        }
+    }
+}
+
+#[test]
+fn test() {
+    let response = Response::builder()
+        .with_request_id(None)
+        .status_code(200)
+        .with_status_message(None)
+        .status_attribute(HashMap::new())
+        .result_meta(HashMap::new())
+        .result_data(42.into())
+        .build();
+}
+
+#[derive(Debug)]
+struct ResponseBuilder {
+    resp: Response,
+}
+
+impl ResponseBuilder {
+    pub fn with_version(mut self, version: u8) -> ResponseBuilder {
+        self.resp.version = version;
+        self
+    }
+
+    pub fn with_request_id(mut self, request_id: Option<Uuid>) -> ResponseBuilder {
+        self.resp.request_id = request_id;
+        self
+    }
+
+    pub fn status_code(mut self, status_code: i32) -> ResponseBuilder {
+        self.resp.status_code = status_code;
+        self
+    }
+
+    pub fn with_status_message(mut self, status_message: Option<String>) -> ResponseBuilder {
+        self.resp.status_message = status_message;
+        self
+    }
+
+    pub fn status_attribute(
+        mut self,
+        status_attribute: HashMap<GraphBinary, GraphBinary>,
+    ) -> ResponseBuilder {
+        self.resp.status_attribute = status_attribute;
+        self
+    }
+
+    pub fn result_meta(
+        mut self,
+        result_meta: HashMap<GraphBinary, GraphBinary>,
+    ) -> ResponseBuilder {
+        self.resp.result_meta = result_meta;
+        self
+    }
+
+    fn result_data(mut self, result_data: GraphBinary) -> ResponseBuilder {
+        self.resp.result_data = result_data;
+        self
+    }
+
+    fn build(self) -> Response {
+        self.resp
+    }
+}
+
+impl<'de> Deserialize<'de> for Response {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_bytes(ResponseVisitor)
+    }
+}
+
+struct ResponseVisitor;
+
+impl<'de> Visitor<'de> for ResponseVisitor {
+    type Value = Response;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "a struct Response")
+    }
+
+    fn visit_bytes<E>(self, mut v: &[u8]) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        // let version = u8::partial_decode(&mut v);
+        // let uuid = Uuid::partial_decode(&mut v);
+        // let status_code = i32::partial_decode(&mut v);
+        // let status_message = String::partial_decode(&mut v);
+        // let status_attributes = HashMap::<MapKeys, GraphBinary>::partial_decode(&mut v);
+        // let result_meta = HashMap::<MapKeys, GraphBinary>::partial_decode(&mut v);
+        // let result_data = GraphBinary::fully_self_decode(&mut v)?;
+
+        Ok(Response::new())
+    }
 }
 
 #[test]
@@ -224,22 +250,26 @@ fn print_msg() {
 
     args.insert(
         MapKeys::String("gremlin".to_string()),
-        GraphBinary::String("g.V(x).outE('created')".to_string()),
+        GraphBinary::String(
+            "g.E().hasLabel('test').subgraph('subGraph').cap('subGraph')".to_string(),
+        ),
     );
     args.insert(
         MapKeys::String("language".to_string()),
         GraphBinary::String("gremlin-groovy".to_string()),
     );
 
-    let mut bindings = HashMap::new();
-    bindings.insert(
-        MapKeys::String("x".to_string()),
-        GraphBinary::String("1".to_string()),
-    );
+    // let mut bindings = HashMap::new();
+    // bindings.insert(
+    //     MapKeys::String("x".to_string()),
+    //     GraphBinary::String("1".to_string()),
+    // );
 
     args.insert(
         MapKeys::String("bindings".to_string()),
-        GraphBinary::Map(Map { map: bindings }),
+        GraphBinary::Map(Map {
+            map: HashMap::new(),
+        }),
     );
 
     let args = Map { map: args };

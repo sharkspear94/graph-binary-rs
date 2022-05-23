@@ -1,6 +1,6 @@
 use crate::{
     error::EncodeError,
-    graph_binary::{Encode, INT32_TYPE_CODE, STRING_TYPE_CODE, VALUE_NULL, VALUE_PRESENT},
+    graph_binary::{Decode, Encode, INT32_TYPE_CODE, VALUE_NULL, VALUE_PRESENT},
     specs::CoreType,
 };
 use std::{collections::HashMap, ops::Deref};
@@ -63,6 +63,43 @@ where
         Ok(())
     }
 }
+
+impl<K, V> Decode for HashMap<K, V>
+where
+    K: Decode + std::cmp::Eq + std::hash::Hash,
+    V: Decode,
+{
+    fn expected_type_code() -> u8 {
+        CoreType::Map.into()
+    }
+
+    fn partial_decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let len = i32::partial_decode(reader)? as usize;
+        let mut hash_map = HashMap::with_capacity(len);
+        for _ in 0..len {
+            let key = K::fully_self_decode(reader)?;
+            let value = V::fully_self_decode(reader)?;
+
+            hash_map.insert(key, value); // TODO what happens if key is double present Error?
+        }
+
+        Ok(hash_map)
+    }
+
+    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
+        let t: [u8; 4] = bytes[0..4].try_into()?;
+        let size = i32::from_be_bytes(t) as usize;
+        let mut len = 4;
+        for _ in 0..size {
+            len += K::consumed_bytes(&bytes[len..])?;
+            len += V::consumed_bytes(&bytes[len..])?;
+        }
+        Ok(len)
+    }
+}
 // impl FullyQualifiedBytes for Map {
 //     fn get_type_code(&self) -> Bytes {
 //         Bytes::from_static(&[MAP_TYPE_CODE])
@@ -90,28 +127,8 @@ fn testing_map() {
     map.write_full_qualified_bytes(&mut buf).unwrap();
 
     let msg = [
-        MAP_TYPE_CODE,
-        VALUE_PRESENT,
-        0x0,
-        0x0,
-        0x0,
-        0x1, // Map len
-        INT32_TYPE_CODE,
-        VALUE_PRESENT,
-        0x0,
-        0x0,
-        0x0,
-        0x1, // Map key
-        STRING_TYPE_CODE,
-        VALUE_PRESENT, //string
-        0x0,
-        0x0,
-        0x0,
-        0x4, //string len
-        0x74,
-        0x65,
-        0x73,
-        0x74, //string bytes
+        0x0a, 0x0, 0x0, 0x0, 0x0, 0x1, 0x01, 0x0, 0x0, 0x0, 0x0, 0x1, 0x3, 0x0, 0x0, 0x0, 0x0, 0x4,
+        0x74, 0x65, 0x73, 0x74,
     ];
     assert_eq!(msg[..], buf);
 }
@@ -128,40 +145,40 @@ fn testing_nestet_map() {
     map.write_full_qualified_bytes(&mut buf).unwrap();
 
     let msg = [
-        MAP_TYPE_CODE,
-        VALUE_PRESENT,
-        0x0,
-        0x0,
-        0x0,
-        0x1, // Map len
-        INT32_TYPE_CODE,
-        VALUE_PRESENT,
-        0x0,
-        0x0,
-        0x0,
-        0x1, // Map key
-        MAP_TYPE_CODE,
-        VALUE_PRESENT, // Map value
-        0x0,
-        0x0,
-        0x0,
-        0x1, //inner Map len
-        INT32_TYPE_CODE,
-        VALUE_PRESENT,
-        0x0,
-        0x0,
-        0x0,
-        0x1, //inner Map key
-        STRING_TYPE_CODE,
-        VALUE_PRESENT, //string
-        0x0,
-        0x0,
-        0x0,
-        0x4, //string len
-        b't',
-        b'e',
-        b's',
-        b't', //string bytes
+        0x0a, 0x0, 0x0, 0x0, 0x0, 0x1, 0x01, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0a, 0x0, 0x0, 0x0, 0x0,
+        0x1, 0x01, 0x0, 0x0, 0x0, 0x0, 0x1, 0x3, 0x0, 0x0, 0x0, 0x0, 0x4, b't', b'e', b's', b't',
     ];
     assert_eq!(msg[..], buf);
+}
+
+#[test]
+fn testing_encode_hash_map() {
+    let mut map = HashMap::new();
+
+    map.insert(1, "test".to_owned());
+
+    let mut buf: Vec<u8> = vec![];
+    map.write_full_qualified_bytes(&mut buf).unwrap();
+
+    let msg = [
+        0x0a, 0x0, 0x0, 0x0, 0x0, 0x1, 0x01, 0x0, 0x0, 0x0, 0x0, 0x1, 0x3, 0x0, 0x0, 0x0, 0x0, 0x4,
+        0x74, 0x65, 0x73, 0x74,
+    ];
+    assert_eq!(msg[..], buf);
+}
+
+#[test]
+fn testing_decode_hash_map() {
+    let mut map = HashMap::new();
+
+    map.insert(1, "test".to_owned());
+
+    let msg = [
+        0x0a, 0x0, 0x0, 0x0, 0x0, 0x1, 0x01, 0x0, 0x0, 0x0, 0x0, 0x1, 0x3, 0x0, 0x0, 0x0, 0x0, 0x4,
+        0x74, 0x65, 0x73, 0x74,
+    ];
+    assert_eq!(
+        map,
+        HashMap::<i32, String>::fully_self_decode(&mut &msg[..]).unwrap()
+    );
 }

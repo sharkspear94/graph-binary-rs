@@ -8,7 +8,7 @@ use crate::graph_binary::{
     STRING_TYPE_CODE, VALUE_PRESENT,
 };
 
-use std::io::Read;
+use std::io::{Cursor, Error, Read, Seek};
 use std::slice;
 
 impl Encode for String {
@@ -53,6 +53,21 @@ impl Decode for String {
             _ => Ok(s),
         }
     }
+
+    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
+        let t: [u8; 4] = bytes[0..4].try_into()?;
+        let mut len = i32::from_be_bytes(t);
+        len += 4;
+        Ok(len as usize)
+    }
+}
+
+#[test]
+fn test_string_consume() {
+    assert_eq!(
+        10,
+        String::consumed_bytes(&[0x3, 0x0, 0x0, 0x0, 0x0, 0x4, 0x1, 0x03, 0x1, 0x4]).unwrap()
+    )
 }
 
 impl From<String> for GraphBinary {
@@ -102,6 +117,10 @@ impl Decode for u8 {
 
         Ok(u8::from_be_bytes(int))
     }
+
+    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+        Ok(1)
+    }
 }
 
 impl From<u8> for GraphBinary {
@@ -133,6 +152,10 @@ impl Decode for i16 {
 
         Ok(i16::from_be_bytes(int))
     }
+
+    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+        Ok(2)
+    }
 }
 
 impl From<i16> for GraphBinary {
@@ -163,6 +186,10 @@ impl Decode for i32 {
 
         Ok(i32::from_be_bytes(int))
     }
+
+    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+        Ok(4)
+    }
 }
 
 impl From<i32> for GraphBinary {
@@ -192,6 +219,10 @@ impl Decode for i64 {
         reader.read_exact(&mut int)?;
 
         Ok(i64::from_be_bytes(int))
+    }
+
+    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+        Ok(8)
     }
 }
 
@@ -224,6 +255,10 @@ impl Decode for f32 {
 
         Ok(f32::from_be_bytes(int))
     }
+
+    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+        Ok(4)
+    }
 }
 
 impl From<f32> for GraphBinary {
@@ -255,6 +290,10 @@ impl Decode for f64 {
 
         Ok(f64::from_be_bytes(int))
     }
+
+    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+        Ok(8)
+    }
 }
 
 impl From<f64> for GraphBinary {
@@ -285,6 +324,10 @@ impl Decode for Uuid {
         reader.read_exact(&mut buf)?;
 
         Ok(Uuid::from_bytes(buf))
+    }
+
+    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+        Ok(16)
     }
 }
 
@@ -325,6 +368,10 @@ impl Decode for bool {
             0x01 => Ok(false),
             _ => Err(DecodeError::DecodeError(String::from("bool"))),
         }
+    }
+
+    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+        Ok(1)
     }
 }
 
@@ -378,8 +425,8 @@ impl<T: Decode> Decode for Option<T> {
         let type_code = Self::expected_type_code();
         match (buf[0], buf[1]) {
             (code, 0) if code == type_code => Self::partial_decode(reader),
-            (code, 1) if code == type_code => Ok(None),
             (0xFE, 1) => Ok(None),
+            (code, 1) if code == type_code => Ok(None),
             (t, value_byte @ 2..=255) => Err(DecodeError::DecodeError(format!(
                 "Type Code and Value Byte does not hold valid value flag, found: TypeCode[{:#X}] expected TypeCode[{:#X}] and ValueFlag[{:#X}]",
                 t,
@@ -391,6 +438,23 @@ impl<T: Decode> Decode for Option<T> {
                 Self::expected_type_code(),
                 t,
                 flag
+            ))),
+        }
+    }
+
+    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
+        todo!()
+    }
+    fn consumed_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
+        let value = bytes
+            .get(1)
+            .ok_or_else(|| DecodeError::DecodeError("".to_string()))?;
+        match value {
+            1 => Ok(2),
+            0 => T::partial_count_bytes(&bytes[2..]),
+            rest => Err(DecodeError::DecodeError(format!(
+                "ValueFlag in Option<T> consumed bytes not a valid value found: {}",
+                rest
             ))),
         }
     }

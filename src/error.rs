@@ -26,10 +26,13 @@ pub enum DecodeError {
     Utf8Error(#[from] Utf8Error),
 
     #[error("converting from u8 to `{0}`")]
-    ConvertError(&'static str),
+    ConvertError(String),
 
     #[error("serialiezing")]
     DeserilizationError(String),
+
+    #[error("try from slice error")]
+    SliceError(#[from] std::array::TryFromSliceError),
 }
 
 impl ser::Error for EncodeError {

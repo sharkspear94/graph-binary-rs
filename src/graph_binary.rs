@@ -429,6 +429,41 @@ impl From<&MapKeys> for GraphBinary {
     }
 }
 
+impl Decode for MapKeys {
+    fn expected_type_code() -> u8 {
+        unimplemented!()
+    }
+
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        unimplemented!()
+    }
+
+    fn fully_self_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let mut buf = [255_u8; 2];
+        reader.read_exact(&mut buf)?;
+        match (buf[0], buf[1]) {
+            (0x01, 0) => Ok(MapKeys::Int(i32::partial_decode(reader)?)),
+            (0x02, 0) => Ok(MapKeys::Long(i64::partial_decode(reader)?)),
+            (0x03, 0) => Ok(MapKeys::String(String::partial_decode(reader)?)),
+            (0x0c, 0) => Ok(MapKeys::Uuid(Uuid::partial_decode(reader)?)),
+            (code, _) => Err(DecodeError::DecodeError(format!(
+                "{} CoreType found: MapKey not Supported in Rust must implement Eq and Hash",
+                code
+            ))),
+        }
+    }
+
+    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
+        todo!()
+    }
+}
+
 pub fn decode<R: Read>(reader: &mut R) -> Result<GraphBinary, DecodeError> {
     let mut buf = [255_u8; 2];
     reader.read_exact(&mut buf)?;
@@ -658,11 +693,11 @@ pub trait Encode {
 #[test]
 fn testing() {
     let mut buf: Vec<u8> = vec![];
-    15_i32.write_patial_bytes(&mut buf);
+    15_i32.write_patial_bytes(&mut buf).unwrap();
     assert_eq!([0x00, 0x00, 0x00, 0x0F], buf.as_slice());
 
     buf.clear();
-    15_i32.write_full_qualified_bytes(&mut buf);
+    15_i32.write_full_qualified_bytes(&mut buf).unwrap();
     assert_eq!([0x01, 0x00, 0x00, 0x00, 0x00, 0x0F], buf.as_slice());
 }
 

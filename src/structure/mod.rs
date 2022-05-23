@@ -15,4 +15,5 @@ pub mod metrics;
 pub mod path;
 pub mod traverser;
 pub mod tree;
+pub mod bytecode;
 pub mod vertex_property;

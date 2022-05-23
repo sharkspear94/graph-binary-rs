@@ -84,9 +84,19 @@ impl<T: Decode> Decode for Vec<T> {
         }
         let mut list: Vec<T> = Vec::with_capacity(len as usize);
         for _ in 0..len {
-            list.push(T::partial_decode(reader)?)
+            list.push(T::fully_self_decode(reader)?)
         }
         Ok(list)
+    }
+
+    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
+        let t: [u8; 4] = bytes[0..4].try_into()?;
+        let vec_len = i32::from_be_bytes(t);
+        let mut len = 4;
+        for _ in 0..vec_len {
+            len += T::consumed_bytes(&bytes[len..])?
+        }
+        Ok(len)
     }
 }
 
@@ -111,6 +121,20 @@ fn vec_decode_test() {
             }
         )
     }
+}
+
+#[test]
+fn vec_consume_bytes() {
+    let reader: Vec<u8> = vec![
+        0x0, 0x0, 0x0, 0x04, 0x01, 0x0, 0x0, 0x0, 0x0, 0x04, 0x01, 0x0, 0x0, 0x0, 0x0, 0x04, 0x01,
+        0x0, 0x0, 0x0, 0x0, 0x04, 0x01, 0x0, 0x0, 0x0, 0x0, 0x04,
+    ];
+
+    let s = Vec::<GraphBinary>::partial_count_bytes(&reader);
+
+    assert!(s.is_ok());
+    let s = s.unwrap();
+    assert_eq!(reader.len(), s);
 }
 
 // // importent to garanty that all types are same type

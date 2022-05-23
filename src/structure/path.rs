@@ -18,8 +18,7 @@ impl Encode for Path {
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
-        self.labels.write_full_qualified_bytes(writer)?;
-
-        todo!() // objects
+        self.labels.write_patial_bytes(writer)?;
+        self.objects.write_patial_bytes(writer)
     }
 }
