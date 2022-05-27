@@ -1,6 +1,6 @@
 #[macro_export]
-macro_rules! struct_deserialize {
-    ($(($t:ident,$visitor:ident)),*) => {
+macro_rules! struct_de_serialize {
+    ($(($t:ident,$visitor:ident,$capa:literal)),*) => {
         $(
             impl<'de> serde::Deserialize<'de> for $t {
                 fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -29,6 +29,21 @@ macro_rules! struct_deserialize {
                         Err(_) => Err(E::custom(concat!(stringify!($t)," Visitor Decode Error"))),
                     }
                 }
+            }
+
+            impl serde::ser::Serialize for $t {
+                fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut buf: Vec<u8> = Vec::with_capacity(64);
+        match self.write_full_qualified_bytes(&mut buf) {
+            Ok(_) => serializer.serialize_bytes(&buf),
+            Err(e) => Err(serde::ser::Error::custom(format!(
+                "serilization Error of {}: reason: {}",stringify!($t),e
+            ))),
+        }
+    }
             }
          )*
     };
