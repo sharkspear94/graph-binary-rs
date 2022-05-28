@@ -62,14 +62,6 @@ impl Decode for String {
     }
 }
 
-#[test]
-fn test_string_consume() {
-    assert_eq!(
-        10,
-        String::consumed_bytes(&[0x3, 0x0, 0x0, 0x0, 0x0, 0x4, 0x1, 0x03, 0x1, 0x4]).unwrap()
-    )
-}
-
 impl From<String> for GraphBinary {
     fn from(s: String) -> Self {
         GraphBinary::String(s)
@@ -442,8 +434,10 @@ impl<T: Decode> Decode for Option<T> {
         }
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
-        todo!()
+    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+        unimplemented!(
+            "partial_count_bytes not supported for Option<T> use consumed_bytes or Graphbinray"
+        )
     }
     fn consumed_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
         let value = bytes
@@ -574,6 +568,21 @@ fn decode_string_test() {
     assert!(s.is_ok());
 
     assert_eq!("host", s.unwrap().as_str())
+}
+
+#[test]
+fn test_string_consume() {
+    assert_eq!(
+        10,
+        String::consumed_bytes(&[0x3, 0x0, 0x0, 0x0, 0x0, 0x4, 0x1, 0x03, 0x1, 0x4]).unwrap()
+    )
+}
+#[test]
+fn test_string_utf8() {
+    let reader = vec![0x3_u8, 0x0, 0x0, 0x0, 0x0, 0x4, 240, 159, 146, 150];
+
+    let s = String::fully_self_decode(&mut &*reader).unwrap();
+    assert_eq!("💖", s);
 }
 
 #[test]
