@@ -1,24 +1,28 @@
 use crate::{
     graph_binary::{Decode, Encode, GraphBinary},
     specs::CoreType,
+    struct_de_serialize,
 };
 
-struct Bytecode {
+#[derive(Debug, PartialEq)]
+pub struct ByteCode {
     steps: Vec<Step>,
     sources: Vec<Source>,
 }
 
+#[derive(Debug, PartialEq)]
 struct Step {
     name: String,
     values: Vec<GraphBinary>,
 }
 
+#[derive(Debug, PartialEq)]
 struct Source {
     name: String,
     values: Vec<GraphBinary>,
 }
 
-impl Encode for Bytecode {
+impl Encode for ByteCode {
     fn type_code() -> u8 {
         CoreType::ByteCode.into()
     }
@@ -43,7 +47,7 @@ impl Encode for Bytecode {
     }
 }
 
-impl Decode for Bytecode {
+impl Decode for ByteCode {
     fn expected_type_code() -> u8 {
         CoreType::ByteCode.into()
     }
@@ -68,7 +72,7 @@ impl Decode for Bytecode {
             sources.push(Source { name, values })
         }
 
-        Ok(Bytecode { steps, sources })
+        Ok(ByteCode { steps, sources })
     }
 
     fn partial_count_bytes(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
@@ -89,3 +93,5 @@ impl Decode for Bytecode {
         Ok(len)
     }
 }
+
+struct_de_serialize!((ByteCode, ByteCodeVisitor, 32));
