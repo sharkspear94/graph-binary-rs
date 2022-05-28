@@ -1,6 +1,7 @@
 use crate::{
     graph_binary::{Decode, Encode, GraphBinary},
     specs::{self, CoreType},
+    struct_de_serialize,
 };
 
 use super::{property::Property, vertex::Vertex};
@@ -12,12 +13,6 @@ pub struct VertexProperty {
     pub value: Box<GraphBinary>,
     pub parent: Option<Vertex>,
     pub properties: Option<Vec<Property>>,
-}
-
-impl From<VertexProperty> for GraphBinary {
-    fn from(v: VertexProperty) -> Self {
-        GraphBinary::VertexProperty(v)
-    }
 }
 
 impl Encode for VertexProperty {
@@ -72,3 +67,5 @@ impl Decode for VertexProperty {
         Ok(len)
     }
 }
+
+struct_de_serialize!((VertexProperty, VertexVertexProperty, 32));
