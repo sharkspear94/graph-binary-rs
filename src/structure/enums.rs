@@ -326,20 +326,20 @@ impl P {
             P::Inside(v1, v2) => {
                 "inside".write_full_qualified_bytes(writer)?;
                 2_i32.write_patial_bytes(writer)?; // len of tuple only len = 2 will be used
-                v1.build_fq_bytes(writer)?;
-                v2.build_fq_bytes(writer)
+                v1.write_full_qualified_bytes(writer)?;
+                v2.write_full_qualified_bytes(writer)
             }
             P::Outside(v1, v2) => {
                 "outside".write_full_qualified_bytes(writer)?;
                 2_i32.write_patial_bytes(writer)?; // len of tuple only len = 2 will be used
-                v1.build_fq_bytes(writer)?;
-                v2.build_fq_bytes(writer)
+                v1.write_full_qualified_bytes(writer)?;
+                v2.write_full_qualified_bytes(writer)
             }
             P::Between(v1, v2) => {
                 "between".write_full_qualified_bytes(writer)?;
                 2_i32.write_patial_bytes(writer)?; // len of tuple only len = 2 will be used
-                v1.build_fq_bytes(writer)?;
-                v2.build_fq_bytes(writer)
+                v1.write_full_qualified_bytes(writer)?;
+                v2.write_full_qualified_bytes(writer)
             }
             P::Within(v) => {
                 "within".write_full_qualified_bytes(writer)?;
@@ -717,6 +717,12 @@ macro_rules! de_serialize_impls {
                 self.write_full_qualified_bytes(&mut buf)
                     .expect(concat!("error during write of ", stringify!($t)));
                 serializer.serialize_bytes(&buf[..])
+            }
+        }
+
+        impl From<$t> for GraphBinary {
+            fn from(val: $t) -> Self {
+                GraphBinary::$t(val)
             }
         }
 
