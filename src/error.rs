@@ -1,5 +1,5 @@
 use serde::ser;
-use std::{io, str::Utf8Error, string::FromUtf8Error};
+use std::{io, num::TryFromIntError, str::Utf8Error, string::FromUtf8Error};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -33,6 +33,9 @@ pub enum DecodeError {
 
     #[error("try from slice error")]
     SliceError(#[from] std::array::TryFromSliceError),
+
+    #[error("try from int error")]
+    TryError(#[from] TryFromIntError),
 }
 
 impl ser::Error for EncodeError {
