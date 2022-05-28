@@ -1,10 +1,10 @@
-use serde::Serialize;
+use serde::{ser, Serialize};
 
 use crate::{
     de::from_slice,
     graph_binary::{Decode, Encode, GraphBinary},
     specs::{self, CoreType},
-    struct_deserialize,
+    struct_de_serialize,
 };
 
 use super::{property::Property, vertex::Vertex};
@@ -38,18 +38,6 @@ impl Encode for Edge {
         self.out_v_label.write_patial_bytes(writer)?;
         self.parent.write_full_qualified_bytes(writer)?;
         self.properties.write_full_qualified_bytes(writer)
-    }
-}
-
-impl Serialize for Edge {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut buf: Vec<u8> = Vec::with_capacity(64);
-        self.write_full_qualified_bytes(&mut buf)
-            .expect("error during Edge write");
-        serializer.serialize_bytes(&buf)
     }
 }
 
@@ -96,7 +84,7 @@ impl Decode for Edge {
     }
 }
 
-struct_deserialize!((Edge, EdgeVisitor));
+struct_de_serialize!((Edge, EdgeVisitor, 64));
 
 #[test]
 fn edge_none_encode_test() {
@@ -149,6 +137,7 @@ fn edge_none_encode_test() {
 //             properties: Box::new(Some(GraphBinary::Property(Property {
 //                 key: "name".to_string(),
 //                 value: Box::new("marko".into()),
+//                 parent: None,
 //             }))),
 //         }),
 //         properties: None,
