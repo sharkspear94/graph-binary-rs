@@ -2,12 +2,13 @@ use std::collections::{HashMap, HashSet};
 use std::io::Read;
 mod deser_gb;
 
-use serde::de::{EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor};
-use serde::Deserialize;
+use serde::de::{DeserializeOwned, EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::error::DecodeError;
 use crate::graph_binary::{decode, ValueFlag};
+use crate::ser::to_bytes;
 use crate::structure::binding::Binding;
 use crate::structure::edge::Edge;
 use crate::structure::enums::{
@@ -29,7 +30,7 @@ use crate::{
     // structure::{enums::T, list::List},
 };
 
-use self::deser_gb::{EnumDeser, GraphBinaryVisitor};
+use self::deser_gb::GraphBinaryVisitor;
 
 // pub fn from_reader<'a, R: Read, T: Deserialize<'a>>(reader: R) -> Result<T, DecodeError> {
 //     let deserializer = Deserializer::new(reader);
@@ -41,15 +42,17 @@ pub fn from_slice<'a, T: Deserialize<'a>>(slice: &'a [u8]) -> Result<T, DecodeEr
     T::deserialize(&mut deserializer)
 }
 
+pub fn from_reader<R: Read, T: DeserializeOwned>(reader: &mut R) -> Result<T, DecodeError> {
+    let mut buf: Vec<u8> = Vec::new();
+    reader.read_to_end(&mut buf)?;
+    from_slice(&buf[..])
+}
+
 pub struct Deserializer<'de> {
     bytes: &'de [u8],
 }
 
 impl<'de> Deserializer<'de> {
-    // fn from_reader<R: Read>(reader: R) -> Self {
-    //     Deserializer { bytes: reader.read_to_end(buf) }
-    // }
-
     fn from_slice(slice: &'de [u8]) -> Self {
         Deserializer { bytes: slice }
     }
@@ -154,8 +157,16 @@ impl<'de> serde::Deserializer<'de> for VertexDeserializer<'de> {
         visitor.visit_bytes(self.value_bytes)
     }
 
+    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let mut deser = Deserializer::from_slice(self.value_bytes);
+        deser.deserialize_seq(visitor)
+    }
+
     serde::forward_to_deserialize_any! {
-        bool u8 u16 u32 u64 i8 i16 i32 i64 f32 f64 char str string seq
+        bool u8 u16 u32 u64 i8 i16 i32 i64 f32 f64 char str string
         bytes byte_buf map struct option unit newtype_struct
         ignored_any unit_struct tuple_struct tuple enum identifier
     }
@@ -173,7 +184,7 @@ impl<'de> serde::Deserializer<'de> for &mut Deserializer<'de> {
 
         match self.peek_identifier_tuple()? {
             (_, ValueFlag::Null) => {
-                self.pop_identifier_tuple()?;
+                // self.pop_identifier_tuple()?;
                 visitor.visit_none()
             }
             (CoreType::Int32, _) => visitor.visit_i32(i32::fully_self_decode(&mut self.bytes)?),
@@ -186,8 +197,9 @@ impl<'de> serde::Deserializer<'de> for &mut Deserializer<'de> {
             }
             (CoreType::Double, _) => visitor.visit_f64(f64::fully_self_decode(&mut self.bytes)?),
             (CoreType::Float, _) => visitor.visit_f32(f32::fully_self_decode(&mut self.bytes)?),
-            (CoreType::List | CoreType::Set, _) => self.deserialize_seq(visitor),
-            (CoreType::Map, _) => self.deserialize_map(visitor),
+            (CoreType::List, _) => self.deserialize_seq(visitor),
+            (c @ CoreType::Set, _) => self.forward_to_map::<V, Vec<GraphBinary>>(visitor, c),
+            (CoreType::Map, _) => todo!(),
             (c @ CoreType::Uuid, _) => self.forward_to_map::<V, Uuid>(visitor, c),
             (CoreType::Edge, _) => self.forward_to_map::<V, Edge>(visitor, CoreType::Edge),
             // (c @ CoreType::Path, _) => self.forward_to_map::<V, Path>(visitor, c),
@@ -298,7 +310,7 @@ impl<'de> serde::Deserializer<'de> for &mut Deserializer<'de> {
         todo!()
     }
 
-    fn deserialize_f32<V>(mut self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
@@ -371,18 +383,18 @@ impl<'de> serde::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: serde::de::Visitor<'de>,
     {
-        todo!()
+        visitor.visit_none()
     }
 
     fn deserialize_unit_struct<V>(
         self,
-        name: &'static str,
+        _name: &'static str,
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
-        todo!()
+        visitor.visit_none()
     }
 
     fn deserialize_newtype_struct<V>(
@@ -401,14 +413,7 @@ impl<'de> serde::Deserializer<'de> for &mut Deserializer<'de> {
         V: serde::de::Visitor<'de>,
     {
         match self.get_type_info()? {
-            (CoreType::List, ValueFlag::Set) => {
-                let len = i32::partial_decode(&mut self.bytes)? as usize;
-                visitor.visit_seq(SeqAccessDeserializer {
-                    deserializer: self,
-                    size: len,
-                })
-            }
-            (CoreType::Set, ValueFlag::Set) => {
+            (CoreType::List | CoreType::Set, ValueFlag::Set) => {
                 let len = i32::partial_decode(&mut self.bytes)? as usize;
                 visitor.visit_seq(SeqAccessDeserializer {
                     deserializer: self,
@@ -448,17 +453,8 @@ impl<'de> serde::Deserializer<'de> for &mut Deserializer<'de> {
         match self.get_type_info()? {
             (CoreType::Map, _) => {
                 let len = i32::partial_decode(&mut self.bytes)? as usize;
-                visitor.visit_map(SeqAccessDeserializer {
-                    deserializer: self,
-                    size: len,
-                })
+                visitor.visit_map(SeqAccessDeserializer::new(self, len))
             }
-            // (CoreType::Vertex, _) => {
-            //     visitor.visit_map(MapDeser {
-            //         deserializer: self,
-            //         hint: CoreType::Vertex,
-            //     })
-            // }
             (core_type, _) => Err(DecodeError::DeserilizationError(format!(
                 "deserialize map with typecode {:#X}",
                 u8::from(core_type)
@@ -566,69 +562,26 @@ impl<'de, 'a> MapAccess<'de> for SeqAccessDeserializer<'a, 'de> {
     }
 }
 
-// struct EnumDeserializer<'a, 'de: 'a> {
-//     deserializer: &'a mut Deserializer<'de>,
-//     core_type: CoreType,
-// }
+pub struct U8Deser {
+    byte: u8,
+}
 
-// impl<'de, 'a> EnumAccess<'de> for EnumDeserializer<'a, 'de> {
-//     type Error = DecodeError;
+impl<'de> serde::Deserializer<'de> for U8Deser {
+    type Error = DecodeError;
 
-//     type Variant = Vertex;
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_u8(self.byte)
+    }
 
-//     fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
-//     where
-//         V: serde::de::DeserializeSeed<'de>,
-//     {
-//         match self.core_type {
-//             CoreType::Int32 => todo!(),
-//             CoreType::Long => todo!(),
-//             CoreType::String => todo!(),
-//             CoreType::Class => todo!(),
-//             CoreType::Double => todo!(),
-//             CoreType::Float => todo!(),
-//             CoreType::List => todo!(),
-//             CoreType::Set => todo!(),
-//             CoreType::Map => todo!(),
-//             CoreType::Uuid => todo!(),
-//             CoreType::Edge => todo!(),
-//             CoreType::Path => todo!(),
-//             CoreType::Property => todo!(),
-//             CoreType::Graph => todo!(),
-//             CoreType::Vertex => Ok((
-//                 seed.deserialize(&mut *self.deserializer)?,
-//                 GraphBinary::Vertex(Vertex::fully_self_decode(&mut self.deserializer.bytes)?),
-//             )),
-//             CoreType::VertexProperty => todo!(),
-//             CoreType::Barrier => todo!(),
-//             CoreType::Binding => todo!(),
-//             CoreType::ByteCode => todo!(),
-//             CoreType::Cardinality => todo!(),
-//             CoreType::Column => todo!(),
-//             CoreType::Direction => todo!(),
-//             CoreType::Operator => todo!(),
-//             CoreType::Order => todo!(),
-//             CoreType::Pick => todo!(),
-//             CoreType::Pop => todo!(),
-//             CoreType::Lambda => todo!(),
-//             CoreType::P => todo!(),
-//             CoreType::Scope => todo!(),
-//             CoreType::T => todo!(),
-//             CoreType::Traverser => todo!(),
-//             CoreType::Byte => todo!(),
-//             CoreType::ByteBuffer => todo!(),
-//             CoreType::Short => todo!(),
-//             CoreType::Boolean => todo!(),
-//             CoreType::TextP => todo!(),
-//             CoreType::TraversalStrategy => todo!(),
-//             CoreType::Tree => todo!(),
-//             CoreType::Metrics => todo!(),
-//             CoreType::TraversalMetrics => todo!(),
-//             CoreType::Merge => todo!(),
-//             CoreType::UnspecifiedNullObject => todo!(),
-//         }
-//     }
-// }
+    serde::forward_to_deserialize_any! {
+        bool u8 u16 u32 u64 i8 i16 i32 i64 f32 f64 char str string seq
+        bytes byte_buf map struct option unit newtype_struct
+        ignored_any unit_struct tuple_struct tuple enum identifier
+    }
+}
 
 #[test]
 fn test_bool() {
@@ -700,6 +653,18 @@ fn test_seq() {
 }
 
 #[test]
+fn test_seq_array() {
+    let reader = vec![
+        0x9_u8, 0x0, 0x0, 0x0, 0x0, 0x2, 0x1, 0x0, 0x0, 0x0, 0x0, 0xff, 0x1_u8, 0x0, 0x0, 0x0, 0x0,
+        0xff,
+    ];
+
+    let val: [i32; 2] = from_slice(&reader).unwrap();
+
+    assert_eq!([255, 255], val)
+}
+
+#[test]
 fn test_seq_set() {
     let reader = vec![
         0x0b_u8, 0x0, 0x0, 0x0, 0x0, 0x2, 0x1, 0x0, 0x0, 0x0, 0x0, 0xfe, 0x1_u8, 0x0, 0x0, 0x0,
@@ -721,12 +686,8 @@ fn test_empty_seq() {
 
 #[test]
 fn test_tuple() {
-    let reader = vec![
-        0x9_u8, 0x0, 0x0, 0x0, 0x0, 0x2, 0x1, 0x0, 0x0, 0x0, 0x0, 0xff, 0x1_u8, 0x0, 0x0, 0x0, 0x0,
-        0xff,
-    ];
-
-    let tuple = from_slice(&reader).unwrap();
+    let mut file = std::fs::File::open("testfile").unwrap();
+    let tuple = from_reader(&mut file).unwrap();
 
     assert_eq!((255, 255), tuple)
 }
@@ -809,28 +770,59 @@ fn test_tuple_2() {
         0x01_u8, 0x0, 0x00, 0x0, 0x0, 0x1,
     ];
 
-    let res = from_slice::<(String, i32)>(&reader[..]).unwrap();
+    let res = from_reader::<&[u8], (String, i32)>(&mut &reader[..]).unwrap();
 
     assert_eq!(res, ("test".to_string(), 1))
 }
 
-pub struct U8Deser {
-    byte: u8,
+#[test]
+fn test_ser_deser() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct TestStruct {
+        abc: Option<i32>,
+        test: i32,
+    }
+
+    let test_struct = TestStruct {
+        abc: Some(6),
+        test: -1,
+    };
+
+    let res = to_bytes(test_struct).unwrap();
+
+    let val = from_slice(&res).unwrap();
+
+    assert_eq!(
+        TestStruct {
+            abc: Some(6),
+            test: -1
+        },
+        val
+    )
 }
 
-impl<'de> serde::Deserializer<'de> for U8Deser {
-    type Error = DecodeError;
-
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        visitor.visit_u8(self.byte)
+#[test]
+fn test_ser_deser_gb() {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct TestStruct {
+        abc: Option<i32>,
+        test: GraphBinary,
     }
 
-    serde::forward_to_deserialize_any! {
-        bool u8 u16 u32 u64 i8 i16 i32 i64 f32 f64 char str string seq
-        bytes byte_buf map struct option unit newtype_struct
-        ignored_any unit_struct tuple_struct tuple enum identifier
-    }
+    let test_struct = TestStruct {
+        abc: Some(6),
+        test: GraphBinary::Column(Column::Keys),
+    };
+
+    let res = to_bytes(test_struct).unwrap();
+
+    let val = from_slice(&res).unwrap();
+
+    assert_eq!(
+        TestStruct {
+            abc: Some(6),
+            test: GraphBinary::Column(Column::Keys)
+        },
+        val
+    )
 }
