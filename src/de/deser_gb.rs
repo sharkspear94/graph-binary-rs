@@ -1,5 +1,5 @@
 use serde::{
-    de::{EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor},
+    de::{self, EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor},
     Deserialize,
 };
 
@@ -8,8 +8,13 @@ use crate::{
     graph_binary::{Decode, GraphBinary},
     specs::CoreType,
     structure::{
+        binding::Binding,
         edge::Edge,
-        enums::{Barrier, Merge, Order, TextP, P, T},
+        enums::{
+            Barrier, Cardinality, Column, Direction, Merge, Operator, Order, Pick, Pop, Scope,
+            TextP, P, T,
+        },
+        graph::Graph,
         metrics::{Metrics, TraversalMetrics},
         vertex::Vertex,
     },
@@ -98,12 +103,8 @@ impl<'de> Visitor<'de> for GraphBinaryVisitor {
         while let Some(item) = seq.next_element()? {
             vec.push(item)
         }
+
         Ok(GraphBinary::List(vec))
-        // match variant {
-        //     CoreType::List => Ok(GraphBinary::List(vec)),
-        //     CoreType::Set => Ok(GraphBinary::Set(vec)),
-        //     _ => todo!(),
-        // }
     }
 
     fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
@@ -156,6 +157,22 @@ impl<'de> Visitor<'de> for GraphBinaryVisitor {
                 let b = map.next_value::<Barrier>()?;
                 Ok(GraphBinary::Barrier(b))
             }
+            CoreType::Cardinality => {
+                let c = map.next_value::<Cardinality>()?;
+                Ok(GraphBinary::Cardinality(c))
+            }
+            CoreType::Column => {
+                let c = map.next_value::<Column>()?;
+                Ok(GraphBinary::Column(c))
+            }
+            CoreType::Direction => {
+                let o = map.next_value::<Direction>()?;
+                Ok(GraphBinary::Direction(o))
+            }
+            CoreType::Operator => {
+                let o = map.next_value::<Operator>()?;
+                Ok(GraphBinary::Operator(o))
+            }
             CoreType::Order => {
                 let o = map.next_value::<Order>()?;
                 Ok(GraphBinary::Order(o))
@@ -180,64 +197,55 @@ impl<'de> Visitor<'de> for GraphBinaryVisitor {
                 let tm = map.next_value::<TraversalMetrics>()?;
                 Ok(GraphBinary::TraversalMetrics(tm))
             }
-
-            _ => todo!(),
+            CoreType::Set => {
+                let set = map.next_value::<Vec<GraphBinary>>()?;
+                Ok(GraphBinary::Set(set))
+            }
+            CoreType::Int32 => todo!(),
+            CoreType::Long => todo!(),
+            CoreType::String => todo!(),
+            CoreType::Class => todo!(),
+            CoreType::Double => todo!(),
+            CoreType::Float => todo!(),
+            CoreType::List => todo!(),
+            CoreType::Map => todo!(),
+            CoreType::Uuid => todo!(),
+            CoreType::Path => todo!(),
+            CoreType::Property => todo!(),
+            CoreType::Graph => {
+                let b = map.next_value::<Graph>()?;
+                Ok(GraphBinary::Graph(b))
+            }
+            CoreType::VertexProperty => todo!(),
+            CoreType::Binding => {
+                let b = map.next_value::<Binding>()?;
+                Ok(GraphBinary::Binding(b))
+            }
+            CoreType::ByteCode => todo!(),
+            CoreType::Pick => {
+                let p = map.next_value::<Pick>()?;
+                Ok(GraphBinary::Pick(p))
+            }
+            CoreType::Pop => {
+                let p = map.next_value::<Pop>()?;
+                Ok(GraphBinary::Pop(p))
+            }
+            CoreType::Lambda => todo!(),
+            CoreType::Scope => {
+                let s = map.next_value::<Scope>()?;
+                Ok(GraphBinary::Scope(s))
+            }
+            CoreType::Traverser => todo!(),
+            CoreType::Byte => todo!(),
+            CoreType::ByteBuffer => todo!(),
+            CoreType::Short => todo!(),
+            CoreType::Boolean => todo!(),
+            CoreType::TraversalStrategy => todo!(),
+            CoreType::Tree => todo!(),
+            CoreType::Merge => todo!(),
+            CoreType::UnspecifiedNullObject => todo!(),
+            // _ => todo!(),
         }
-    }
-}
-
-pub struct EnumDeser<'a, 'de: 'a> {
-    pub de: &'a mut Deserializer<'de>,
-    // pub gb: GraphBinary,
-}
-
-impl<'a, 'de> EnumAccess<'de> for EnumDeser<'a, 'de> {
-    type Error = DecodeError;
-
-    type Variant = Self;
-
-    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
-    where
-        V: serde::de::DeserializeSeed<'de>,
-    {
-        let val = seed.deserialize(&mut *self.de)?;
-        Ok((val, self))
-    }
-}
-
-// struct NewTypeVariantDeserializer;
-
-impl<'de, 'a> VariantAccess<'de> for EnumDeser<'a, 'de> {
-    type Error = DecodeError;
-
-    fn unit_variant(self) -> Result<(), Self::Error> {
-        todo!()
-    }
-
-    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Self::Error>
-    where
-        T: serde::de::DeserializeSeed<'de>,
-    {
-        seed.deserialize(self.de)
-        // todo!()
-    }
-
-    fn tuple_variant<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
-    }
-
-    fn struct_variant<V>(
-        self,
-        fields: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        todo!()
     }
 }
 
