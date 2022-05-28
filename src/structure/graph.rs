@@ -1,6 +1,7 @@
 use crate::{
     graph_binary::{Decode, Encode, GraphBinary},
     specs::{self, CoreType},
+    struct_de_serialize,
 };
 
 use super::{
@@ -26,12 +27,6 @@ struct GraphEdge {
     out_v_label: Option<String>,
     parent: Option<Vertex>,
     properties: Vec<Property>,
-}
-
-impl From<Graph> for GraphBinary {
-    fn from(g: Graph) -> Self {
-        GraphBinary::Graph(g)
-    }
 }
 
 impl Decode for GraphEdge {
@@ -68,10 +63,9 @@ impl Decode for GraphEdge {
         let mut len = GraphBinary::consumed_bytes(bytes)?;
         len += String::partial_count_bytes(&bytes[len..])?;
         len += GraphBinary::consumed_bytes(&bytes[len..])?;
-        len += Option::<String>::partial_count_bytes(&bytes[len..])?;
+        len += Option::<String>::consumed_bytes(&bytes[len..])?; //TODO not sure if correct
         len += GraphBinary::consumed_bytes(&bytes[len..])?;
-        len += Option::<String>::partial_count_bytes(&bytes[len..])?;
-        len += GraphBinary::consumed_bytes(&bytes[len..])?;
+        len += Option::<String>::consumed_bytes(&bytes[len..])?; //TODO not sure if correct
         len += Option::<Vertex>::consumed_bytes(&bytes[len..])?;
         len += Vec::<Property>::partial_count_bytes(&bytes[len..])?;
 
@@ -181,9 +175,38 @@ impl Decode for Graph {
     }
 
     fn partial_count_bytes(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        todo!()
+        let t: [u8; 4] = bytes[0..4].try_into()?;
+        let v_len = i32::from_be_bytes(t);
+        let mut len = 4;
+        for _ in 0..v_len {
+            len += GraphBinary::consumed_bytes(&bytes[len..])?;
+            len += String::partial_count_bytes(&bytes[len..])?;
+
+            let t: [u8; 4] = bytes[len..len + 4].try_into()?;
+            let p_len = i32::from_be_bytes(t);
+            len += 4;
+
+            for _ in 0..p_len {
+                len += GraphBinary::consumed_bytes(&bytes[len..])?;
+                len += String::partial_count_bytes(&bytes[len..])?;
+                len += GraphBinary::consumed_bytes(&bytes[len..])?;
+                len += 2; //parent is always null
+                len += Vec::<Property>::partial_count_bytes(&bytes[len..])?;
+            }
+        }
+
+        let t: [u8; 4] = bytes[len..len + 4].try_into()?;
+        let e_len = i32::from_be_bytes(t);
+        len += 4;
+
+        for _ in 0..e_len {
+            len += GraphEdge::partial_count_bytes(&bytes[len..])?;
+        }
+        Ok(len)
     }
 }
+
+struct_de_serialize!((Graph, GraphVisitor, 254));
 
 #[test]
 fn encode_graph_test() {
