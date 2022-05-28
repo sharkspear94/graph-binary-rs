@@ -45,6 +45,12 @@ macro_rules! struct_de_serialize {
         }
     }
             }
+
+            impl From<$t> for GraphBinary {
+                fn from(g: $t) -> Self {
+                    GraphBinary::$t(g)
+                }
+            }
          )*
     };
 }
