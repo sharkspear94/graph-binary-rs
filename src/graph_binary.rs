@@ -3,11 +3,12 @@ use std::io::{Read, Write};
 
 use crate::structure::binding::Binding;
 use crate::structure::enums::{
-    Barrier, Cardinality, Column, Direction, Operator, Order, Pick, Pop, Scope, TextP, P, T,
+    Barrier, Cardinality, Column, Direction, Merge, Operator, Order, Pick, Pop, Scope, TextP, P, T,
 };
 use crate::structure::graph::Graph;
 use crate::structure::lambda::Lambda;
 // use crate::structure::list::List1;
+use crate::structure::bytecode::ByteCode;
 use crate::structure::metrics::{Metrics, TraversalMetrics};
 use crate::structure::path::Path;
 use crate::structure::property::Property;
@@ -59,7 +60,7 @@ pub enum GraphBinary {
     VertexProperty(VertexProperty),
     Barrier(Barrier),
     Binding(Binding),
-    ByteCode(Vec<u8>),
+    ByteCode(ByteCode),
     Cardinality(Cardinality),
     Column(Column),
     Direction(Direction),
@@ -84,6 +85,7 @@ pub enum GraphBinary {
     Tree(BTreeSet<GraphBinary>),
     Metrics(Metrics),
     TraversalMetrics(TraversalMetrics),
+    Merge(Merge),
     UnspecifiedNullObject,
     // Custom
 }
@@ -98,39 +100,37 @@ impl GraphBinary {
         match self {
             GraphBinary::Int(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::Long(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::String(s) => s.write_full_qualified_bytes(writer),
+            GraphBinary::String(val) => val.write_full_qualified_bytes(writer),
             // CoreType::Date(_) => todo!(),
             // CoreType::Timestamp(_) => todo!(),
-            GraphBinary::Class(class) => class.write_full_qualified_bytes(writer),
+            GraphBinary::Class(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::Double(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::Float(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::List(list) => list.write_full_qualified_bytes(writer),
-            GraphBinary::Set(set) => set.write_full_qualified_bytes(writer),
-            GraphBinary::Map(map) => map.write_full_qualified_bytes(writer),
-            GraphBinary::Uuid(uuid) => uuid.write_full_qualified_bytes(writer),
-            GraphBinary::Edge(edge) => edge.write_full_qualified_bytes(writer),
-            GraphBinary::Path(path) => path.write_full_qualified_bytes(writer),
-            GraphBinary::Property(prop) => prop.write_full_qualified_bytes(writer),
-            GraphBinary::Graph(graph) => graph.write_full_qualified_bytes(writer),
-            GraphBinary::Vertex(vertex) => vertex.write_full_qualified_bytes(writer),
-            GraphBinary::VertexProperty(vertex_prop) => {
-                vertex_prop.write_full_qualified_bytes(writer)
-            }
-            GraphBinary::Barrier(_) => todo!(),
-            GraphBinary::Binding(binding) => todo!(),
+            GraphBinary::List(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Set(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Map(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Uuid(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Edge(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Path(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Property(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Graph(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Vertex(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::VertexProperty(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Barrier(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Binding(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::ByteCode(_) => todo!(),
-            GraphBinary::Cardinality(_) => todo!(),
-            GraphBinary::Column(_) => todo!(),
-            GraphBinary::Direction(_) => todo!(),
-            GraphBinary::Operator(_) => todo!(),
-            GraphBinary::Order(_) => todo!(),
-            GraphBinary::Pick(_) => todo!(),
-            GraphBinary::Pop(_) => todo!(),
-            GraphBinary::Lambda(_) => todo!(),
-            GraphBinary::P(_) => todo!(),
-            GraphBinary::Scope(_) => todo!(),
-            GraphBinary::T(_) => todo!(),
-            GraphBinary::Traverser(_) => todo!(),
+            GraphBinary::Cardinality(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Column(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Direction(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Operator(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Order(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Pick(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Pop(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Lambda(val) => todo!(),
+            GraphBinary::P(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Scope(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::T(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Traverser(val) => todo!(),
             // GraphBinary::BigDecimal(_) => todo!(),
             // GraphBinary::BigInteger(_) => todo!(),
             GraphBinary::Byte(_) => todo!(),
@@ -143,6 +143,7 @@ impl GraphBinary {
             GraphBinary::Tree(_) => todo!(),
             GraphBinary::Metrics(_) => todo!(),
             GraphBinary::TraversalMetrics(_) => todo!(),
+            GraphBinary::Merge(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::UnspecifiedNullObject => build_fq_null_bytes(writer),
             // GraphBinary::Custom => todo!(),
             // _ =>  Bytes::new()
@@ -191,6 +192,7 @@ impl GraphBinary {
             GraphBinary::Tree(_) => todo!(),
             GraphBinary::Metrics(_) => todo!(),
             GraphBinary::TraversalMetrics(_) => todo!(),
+            GraphBinary::Merge(_) => todo!(),
         }
     }
 
@@ -237,6 +239,7 @@ impl GraphBinary {
             GraphBinary::Metrics(_) => CoreType::Metrics,
             GraphBinary::TraversalMetrics(_) => CoreType::TraversalMetrics,
             GraphBinary::UnspecifiedNullObject => CoreType::UnspecifiedNullObject,
+            GraphBinary::Merge(_) => CoreType::Merge,
         }
     }
 
@@ -320,66 +323,6 @@ impl Decode for GraphBinary {
         }
     }
 }
-// pub enum Number{
-//     Int32(i32),
-//     Int64(i64),
-//     Byte(u8),
-//     Short(i16),
-//     BigDecimal(BigDecimal),
-//     BigInteger(BigInteger),
-//     Uuid(i128),
-// }
-
-// impl Encode for GraphBinary {
-//     fn type_code() -> u8 {
-//         todo!()
-//         // match self {
-//         //     GraphBinary::Int(_) => todo!(),
-//         //     GraphBinary::Long(_) => todo!(),
-//         //     GraphBinary::String(_) => todo!(),
-//         //     GraphBinary::Class(_) => todo!(),
-//         //     GraphBinary::Double(_) => todo!(),
-//         //     GraphBinary::Float(_) => todo!(),
-//         //     GraphBinary::List(_) => todo!(),
-//         //     GraphBinary::Set(_) => todo!(),
-//         //     GraphBinary::Map(_) => todo!(),
-//         //     GraphBinary::Uuid(_) => todo!(),
-//         //     GraphBinary::Edge(_) => todo!(),
-//         //     GraphBinary::Path(_) => todo!(),
-//         //     GraphBinary::Property(_) => todo!(),
-//         //     GraphBinary::Graph(_) => todo!(),
-//         //     GraphBinary::Vertex(_) => todo!(),
-//         //     GraphBinary::VertexProperty(_) => todo!(),
-//         //     GraphBinary::Barrier(_) => todo!(),
-//         //     GraphBinary::ByteCode(_) => todo!(),
-//         //     GraphBinary::UnspecifiedNullObject => todo!(),
-//         // }
-//     }
-
-//     fn gb_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
-//         match self {
-//             GraphBinary::Int(_) => todo!(),
-//             GraphBinary::Long(_) => todo!(),
-//             GraphBinary::String(_) => todo!(),
-//             GraphBinary::Class(_) => todo!(),
-//             GraphBinary::Double(_) => todo!(),
-//             GraphBinary::Float(_) => todo!(),
-//             GraphBinary::List(_) => todo!(),
-//             GraphBinary::Set(_) => todo!(),
-//             GraphBinary::Map(_) => todo!(),
-//             GraphBinary::Uuid(_) => todo!(),
-//             GraphBinary::Edge(_) => todo!(),
-//             GraphBinary::Path(_) => todo!(),
-//             GraphBinary::Property(_) => todo!(),
-//             GraphBinary::Graph(_) => todo!(),
-//             GraphBinary::Vertex(_) => todo!(),
-//             GraphBinary::VertexProperty(_) => todo!(),
-//             GraphBinary::Barrier(_) => todo!(),
-//             GraphBinary::ByteCode(_) => todo!(),
-//             GraphBinary::UnspecifiedNullObject => todo!(),
-//         }
-//     }
-// }
 
 impl Encode for GraphBinary {
     fn type_code() -> u8 {
