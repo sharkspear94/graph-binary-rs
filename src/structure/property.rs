@@ -1,6 +1,6 @@
 use crate::{
     graph_binary::{Decode, Encode, GraphBinary},
-    specs::{self, CoreType},
+    specs::{self, CoreType}, struct_de_serialize,
 };
 
 #[derive(Debug, PartialEq)]
@@ -48,3 +48,5 @@ impl Decode for Property {
         Ok(len)
     }
 }
+
+struct_de_serialize!((Property, PropertyVisitor,32));
