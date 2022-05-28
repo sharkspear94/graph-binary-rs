@@ -4,7 +4,7 @@ use crate::{
     de::from_slice,
     graph_binary::{Decode, Encode, GraphBinary},
     specs::CoreType,
-    struct_deserialize,
+    struct_de_serialize,
 };
 
 #[derive(Debug, PartialEq)]
@@ -15,12 +15,6 @@ pub struct Metrics {
     counts: HashMap<String, i64>,
     annotation: HashMap<String, GraphBinary>,
     nested_metrics: Vec<Metrics>,
-}
-
-impl From<Metrics> for GraphBinary {
-    fn from(metrics: Metrics) -> Self {
-        GraphBinary::Metrics(metrics)
-    }
 }
 
 impl Encode for Metrics {
@@ -84,12 +78,6 @@ pub struct TraversalMetrics {
     metrics: Vec<Metrics>,
 }
 
-impl From<TraversalMetrics> for GraphBinary {
-    fn from(metrics: TraversalMetrics) -> Self {
-        GraphBinary::TraversalMetrics(metrics)
-    }
-}
-
 impl Encode for TraversalMetrics {
     fn type_code() -> u8 {
         CoreType::TraversalMetrics.into()
@@ -126,9 +114,9 @@ impl Decode for TraversalMetrics {
     }
 }
 
-struct_deserialize!(
-    (TraversalMetrics, TraversalMetricsVisitor),
-    (Metrics, MetricsVisitor)
+struct_de_serialize!(
+    (TraversalMetrics, TraversalMetricsVisitor, 64),
+    (Metrics, MetricsVisitor, 64)
 );
 
 #[test]
