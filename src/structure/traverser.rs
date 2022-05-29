@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::{
     graph_binary::{Decode, Encode, GraphBinary},
     specs::CoreType,
+    struct_de_serialize,
 };
 
 #[derive(Debug, PartialEq)]
@@ -52,6 +53,50 @@ pub struct TraversalStrategy {
     strategy_class: String,                      // class
     configuration: HashMap<String, GraphBinary>, // not sure if key is correct
 }
+
+impl Encode for TraversalStrategy {
+    fn type_code() -> u8 {
+        CoreType::TraversalStrategy.into()
+    }
+
+    fn write_patial_bytes<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), crate::error::EncodeError> {
+        self.strategy_class.write_patial_bytes(writer)?;
+        self.configuration.write_patial_bytes(writer)
+    }
+}
+
+impl Decode for TraversalStrategy {
+    fn expected_type_code() -> u8 {
+        CoreType::TraversalStrategy.into()
+    }
+
+    fn partial_decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let strategy_class = String::partial_decode(reader)?;
+        let configuration = HashMap::<String, GraphBinary>::partial_decode(reader)?;
+
+        Ok(TraversalStrategy {
+            strategy_class,
+            configuration,
+        })
+    }
+
+    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
+        let mut len = String::partial_count_bytes(bytes)?;
+        len += HashMap::<String, GraphBinary>::partial_count_bytes(&bytes[len..])?;
+        Ok(len)
+    }
+}
+
+struct_de_serialize!(
+    (Traverser, TraverserVisitor, 32),
+    (TraversalStrategy, TraversalStrategyVisitor, 32)
+);
 
 #[test]
 fn encode_traverser() {
