@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::io::{Read, Write};
 
 use crate::structure::binding::Binding;
@@ -50,7 +50,7 @@ pub enum GraphBinary {
     Float(f32),
     List(Vec<GraphBinary>),
     Set(Vec<GraphBinary>),
-    Map(Map),
+    Map(HashMap<MapKeys, GraphBinary>),
     Uuid(Uuid),
     Edge(Edge),
     Path(Path),
@@ -118,7 +118,7 @@ impl GraphBinary {
             GraphBinary::VertexProperty(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::Barrier(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::Binding(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::ByteCode(_) => todo!(),
+            GraphBinary::ByteCode(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::Cardinality(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::Column(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::Direction(val) => val.write_full_qualified_bytes(writer),
@@ -135,64 +135,18 @@ impl GraphBinary {
             // GraphBinary::BigInteger(_) => todo!(),
             GraphBinary::Byte(_) => todo!(),
             GraphBinary::ByteBuffer(buf) => todo!(),
-            GraphBinary::Short(_) => todo!(),
-            GraphBinary::Boolean(_) => todo!(),
-            GraphBinary::TextP(_) => todo!(),
+            GraphBinary::Short(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Boolean(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::TextP(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::TraversalStrategy(_) => todo!(),
             // GraphBinary::BulkSet(_) => todo!(),
             GraphBinary::Tree(_) => todo!(),
-            GraphBinary::Metrics(_) => todo!(),
-            GraphBinary::TraversalMetrics(_) => todo!(),
+            GraphBinary::Metrics(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::TraversalMetrics(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::Merge(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::UnspecifiedNullObject => build_fq_null_bytes(writer),
             // GraphBinary::Custom => todo!(),
             // _ =>  Bytes::new()
-        }
-    }
-    fn build_fq_null<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
-        match self {
-            GraphBinary::Int(_) => todo!(),
-            GraphBinary::Long(_) => todo!(),
-            GraphBinary::String(_) => todo!(),
-            GraphBinary::Class(_) => todo!(),
-            GraphBinary::Double(_) => todo!(),
-            GraphBinary::Float(_) => todo!(),
-            GraphBinary::List(_) => todo!(),
-            GraphBinary::Set(_) => todo!(),
-            GraphBinary::Map(_) => todo!(),
-            GraphBinary::Uuid(_) => todo!(),
-            GraphBinary::Edge(_) => todo!(),
-            GraphBinary::Path(_) => todo!(),
-            GraphBinary::Property(_) => todo!(),
-            GraphBinary::Graph(_) => todo!(),
-            GraphBinary::Vertex(_) => todo!(),
-            GraphBinary::VertexProperty(_) => todo!(),
-            GraphBinary::Barrier(_) => todo!(),
-            GraphBinary::ByteCode(_) => todo!(),
-            GraphBinary::ByteBuffer(buf) => todo!(),
-            GraphBinary::UnspecifiedNullObject => todo!(),
-            GraphBinary::Cardinality(_) => todo!(),
-            GraphBinary::Column(_) => todo!(),
-            GraphBinary::Direction(_) => todo!(),
-            GraphBinary::Operator(_) => todo!(),
-            GraphBinary::Order(_) => todo!(),
-            GraphBinary::Pick(_) => todo!(),
-            GraphBinary::Pop(_) => todo!(),
-            GraphBinary::P(_) => todo!(),
-            GraphBinary::Scope(_) => todo!(),
-            GraphBinary::T(_) => todo!(),
-            GraphBinary::TextP(_) => todo!(),
-            GraphBinary::Binding(_) => todo!(),
-            GraphBinary::Lambda(_) => todo!(),
-            GraphBinary::Traverser(_) => todo!(),
-            GraphBinary::Byte(_) => todo!(),
-            GraphBinary::Short(_) => todo!(),
-            GraphBinary::Boolean(_) => todo!(),
-            GraphBinary::TraversalStrategy(_) => todo!(),
-            GraphBinary::Tree(_) => todo!(),
-            GraphBinary::Metrics(_) => todo!(),
-            GraphBinary::TraversalMetrics(_) => todo!(),
-            GraphBinary::Merge(_) => todo!(),
         }
     }
 
@@ -258,7 +212,7 @@ impl Decode for GraphBinary {
     where
         Self: std::marker::Sized,
     {
-        decode(reader)
+        unimplemented!("partial decode is not supported for GraphBinary")
     }
 
     fn expected_type_code() -> u8 {
@@ -273,52 +227,52 @@ impl Decode for GraphBinary {
     }
 
     fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
-        todo!()
+        unimplemented!("partial_count_bytes is not supported for GraphBinary")
     }
 
     fn consumed_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
         match CoreType::try_from(bytes[0])? {
-            CoreType::Int32 => Ok(6),
-            CoreType::Long => Ok(10),
+            CoreType::Int32 => i32::consumed_bytes(bytes),
+            CoreType::Long => i64::consumed_bytes(bytes),
             CoreType::String => String::consumed_bytes(bytes),
             CoreType::Class => String::consumed_bytes(bytes),
-            CoreType::Double => Ok(10),
-            CoreType::Float => Ok(6),
+            CoreType::Double => f64::consumed_bytes(bytes),
+            CoreType::Float => f32::consumed_bytes(bytes),
             CoreType::List => Vec::<GraphBinary>::consumed_bytes(bytes),
-            CoreType::Set => todo!(),
+            CoreType::Set => Vec::<GraphBinary>::consumed_bytes(bytes),
             CoreType::Map => todo!(),
-            CoreType::Uuid => todo!(),
-            CoreType::Edge => todo!(),
-            CoreType::Path => todo!(),
+            CoreType::Uuid => Uuid::consumed_bytes(bytes),
+            CoreType::Edge => Edge::consumed_bytes(bytes),
+            CoreType::Path => Path::consumed_bytes(bytes),
             CoreType::Property => Property::consumed_bytes(bytes),
-            CoreType::Graph => todo!(),
+            CoreType::Graph => Graph::consumed_bytes(bytes),
             CoreType::Vertex => Vertex::consumed_bytes(bytes),
-            CoreType::VertexProperty => todo!(),
-            CoreType::Barrier => todo!(),
-            CoreType::Binding => todo!(),
-            CoreType::ByteCode => todo!(),
-            CoreType::Cardinality => todo!(),
-            CoreType::Column => todo!(),
-            CoreType::Direction => todo!(),
-            CoreType::Operator => todo!(),
-            CoreType::Order => todo!(),
-            CoreType::Pick => todo!(),
-            CoreType::Pop => todo!(),
+            CoreType::VertexProperty => VertexProperty::consumed_bytes(bytes),
+            CoreType::Barrier => Barrier::consumed_bytes(bytes),
+            CoreType::Binding => Binding::consumed_bytes(bytes),
+            CoreType::ByteCode => ByteCode::consumed_bytes(bytes),
+            CoreType::Cardinality => Cardinality::consumed_bytes(bytes),
+            CoreType::Column => Column::consumed_bytes(bytes),
+            CoreType::Direction => Direction::consumed_bytes(bytes),
+            CoreType::Operator => Operator::consumed_bytes(bytes),
+            CoreType::Order => Order::consumed_bytes(bytes),
+            CoreType::Pick => Pick::consumed_bytes(bytes),
+            CoreType::Pop => Pop::consumed_bytes(bytes),
             CoreType::Lambda => todo!(),
-            CoreType::P => todo!(),
-            CoreType::Scope => todo!(),
+            CoreType::P => P::consumed_bytes(bytes),
+            CoreType::Scope => Scope::consumed_bytes(bytes),
             CoreType::T => T::consumed_bytes(bytes),
-            CoreType::Traverser => todo!(),
-            CoreType::Byte => Ok(3),
+            CoreType::Traverser => Traverser::consumed_bytes(bytes),
+            CoreType::Byte => u8::consumed_bytes(bytes),
             CoreType::ByteBuffer => todo!(),
-            CoreType::Short => todo!(),
-            CoreType::Boolean => Ok(3),
-            CoreType::TextP => todo!(),
-            CoreType::TraversalStrategy => todo!(),
-            CoreType::Tree => todo!(),
-            CoreType::Metrics => todo!(),
-            CoreType::TraversalMetrics => todo!(),
-            CoreType::Merge => todo!(),
+            CoreType::Short => i16::consumed_bytes(bytes),
+            CoreType::Boolean => bool::consumed_bytes(bytes),
+            CoreType::TextP => TextP::consumed_bytes(bytes),
+            CoreType::TraversalStrategy => todo!(), // TraversalStrategy::consumed_bytes(bytes),
+            CoreType::Tree => todo!(),              //Tree::consumed_bytes(bytes),
+            CoreType::Metrics => Metrics::consumed_bytes(bytes),
+            CoreType::TraversalMetrics => TraversalMetrics::consumed_bytes(bytes),
+            CoreType::Merge => Merge::consumed_bytes(bytes),
             CoreType::UnspecifiedNullObject => Ok(2),
         }
     }
@@ -372,6 +326,25 @@ impl From<&MapKeys> for GraphBinary {
     }
 }
 
+impl Encode for MapKeys {
+    fn type_code() -> u8 {
+        unimplemented!()
+    }
+
+    fn write_patial_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+        todo!()
+    }
+
+    fn write_full_qualified_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+        match self {
+            MapKeys::Int(val) => val.write_full_qualified_bytes(writer),
+            MapKeys::String(val) => val.write_full_qualified_bytes(writer),
+            MapKeys::Long(val) => val.write_full_qualified_bytes(writer),
+            MapKeys::Uuid(val) => val.write_full_qualified_bytes(writer),
+        }
+    }
+}
+
 impl Decode for MapKeys {
     fn expected_type_code() -> u8 {
         unimplemented!()
@@ -404,6 +377,89 @@ impl Decode for MapKeys {
 
     fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
         todo!()
+    }
+
+    fn consumed_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
+        match (bytes[0], bytes[1]) {
+            (0x01, 0) => i32::consumed_bytes(bytes),
+            (0x02, 0) => i64::consumed_bytes(bytes),
+            (0x03, 0) => String::consumed_bytes(bytes),
+            (0x0c, 0) => Uuid::consumed_bytes(bytes),
+            (code, _) => Err(DecodeError::DecodeError(format!(
+                "{} CoreType found: MapKey not Supported in Rust must implement Eq and Hash",
+                code
+            ))),
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for MapKeys {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_any(MapKeysVisitor)
+    }
+}
+
+struct MapKeysVisitor;
+
+impl<'de> serde::de::Visitor<'de> for MapKeysVisitor {
+    type Value = MapKeys;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, concat!("a enum  MapKeys"))
+    }
+
+    fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(MapKeys::String(v))
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(MapKeys::String(v.to_owned()))
+    }
+
+    fn visit_i32<E>(self, v: i32) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(MapKeys::Int(v))
+    }
+
+    fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(MapKeys::Long(v))
+    }
+
+    fn visit_u128<E>(self, v: u128) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(MapKeys::Uuid(Uuid::from_u128(v)))
+    }
+}
+
+impl serde::ser::Serialize for MapKeys {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut buf: Vec<u8> = Vec::with_capacity(64);
+        match self.write_full_qualified_bytes(&mut buf) {
+            Ok(_) => serializer.serialize_bytes(&buf),
+            Err(e) => Err(serde::ser::Error::custom(format!(
+                "serilization Error of MapKeys: reason: {}",
+                e
+            ))),
+        }
     }
 }
 
