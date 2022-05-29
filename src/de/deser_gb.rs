@@ -1,21 +1,27 @@
+use std::collections::HashMap;
+
 use serde::{
     de::{self, EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor},
     Deserialize,
 };
+use uuid::Uuid;
 
 use crate::{
-    error::DecodeError,
-    graph_binary::{Decode, GraphBinary},
+    graph_binary::{GraphBinary, MapKeys},
     specs::CoreType,
     structure::{
         binding::Binding,
+        bytecode::ByteCode,
         edge::Edge,
         enums::{
             Barrier, Cardinality, Column, Direction, Merge, Operator, Order, Pick, Pop, Scope,
             TextP, P, T,
         },
         graph::Graph,
+        lambda::Lambda,
         metrics::{Metrics, TraversalMetrics},
+        property::Property,
+        traverser::{TraversalStrategy, Traverser},
         vertex::Vertex,
     },
 };
@@ -125,82 +131,32 @@ impl<'de> Visitor<'de> for GraphBinaryVisitor {
     where
         E: serde::de::Error,
     {
-        todo!()
+        Ok(GraphBinary::UnspecifiedNullObject)
     }
-
-    // fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-    // where
-    //     E: serde::de::Error,
-    // {
-    //     match v {
-    //         "vertex" => GraphBinary::Vertex(self.visit_newtype_struct(deserializer)),
-    //     }
-    // }
 
     fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
     where
         A: MapAccess<'de>,
     {
         let core_type: CoreType = map.next_key()?.unwrap();
-        // let value_flag: ValueFlag = map.next_key()?.unwrap();
 
         match core_type {
-            CoreType::Edge => {
-                let edge = map.next_value::<Edge>()?;
-                Ok(GraphBinary::Edge(edge))
-            }
-            CoreType::Vertex => {
-                let vertex = map.next_value::<Vertex>()?;
-                Ok(GraphBinary::Vertex(vertex))
-            }
-            CoreType::Barrier => {
-                let b = map.next_value::<Barrier>()?;
-                Ok(GraphBinary::Barrier(b))
-            }
-            CoreType::Cardinality => {
-                let c = map.next_value::<Cardinality>()?;
-                Ok(GraphBinary::Cardinality(c))
-            }
-            CoreType::Column => {
-                let c = map.next_value::<Column>()?;
-                Ok(GraphBinary::Column(c))
-            }
-            CoreType::Direction => {
-                let o = map.next_value::<Direction>()?;
-                Ok(GraphBinary::Direction(o))
-            }
-            CoreType::Operator => {
-                let o = map.next_value::<Operator>()?;
-                Ok(GraphBinary::Operator(o))
-            }
-            CoreType::Order => {
-                let o = map.next_value::<Order>()?;
-                Ok(GraphBinary::Order(o))
-            }
-            CoreType::P => {
-                let p = map.next_value::<P>()?;
-                Ok(GraphBinary::P(p))
-            }
-            CoreType::T => {
-                let t = map.next_value::<T>()?;
-                Ok(GraphBinary::T(t))
-            }
-            CoreType::TextP => {
-                let t = map.next_value::<TextP>()?;
-                Ok(GraphBinary::TextP(t))
-            }
-            CoreType::Metrics => {
-                let m = map.next_value::<Metrics>()?;
-                Ok(GraphBinary::Metrics(m))
-            }
-            CoreType::TraversalMetrics => {
-                let tm = map.next_value::<TraversalMetrics>()?;
-                Ok(GraphBinary::TraversalMetrics(tm))
-            }
-            CoreType::Set => {
-                let set = map.next_value::<Vec<GraphBinary>>()?;
-                Ok(GraphBinary::Set(set))
-            }
+            CoreType::Edge => Ok(GraphBinary::Edge(map.next_value::<Edge>()?)),
+            CoreType::Vertex => Ok(GraphBinary::Vertex(map.next_value::<Vertex>()?)),
+            CoreType::Barrier => Ok(GraphBinary::Barrier(map.next_value::<Barrier>()?)),
+            CoreType::Cardinality => Ok(GraphBinary::Cardinality(map.next_value::<Cardinality>()?)),
+            CoreType::Column => Ok(GraphBinary::Column(map.next_value::<Column>()?)),
+            CoreType::Direction => Ok(GraphBinary::Direction(map.next_value::<Direction>()?)),
+            CoreType::Operator => Ok(GraphBinary::Operator(map.next_value::<Operator>()?)),
+            CoreType::Order => Ok(GraphBinary::Order(map.next_value::<Order>()?)),
+            CoreType::P => Ok(GraphBinary::P(map.next_value::<P>()?)),
+            CoreType::T => Ok(GraphBinary::T(map.next_value::<T>()?)),
+            CoreType::TextP => Ok(GraphBinary::TextP(map.next_value::<TextP>()?)),
+            CoreType::Metrics => Ok(GraphBinary::Metrics(map.next_value::<Metrics>()?)),
+            CoreType::TraversalMetrics => Ok(GraphBinary::TraversalMetrics(
+                map.next_value::<TraversalMetrics>()?,
+            )),
+            CoreType::Set => Ok(GraphBinary::Set(map.next_value::<Vec<GraphBinary>>()?)),
             CoreType::Int32 => todo!(),
             CoreType::Long => todo!(),
             CoreType::String => todo!(),
@@ -208,44 +164,41 @@ impl<'de> Visitor<'de> for GraphBinaryVisitor {
             CoreType::Double => todo!(),
             CoreType::Float => todo!(),
             CoreType::List => todo!(),
-            CoreType::Map => todo!(),
-            CoreType::Uuid => todo!(),
+            CoreType::Map => Ok(GraphBinary::Map(
+                map.next_value::<HashMap<MapKeys, GraphBinary>>()?,
+            )),
+            CoreType::Uuid => Ok(GraphBinary::Uuid(Uuid::from_u128(
+                map.next_value::<u128>()?,
+            ))),
             CoreType::Path => todo!(),
-            CoreType::Property => todo!(),
-            CoreType::Graph => {
-                let b = map.next_value::<Graph>()?;
-                Ok(GraphBinary::Graph(b))
-            }
+            CoreType::Property => Ok(GraphBinary::Property(map.next_value::<Property>()?)),
+            CoreType::Graph => Ok(GraphBinary::Graph(map.next_value::<Graph>()?)),
             CoreType::VertexProperty => todo!(),
-            CoreType::Binding => {
-                let b = map.next_value::<Binding>()?;
-                Ok(GraphBinary::Binding(b))
-            }
-            CoreType::ByteCode => todo!(),
-            CoreType::Pick => {
-                let p = map.next_value::<Pick>()?;
-                Ok(GraphBinary::Pick(p))
-            }
-            CoreType::Pop => {
-                let p = map.next_value::<Pop>()?;
-                Ok(GraphBinary::Pop(p))
-            }
-            CoreType::Lambda => todo!(),
-            CoreType::Scope => {
-                let s = map.next_value::<Scope>()?;
-                Ok(GraphBinary::Scope(s))
-            }
-            CoreType::Traverser => todo!(),
+            CoreType::Binding => Ok(GraphBinary::Binding(map.next_value::<Binding>()?)),
+            CoreType::ByteCode => Ok(GraphBinary::ByteCode(map.next_value::<ByteCode>()?)),
+            CoreType::Pick => Ok(GraphBinary::Pick(map.next_value::<Pick>()?)),
+            CoreType::Pop => Ok(GraphBinary::Pop(map.next_value::<Pop>()?)),
+            CoreType::Lambda => Ok(GraphBinary::Lambda(map.next_value::<Lambda>()?)),
+            CoreType::Scope => Ok(GraphBinary::Scope(map.next_value::<Scope>()?)),
+            CoreType::Traverser => Ok(GraphBinary::Traverser(map.next_value::<Traverser>()?)),
             CoreType::Byte => todo!(),
             CoreType::ByteBuffer => todo!(),
             CoreType::Short => todo!(),
             CoreType::Boolean => todo!(),
-            CoreType::TraversalStrategy => todo!(),
+            CoreType::TraversalStrategy => Ok(GraphBinary::TraversalStrategy(
+                map.next_value::<TraversalStrategy>()?,
+            )),
             CoreType::Tree => todo!(),
-            CoreType::Merge => todo!(),
+            CoreType::Merge => Ok(GraphBinary::Merge(map.next_value::<Merge>()?)),
             CoreType::UnspecifiedNullObject => todo!(),
             // _ => todo!(),
         }
+    }
+    fn visit_u128<E>(self, v: u128) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(GraphBinary::Uuid(Uuid::from_u128(v)))
     }
 }
 
@@ -432,4 +385,64 @@ fn test_seq_set() {
     let res: TestStruct = crate::de::from_slice(&buf).unwrap();
 
     assert_eq!(test, res)
+}
+
+#[test]
+fn test_map() {
+    let reader = vec![
+        0xA_u8, 0x0, 0x0, 0x0, 0x0, 0x1, 0x03, 0x0, 0x0, 0x0, 0x0, 0x4, b't', b'e', b's', b't',
+        0x01, 0x0, 0x0, 0x0, 0x0, 0x1,
+    ];
+
+    let map = HashMap::from([(MapKeys::String("test".into()), 1.into())]);
+
+    assert_eq!(GraphBinary::Map(map), from_slice(&reader).unwrap())
+}
+
+#[test]
+fn test_map_test() {
+    let reader = vec![
+        0xA_u8, 0x0, 0x0, 0x0, 0x0, 0x1, 0xc, 0x0, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+        0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x27, 0x0, 0x0,
+    ];
+
+    let map = HashMap::from([
+        // (MapKeys::String("test".into()), 1.into()),
+        (
+            MapKeys::Uuid(uuid::Uuid::from_bytes([
+                0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
+                0xee, 0xff,
+            ])),
+            true.into(),
+        ),
+    ]);
+
+    assert_eq!(GraphBinary::Map(map), from_slice(&reader).unwrap())
+}
+
+#[test]
+fn test_uuid() {
+    let reader = vec![
+        0xc, 0x0, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc,
+        0xdd, 0xee, 0xff,
+    ];
+
+    // let map = HashMap::from([
+    //     // (MapKeys::String("test".into()), 1.into()),
+    //     (
+    //         MapKeys::Uuid(uuid::Uuid::from_bytes([
+    //             0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
+    //             0xee, 0xff,
+    //         ])),
+    //         true.into(),
+    //     ),
+    // ]);
+
+    assert_eq!(
+        GraphBinary::Uuid(Uuid::from_bytes([
+            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
+            0xee, 0xff,
+        ])),
+        from_slice(&reader).unwrap()
+    )
 }
