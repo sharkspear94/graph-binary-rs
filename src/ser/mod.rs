@@ -162,7 +162,7 @@ impl ser::Serializer for &mut Serializer {
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
         if let Some(len) = len {
-            let len = len as i32; // possible convert error
+            let len = i32::try_from(len)?;
             let len = len.to_be_bytes();
             let list_start = [0x09_u8, 0x00, len[0], len[1], len[2], len[3]];
             self.writer.extend_from_slice(&list_start);
@@ -198,10 +198,10 @@ impl ser::Serializer for &mut Serializer {
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
         if let Some(len) = len {
-            let len = len as i32; // possible convert error
+            let len = i32::try_from(len)?;
             let len = len.to_be_bytes();
-            let list_start = [CoreType::Map.into(), 0x00, len[0], len[1], len[2], len[3]];
-            self.writer.extend_from_slice(&list_start);
+            let map_start = [CoreType::Map.into(), 0x00, len[0], len[1], len[2], len[3]];
+            self.writer.extend_from_slice(&map_start);
             Ok(self)
         } else {
             Err(EncodeError::SerilizationError(
@@ -212,7 +212,7 @@ impl ser::Serializer for &mut Serializer {
 
     fn serialize_struct(
         self,
-        name: &'static str,
+        _name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
         self.serialize_map(Some(len))
@@ -364,9 +364,9 @@ impl serde::Serializer for GraphBinarySerializer {
 
     type SerializeTupleVariant = Impossible<Self::Ok, Self::Error>;
 
-    type SerializeMap = Impossible<Self::Ok, Self::Error>;
+    type SerializeMap = GraphBinarySerializerMap;
 
-    type SerializeStruct = Impossible<Self::Ok, Self::Error>;
+    type SerializeStruct = GraphBinarySerializerMap;
 
     type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
 
@@ -441,7 +441,7 @@ impl serde::Serializer for GraphBinarySerializer {
         Ok(GraphBinary::UnspecifiedNullObject)
     }
 
-    fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok, Self::Error> {
+    fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
         Ok(GraphBinary::UnspecifiedNullObject)
     }
 
@@ -508,15 +508,18 @@ impl serde::Serializer for GraphBinarySerializer {
     }
 
     fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
-        todo!()
+        match len {
+            Some(capacity) => Ok(GraphBinarySerializerMap(HashMap::with_capacity(capacity))),
+            None => Ok(GraphBinarySerializerMap(HashMap::new())),
+        }
     }
 
     fn serialize_struct(
         self,
-        name: &'static str,
+        _name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
-        todo!()
+        self.serialize_map(Some(len))
     }
 
     fn serialize_struct_variant(
@@ -544,7 +547,7 @@ impl Serialize for GraphBinary {
             GraphBinary::Float(value) => value.serialize(serializer),
             GraphBinary::List(value) => value.serialize(serializer),
             GraphBinary::Set(value) => value.serialize(serializer),
-            GraphBinary::Map(value) => todo!(),
+            GraphBinary::Map(value) => value.serialize(serializer),
             GraphBinary::Uuid(value) => todo!(),
             GraphBinary::Edge(value) => value.serialize(serializer),
             GraphBinary::Path(value) => todo!(),
@@ -562,17 +565,17 @@ impl Serialize for GraphBinary {
             GraphBinary::Order(value) => value.serialize(serializer),
             GraphBinary::Pick(value) => value.serialize(serializer),
             GraphBinary::Pop(value) => value.serialize(serializer),
-            GraphBinary::Lambda(value) => todo!(),
+            GraphBinary::Lambda(value) => value.serialize(serializer),
             GraphBinary::P(value) => value.serialize(serializer),
             GraphBinary::Scope(value) => value.serialize(serializer),
             GraphBinary::T(value) => value.serialize(serializer),
-            GraphBinary::Traverser(value) => todo!(),
+            GraphBinary::Traverser(value) => value.serialize(serializer),
             GraphBinary::Byte(value) => value.serialize(serializer),
             GraphBinary::ByteBuffer(value) => value.serialize(serializer),
             GraphBinary::Short(value) => value.serialize(serializer),
             GraphBinary::Boolean(value) => value.serialize(serializer),
             GraphBinary::TextP(value) => value.serialize(serializer),
-            GraphBinary::TraversalStrategy(value) => todo!(),
+            GraphBinary::TraversalStrategy(value) => value.serialize(serializer),
             GraphBinary::Tree(value) => todo!(),
             GraphBinary::Metrics(value) => value.serialize(serializer),
             GraphBinary::TraversalMetrics(value) => value.serialize(serializer),
@@ -618,28 +621,68 @@ impl SerializeTuple for GraphBinarySerializerSeq {
         Ok(GraphBinary::List(self.0))
     }
 }
-// struct GraphBinarySerializerMap(HashMap<MapKeys,GraphBinary>);
+struct GraphBinarySerializerMap(HashMap<MapKeys, GraphBinary>);
 
-// impl SerializeMap for GraphBinarySerializerMap {
-//     type Ok = GraphBinary;
+impl SerializeMap for GraphBinarySerializerMap {
+    type Ok = GraphBinary;
 
-//     type Error = EncodeError;
+    type Error = EncodeError;
 
-//     fn serialize_key<T: ?Sized>(&mut self, key: &T) -> Result<(), Self::Error>
-//     where
-//         T: Serialize {
-//     }
+    fn serialize_key<T: ?Sized>(&mut self, key: &T) -> Result<(), Self::Error>
+    where
+        T: Serialize,
+    {
+        todo!()
+    }
 
-//     fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
-//     where
-//         T: Serialize {
-//         todo!()
-//     }
+    fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
+    where
+        T: Serialize,
+    {
+        todo!()
+    }
 
-//     fn end(self) -> Result<Self::Ok, Self::Error> {
-//         todo!()
-//     }
-// }
+    fn serialize_entry<K: ?Sized, V: ?Sized>(
+        &mut self,
+        key: &K,
+        value: &V,
+    ) -> Result<(), Self::Error>
+    where
+        K: Serialize,
+        V: Serialize,
+    {
+        let key = MapKeys::try_from(key.serialize(GraphBinarySerializer)?)?;
+        self.0.insert(key, value.serialize(GraphBinarySerializer)?);
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(GraphBinary::Map(self.0))
+    }
+}
+
+impl SerializeStruct for GraphBinarySerializerMap {
+    type Ok = GraphBinary;
+
+    type Error = EncodeError;
+    
+    fn serialize_field<T: ?Sized>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<(), Self::Error>
+    where
+        T: Serialize,
+    {
+        self.0
+            .insert(key.into(), value.serialize(GraphBinarySerializer)?);
+        Ok(())
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(GraphBinary::Map(self.0))
+    }
+}
 
 #[test]
 fn ser_test() {
@@ -738,7 +781,7 @@ fn ser_struct_test() {
 }
 
 #[test]
-fn ser_struct_GB_test() {
+fn ser_struct_gb_test() {
     #[derive(Debug, Serialize)]
     struct Millimeters(i32);
 
@@ -765,7 +808,7 @@ fn ser_struct_GB_test() {
 }
 
 #[test]
-fn ser_struct_option_GB_test() {
+fn ser_struct_option_gb_test() {
     #[derive(Debug, Serialize)]
     struct Millimeters(i32);
 
@@ -816,4 +859,45 @@ fn ser__test() {
         b'm', b'i', b'l', b'l', b'i', 0x01, 0x00, 0x00, 0x0, 0x0, 0x1,
     ];
     assert_eq!(map_bytes[..], bytes.unwrap());
+}
+
+#[test]
+fn struct_to_gb() {
+    #[derive(Debug, Serialize)]
+    struct TestStruct {
+        test: i32,
+        abc: GraphBinary,
+    }
+
+    let test = TestStruct {
+        test: 1,
+        abc: GraphBinary::Boolean(true),
+    };
+
+    let gb = to_graph_binary(&test).unwrap();
+
+    let map = HashMap::from([("test".into(), 1.into()), ("abc".into(), true.into())]);
+
+    let expected = GraphBinary::Map(map);
+
+    assert_eq!(expected, gb);
+}
+
+#[test]
+fn struct_to_gb2() {
+    #[derive(Debug, Serialize)]
+    struct TestStruct {
+        test: i32,
+        abc: bool,
+    }
+
+    let test = TestStruct { test: 1, abc: true };
+
+    let gb = to_graph_binary(&test).unwrap();
+
+    let map = HashMap::from([("test".into(), 1.into()), ("abc".into(), true.into())]);
+
+    let expected = GraphBinary::Map(map);
+
+    assert_eq!(expected, gb);
 }
