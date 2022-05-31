@@ -9,6 +9,9 @@ pub enum EncodeError {
 
     #[error("serialiezing")]
     SerilizationError(String),
+
+    #[error("try from int error")]
+    TryError(#[from] TryFromIntError),
 }
 
 #[derive(Error, Debug)]
