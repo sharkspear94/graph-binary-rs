@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::num::TryFromIntError;
 
 use serde::de::Visitor;
 use serde::Deserialize;
@@ -8,14 +9,13 @@ use crate::graph_binary::{Decode, Encode, GraphBinary, MapKeys, VALUE_PRESENT};
 use crate::specs::{CORE_TYPE_BINDING, CORE_TYPE_INT, CORE_TYPE_STRING};
 
 use super::graph_binary;
-use super::structure::map::Map;
 
 struct Request {
     version: u8,
     request_id: uuid::Uuid,
     op: String,
     processor: String,
-    args: Map,
+    args: HashMap<MapKeys, GraphBinary>,
 }
 
 impl Request {
@@ -75,10 +75,8 @@ fn request_message_test() {
 
     args.insert(
         MapKeys::String("bindings".to_string()),
-        GraphBinary::Map(Map { map: bindings }),
+        GraphBinary::Map(bindings),
     );
-
-    let args = Map { map: args };
 
     let req = Request {
         version: 0x81,
@@ -243,6 +241,12 @@ impl<'de> Visitor<'de> for ResponseVisitor {
         Ok(Response::new())
     }
 }
+#[test]
+fn test1() {
+    let t = -1;
+    let t: Result<usize, TryFromIntError> = usize::try_from(t);
+    assert!(t.is_err())
+}
 
 #[test]
 fn print_msg() {
@@ -250,29 +254,23 @@ fn print_msg() {
 
     args.insert(
         MapKeys::String("gremlin".to_string()),
-        GraphBinary::String(
-            "g.E().hasLabel('test').subgraph('subGraph').cap('subGraph')".to_string(),
-        ),
+        GraphBinary::String("g.V(x).out().tree()".to_string()),
     );
     args.insert(
         MapKeys::String("language".to_string()),
         GraphBinary::String("gremlin-groovy".to_string()),
     );
 
-    // let mut bindings = HashMap::new();
-    // bindings.insert(
-    //     MapKeys::String("x".to_string()),
-    //     GraphBinary::String("1".to_string()),
-    // );
+    let mut bindings = HashMap::new();
+    bindings.insert(
+        MapKeys::String("x".to_string()),
+        GraphBinary::String("1".to_string()),
+    );
 
     args.insert(
         MapKeys::String("bindings".to_string()),
-        GraphBinary::Map(Map {
-            map: HashMap::new(),
-        }),
+        GraphBinary::Map(bindings),
     );
-
-    let args = Map { map: args };
 
     let req = Request {
         version: 0x81,

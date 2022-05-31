@@ -1,47 +1,9 @@
 use crate::{
     error::EncodeError,
-    graph_binary::{Decode, Encode, INT32_TYPE_CODE, VALUE_NULL, VALUE_PRESENT},
+    graph_binary::{Decode, Encode},
     specs::CoreType,
 };
-use std::{collections::HashMap, ops::Deref};
-
-use crate::graph_binary::{GraphBinary, MapKeys, MAP_TYPE_CODE};
-
-#[derive(Debug, PartialEq)]
-pub struct Map {
-    pub(crate) map: HashMap<MapKeys, GraphBinary>,
-}
-
-impl Map {
-    fn new(map: HashMap<MapKeys, GraphBinary>) -> Map {
-        Map { map }
-    }
-}
-
-impl Deref for Map {
-    type Target = HashMap<MapKeys, GraphBinary>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.map
-    }
-}
-impl Encode for Map {
-    fn type_code() -> u8 {
-        MAP_TYPE_CODE
-    }
-
-    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
-        let len = self.len() as i32;
-        len.write_patial_bytes(writer)?;
-
-        for (k, v) in self.iter() {
-            GraphBinary::from(k).build_fq_bytes(writer)?;
-            v.build_fq_bytes(writer)?;
-        }
-
-        Ok(())
-    }
-}
+use std::collections::HashMap;
 
 impl<K, V> Encode for HashMap<K, V>
 where
@@ -100,28 +62,14 @@ where
         Ok(len)
     }
 }
-// impl FullyQualifiedBytes for Map {
-//     fn get_type_code(&self) -> Bytes {
-//         Bytes::from_static(&[MAP_TYPE_CODE])
-//     }
-
-//     fn generate_byte_representation(&self) -> Bytes {
-//         let mut ret = bytes::BytesMut::with_capacity(/*self.len() + INT32_LEN*/ 64); // needs work initial size is not known at compile time
-//         ret.put_i32(self.len() as i32);
-//         self.iter().for_each(|(key, val)| {
-//             ret.extend_from_slice(&GraphBinary::from(key).build_fq_bytes());
-//             ret.extend_from_slice(&val.build_fq_bytes());
-//         });
-//         ret.freeze()
-//     }
-// }
 
 #[test]
 fn testing_map() {
+    use crate::graph_binary::{GraphBinary, MapKeys};
+
     let mut map = HashMap::new();
 
     map.insert(MapKeys::Int(1), GraphBinary::String("test".to_owned()));
-    let map = Map::new(map);
 
     let mut buf: Vec<u8> = vec![];
     map.write_full_qualified_bytes(&mut buf).unwrap();
@@ -134,12 +82,13 @@ fn testing_map() {
 }
 #[test]
 fn testing_nestet_map() {
+    use crate::graph_binary::{GraphBinary, MapKeys};
+
     let mut map = HashMap::new();
     let mut inner_map = HashMap::new();
 
     inner_map.insert(MapKeys::Int(1), GraphBinary::String("test".to_owned()));
-    map.insert(MapKeys::Int(1), GraphBinary::Map(Map::new(inner_map)));
-    let map = Map::new(map);
+    map.insert(MapKeys::Int(1), GraphBinary::Map(inner_map));
 
     let mut buf: Vec<u8> = vec![];
     map.write_full_qualified_bytes(&mut buf).unwrap();

@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use crate::{
-    de::from_slice,
     graph_binary::{Decode, Encode, GraphBinary},
     specs::CoreType,
     struct_de_serialize,
@@ -216,6 +215,8 @@ fn traversal_metric_encode_test() {
 
 #[test]
 fn metric_deser_test() {
+    use crate::de::from_slice;
+
     let expected = Metrics {
         id: "4.0.0()".to_string(),
         name: "TinkerGraphStep(vertex,[1])".to_string(),
@@ -283,6 +284,8 @@ fn traversal_metric_decode_test() {
 
 #[test]
 fn traversal_metric_deser_test() {
+    use crate::de::from_slice;
+
     let metric = Metrics {
         id: "4.0.0()".to_string(),
         name: "TinkerGraphStep(vertex,[1])".to_string(),

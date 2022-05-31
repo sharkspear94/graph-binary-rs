@@ -296,22 +296,6 @@ pub enum P {
 }
 
 impl P {
-    fn to_str(&self) -> &str {
-        match self {
-            P::Eq(_) => "eq",
-            P::Neq(_) => "neq",
-            P::Lt(_) => "lt",
-            P::Lte(_) => "lte",
-            P::Gt(_) => "gt",
-            P::Gte(_) => "gte",
-            P::Inside(_, _) => "inside",
-            P::Outside(_, _) => "outside",
-            P::Between(_, _) => "between",
-            P::Within(_) => "within",
-            P::Without(_) => "without",
-        }
-    }
-
     fn write_variant<W: std::io::Write>(
         &self,
         writer: &mut W,
@@ -527,19 +511,6 @@ pub enum TextP {
     NotStartingWith(Vec<GraphBinary>),
     NotEndingWith(Vec<GraphBinary>),
     NotContaining(Vec<GraphBinary>),
-}
-
-impl TextP {
-    fn to_str(&self) -> &str {
-        match self {
-            TextP::StartingWith(_) => "startingWith",
-            TextP::EndingWith(_) => "endingWith",
-            TextP::Containing(_) => "containing",
-            TextP::NotStartingWith(_) => "notStartingWith",
-            TextP::NotEndingWith(_) => "notEndingWith",
-            TextP::NotContaining(_) => "notContaining",
-        }
-    }
 }
 
 fn combine_text_value<W: std::io::Write>(

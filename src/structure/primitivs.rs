@@ -1,6 +1,7 @@
 use crate::error::DecodeError;
 use crate::specs::CoreType;
 use crate::{error::EncodeError, graph_binary::Encode};
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::graph_binary::{
@@ -8,7 +9,7 @@ use crate::graph_binary::{
     STRING_TYPE_CODE, VALUE_PRESENT,
 };
 
-use std::io::{Cursor, Error, Read, Seek};
+use std::io::Read;
 use std::slice;
 
 impl Encode for String {
@@ -306,6 +307,62 @@ impl Encode for Uuid {
     }
 }
 
+#[derive(Deserialize)]
+#[serde(remote = "Uuid")]
+pub struct UuidDef(#[serde(getter = "Uuid::bytes")] [u8; 16]);
+
+impl From<UuidDef> for Uuid {
+    fn from(def: UuidDef) -> Uuid {
+        Uuid::from_bytes(def.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for UuidDef {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_bytes(UuidDefVisitor)
+    }
+}
+
+struct UuidDefVisitor;
+
+impl<'de> serde::de::Visitor<'de> for UuidDefVisitor {
+    type Value = UuidDef;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "a struct UuidDef")
+    }
+
+    fn visit_bytes<E>(self, mut v: &[u8]) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        match UuidDef::fully_self_decode(&mut v) {
+            Ok(val) => Ok(val),
+            Err(_) => Err(E::custom(concat!(stringify!($t), " Visitor Decode Error"))),
+        }
+    }
+}
+
+impl Decode for UuidDef {
+    fn expected_type_code() -> u8 {
+        CoreType::Uuid.into()
+    }
+
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<UuidDef, DecodeError> {
+        let mut buf = [0_u8; 16];
+        reader.read_exact(&mut buf)?;
+
+        Ok(UuidDef(buf))
+    }
+
+    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+        Ok(16)
+    }
+}
+
 impl Decode for Uuid {
     fn expected_type_code() -> u8 {
         CoreType::Uuid.into()
@@ -316,6 +373,23 @@ impl Decode for Uuid {
         reader.read_exact(&mut buf)?;
 
         Ok(Uuid::from_bytes(buf))
+    }
+
+    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+        Ok(16)
+    }
+}
+
+impl Decode for u128 {
+    fn expected_type_code() -> u8 {
+        CoreType::Uuid.into()
+    }
+
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<u128, DecodeError> {
+        let mut buf = [0_u8; 16];
+        reader.read_exact(&mut buf)?;
+        let val = u128::from_be_bytes(buf);
+        Ok(val)
     }
 
     fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
@@ -512,21 +586,6 @@ fn encode_string_test() {
         ][..],
         &buf
     );
-    // assert_eq!(
-    //     Bytes::from_static(&[
-    //         STRING_TYPE_CODE,
-    //         VALUE_PRESENT,
-    //         0x00,
-    //         0x00,
-    //         0x00,
-    //         0x04,
-    //         0x74,
-    //         0x65,
-    //         0x73,
-    //         0x74
-    //     ]),
-    //     s2.generate_fully_qualiffied_bytes()
-    // );
 }
 
 #[test]
@@ -540,10 +599,6 @@ fn encode_empty_string_test() {
         &[STRING_TYPE_CODE, VALUE_PRESENT, 0x00, 0x00, 0x00, 0x00][..],
         &buf
     );
-    // assert_eq!(
-    //     Bytes::from_static(&[STRING_TYPE_CODE, VALUE_PRESENT, 0x00, 0x00, 0x00, 0x00]),
-    //     s2.generate_fully_qualiffied_bytes()
-    // );
 }
 
 #[test]
@@ -553,10 +608,6 @@ fn decode_fq_empty_string_test() {
     let s = String::fully_self_decode(&mut &buf[..]);
 
     assert_eq!(String::new(), s.unwrap());
-    // assert_eq!(
-    //     Bytes::from_static(&[STRING_TYPE_CODE, VALUE_PRESENT, 0x00, 0x00, 0x00, 0x00]),
-    //     s2.generate_fully_qualiffied_bytes()
-    // );
 }
 
 #[test]

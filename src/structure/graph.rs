@@ -4,12 +4,7 @@ use crate::{
     struct_de_serialize,
 };
 
-use super::{
-    edge::Edge,
-    property::{self, Property},
-    vertex::Vertex,
-    vertex_property::VertexProperty,
-};
+use super::{property::Property, vertex::Vertex, vertex_property::VertexProperty};
 
 #[derive(Debug, PartialEq)]
 pub struct Graph {

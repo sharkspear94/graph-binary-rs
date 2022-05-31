@@ -163,8 +163,6 @@ impl From<CoreType> for u8 {
     }
 }
 
-use std::fmt::{format, write};
-
 use serde::{de::Visitor, Deserialize};
 
 use crate::error::DecodeError;
