@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::io::{Read, Write};
 
 use crate::structure::binding::Binding;
+use crate::structure::bulkset::BulkSet;
 use crate::structure::enums::{
     Barrier, Cardinality, Column, Direction, Merge, Operator, Order, Pick, Pop, Scope, TextP, P, T,
 };
@@ -11,17 +12,15 @@ use crate::structure::lambda::Lambda;
 use crate::structure::bytecode::ByteCode;
 use crate::structure::metrics::{Metrics, TraversalMetrics};
 use crate::structure::path::Path;
+use crate::structure::primitivs::UuidDef;
 use crate::structure::property::Property;
 use crate::structure::traverser::{TraversalStrategy, Traverser};
 use crate::structure::vertex::Vertex;
 use crate::structure::vertex_property::VertexProperty;
 use crate::{specs::CoreType, structure::edge::Edge};
 use serde::de::Visitor;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-
-// use super::structure::list::List;
-use super::structure::map::Map;
 
 pub const VALUE_PRESENT: u8 = 0x00;
 pub const VALUE_NULL: u8 = 0x01;
@@ -81,7 +80,7 @@ pub enum GraphBinary {
     Boolean(bool),
     TextP(TextP),
     TraversalStrategy(TraversalStrategy),
-    // BulkSet(BulkSet),
+    BulkSet(BulkSet),
     Tree(BTreeSet<GraphBinary>),
     Metrics(Metrics),
     TraversalMetrics(TraversalMetrics),
@@ -139,7 +138,7 @@ impl GraphBinary {
             GraphBinary::Boolean(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::TextP(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::TraversalStrategy(_) => todo!(),
-            // GraphBinary::BulkSet(_) => todo!(),
+            GraphBinary::BulkSet(_) => todo!(),
             GraphBinary::Tree(_) => todo!(),
             GraphBinary::Metrics(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::TraversalMetrics(val) => val.write_full_qualified_bytes(writer),
@@ -192,6 +191,7 @@ impl GraphBinary {
             GraphBinary::Tree(_) => CoreType::Tree,
             GraphBinary::Metrics(_) => CoreType::Metrics,
             GraphBinary::TraversalMetrics(_) => CoreType::TraversalMetrics,
+            GraphBinary::BulkSet(_) => CoreType::BulkSet,
             GraphBinary::UnspecifiedNullObject => CoreType::UnspecifiedNullObject,
             GraphBinary::Merge(_) => CoreType::Merge,
         }
@@ -272,6 +272,7 @@ impl Decode for GraphBinary {
             CoreType::Tree => todo!(),              //Tree::consumed_bytes(bytes),
             CoreType::Metrics => Metrics::consumed_bytes(bytes),
             CoreType::TraversalMetrics => TraversalMetrics::consumed_bytes(bytes),
+            CoreType::BulkSet => todo!(),
             CoreType::Merge => Merge::consumed_bytes(bytes),
             CoreType::UnspecifiedNullObject => Ok(2),
         }
@@ -323,6 +324,53 @@ impl From<&MapKeys> for GraphBinary {
             MapKeys::Long(val) => GraphBinary::Long(*val),
             MapKeys::Uuid(val) => GraphBinary::Uuid(*val),
         }
+    }
+}
+
+impl TryFrom<GraphBinary> for MapKeys {
+    type Error = EncodeError;
+
+    fn try_from(value: GraphBinary) -> Result<Self, Self::Error> {
+        match value {
+            GraphBinary::Int(val) => Ok(MapKeys::Int(val)),
+            GraphBinary::Long(val) => Ok(MapKeys::Long(val)),
+            GraphBinary::String(val) => Ok(MapKeys::String(val)),
+            GraphBinary::Uuid(val) => Ok(MapKeys::Uuid(val)),
+            rest => Err(EncodeError::SerilizationError(format!(
+                "cannot convert from {:?} to MapKeys",
+                rest
+            ))),
+        }
+    }
+}
+
+impl From<&str> for MapKeys {
+    fn from(s: &str) -> Self {
+        MapKeys::String(s.to_owned())
+    }
+}
+
+impl From<String> for MapKeys {
+    fn from(s: String) -> Self {
+        MapKeys::String(s)
+    }
+}
+
+impl From<i32> for MapKeys {
+    fn from(val: i32) -> Self {
+        MapKeys::Int(val)
+    }
+}
+
+impl From<i64> for MapKeys {
+    fn from(val: i64) -> Self {
+        MapKeys::Long(val)
+    }
+}
+
+impl From<Uuid> for MapKeys {
+    fn from(val: Uuid) -> Self {
+        MapKeys::Uuid(val)
     }
 }
 
@@ -444,6 +492,18 @@ impl<'de> serde::de::Visitor<'de> for MapKeysVisitor {
         E: serde::de::Error,
     {
         Ok(MapKeys::Uuid(Uuid::from_u128(v)))
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: serde::de::MapAccess<'de>,
+    {
+        let core_type: CoreType = map.next_key()?.unwrap();
+
+        match core_type {
+            CoreType::Uuid => Ok(MapKeys::Uuid(Uuid::from(map.next_value::<UuidDef>()?))), // can be implemented on visit_u128
+            _ => unimplemented!("Mapkeys Error"),
+        }
     }
 }
 

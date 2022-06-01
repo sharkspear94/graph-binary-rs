@@ -104,7 +104,7 @@ pub enum CoreType {
     Boolean,
     TextP,
     TraversalStrategy,
-
+    BulkSet,
     Tree,
     Metrics,
     TraversalMetrics,
@@ -157,6 +157,7 @@ impl From<CoreType> for u8 {
             CoreType::Tree => CORE_TYPE_TREE,
             CoreType::Metrics => CORE_TYPE_METRICS,
             CoreType::TraversalMetrics => CORE_TYPE_TRAVERSAL_METRICS,
+            CoreType::BulkSet => CORE_TYPE_BULK_SET,
             CoreType::Merge => CORE_TYPE_MERGE,
             CoreType::UnspecifiedNullObject => CORE_TYPE_UNSPECIFIED_NULL,
         }
@@ -213,7 +214,7 @@ impl TryFrom<u8> for CoreType {
             CORE_TYPE_BOOLEAN => Ok(CoreType::Boolean),
             CORE_TYPE_TEXT_P => Ok(CoreType::TextP),
             CORE_TYPE_TRAVERSAL_STRATEGY => Ok(CoreType::TraversalStrategy),
-            // CORE_TYPE_BULK_SET => Ok(CoreType::B),
+            CORE_TYPE_BULK_SET => Ok(CoreType::BulkSet),
             CORE_TYPE_TREE => Ok(CoreType::Tree),
             CORE_TYPE_METRICS => Ok(CoreType::Metrics),
             CORE_TYPE_TRAVERSAL_METRICS => Ok(CoreType::TraversalMetrics),

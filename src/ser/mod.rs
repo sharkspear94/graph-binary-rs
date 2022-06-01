@@ -579,6 +579,7 @@ impl Serialize for GraphBinary {
             GraphBinary::Tree(value) => todo!(),
             GraphBinary::Metrics(value) => value.serialize(serializer),
             GraphBinary::TraversalMetrics(value) => value.serialize(serializer),
+            GraphBinary::BulkSet(value) => todo!(),
             GraphBinary::UnspecifiedNullObject => todo!(),
             GraphBinary::Merge(value) => value.serialize(serializer),
         }
@@ -665,7 +666,7 @@ impl SerializeStruct for GraphBinarySerializerMap {
     type Ok = GraphBinary;
 
     type Error = EncodeError;
-    
+
     fn serialize_field<T: ?Sized>(
         &mut self,
         key: &'static str,
