@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use serde::{
-    de::{self, EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor},
+    de::{MapAccess, Visitor},
     Deserialize,
 };
 use uuid::Uuid;
@@ -11,6 +11,7 @@ use crate::{
     specs::CoreType,
     structure::{
         binding::Binding,
+        bulkset::BulkSet,
         bytecode::ByteCode,
         edge::Edge,
         enums::{
@@ -20,6 +21,7 @@ use crate::{
         graph::Graph,
         lambda::Lambda,
         metrics::{Metrics, TraversalMetrics},
+        primitivs::UuidDef,
         property::Property,
         traverser::{TraversalStrategy, Traverser},
         vertex::Vertex,
@@ -138,7 +140,7 @@ impl<'de> Visitor<'de> for GraphBinaryVisitor {
     where
         A: MapAccess<'de>,
     {
-        let core_type: CoreType = map.next_key()?.unwrap();
+        let core_type: CoreType = map.next_key()?.unwrap(); //  TODO unwrap
 
         match core_type {
             CoreType::Edge => Ok(GraphBinary::Edge(map.next_value::<Edge>()?)),
@@ -167,9 +169,7 @@ impl<'de> Visitor<'de> for GraphBinaryVisitor {
             CoreType::Map => Ok(GraphBinary::Map(
                 map.next_value::<HashMap<MapKeys, GraphBinary>>()?,
             )),
-            CoreType::Uuid => Ok(GraphBinary::Uuid(Uuid::from_u128(
-                map.next_value::<u128>()?,
-            ))),
+            CoreType::Uuid => Ok(GraphBinary::Uuid(Uuid::from(map.next_value::<UuidDef>()?))),
             CoreType::Path => todo!(),
             CoreType::Property => Ok(GraphBinary::Property(map.next_value::<Property>()?)),
             CoreType::Graph => Ok(GraphBinary::Graph(map.next_value::<Graph>()?)),
@@ -188,18 +188,21 @@ impl<'de> Visitor<'de> for GraphBinaryVisitor {
             CoreType::TraversalStrategy => Ok(GraphBinary::TraversalStrategy(
                 map.next_value::<TraversalStrategy>()?,
             )),
+            CoreType::BulkSet => todo!(), //Ok(GraphBinary::BulkSet(
+            //     map.next_value::<BulkSet>()?,
+            // )),
             CoreType::Tree => todo!(),
             CoreType::Merge => Ok(GraphBinary::Merge(map.next_value::<Merge>()?)),
             CoreType::UnspecifiedNullObject => todo!(),
             // _ => todo!(),
         }
     }
-    fn visit_u128<E>(self, v: u128) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        Ok(GraphBinary::Uuid(Uuid::from_u128(v)))
-    }
+    // fn visit_u128<E>(self, v: u128) -> Result<Self::Value, E>
+    // where
+    //     E: de::Error,
+    // {
+    //     Ok(GraphBinary::Uuid(Uuid::from_u128(v)))
+    // }
 }
 
 #[test]
