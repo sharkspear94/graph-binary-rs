@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
-use serde::de::Visitor;
+use serde::de::{IntoDeserializer, Visitor};
 use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::error::EncodeError;
 use crate::graph_binary::{Decode, Encode, GraphBinary, MapKeys};
 
+#[derive(Debug, PartialEq)]
 struct Request {
     version: u8,
     request_id: uuid::Uuid,
@@ -32,7 +33,7 @@ impl Default for Request {
         Self {
             version: 0x81,
             request_id: Uuid::new_v4(),
-            op: "eval".to_owned(),
+            op: "".to_owned(),
             processor: String::default(),
             args: HashMap::from([("language".into(), "gremlin-groovy".into())]),
         }
@@ -61,14 +62,13 @@ impl Encode for Request {
         self.args.write_patial_bytes(writer)
     }
 }
-
-struct RequestBuilder(Request);
-
 impl Request {
     fn builder() -> RequestBuilder {
         RequestBuilder(Request::default())
     }
 }
+
+struct RequestBuilder(Request);
 
 impl RequestBuilder {
     fn version(mut self, version: u8) -> Self {
@@ -79,6 +79,13 @@ impl RequestBuilder {
         self.0.request_id = request_id;
         self
     }
+    fn session(mut self, session_identifier: &str) -> Self {
+        self.0.processor = "session".to_owned();
+        self.0
+            .args
+            .insert("session".into(), session_identifier.into());
+        self
+    }
     fn op(mut self, op: &str) -> Self {
         self.0.op = op.to_owned();
         self
@@ -87,21 +94,119 @@ impl RequestBuilder {
         self.0.processor = processor.to_owned();
         self
     }
+    fn authentication(mut self) -> AuthRequestBuilder {
+        self.0.op = "authentication".to_owned();
+        self.0.processor = "".to_owned();
+        self.0.args.insert("saslMechanism".into(), "PLAIN".into());
+        self.0.args.remove(&"session".into());
+        AuthRequestBuilder(self.0)
+    }
+    fn eval(mut self) -> ScriptBuilder {
+        self.0.op = "eval".to_owned();
+        self.0
+            .args
+            .insert("language".into(), "gremlin-groovy".into());
+        ScriptBuilder(self.0)
+    }
+    fn close(mut self, session_identifier: &str) -> Request {
+        self.0.op = "close".into();
+        self.0.processor = "session".to_owned();
+        self.0
+            .args
+            .insert("session".into(), session_identifier.into());
+        self.0
+    }
+}
+
+struct ScriptBuilder(Request);
+
+impl ScriptBuilder {
+    fn bindings(mut self, bindings: HashMap<String, GraphBinary>) -> Self {
+        self.0.args.insert("bindings".into(), bindings.into());
+        self
+    }
+    fn gremlin(mut self, script: &str) -> Self {
+        self.0.args.insert("gremlin".into(), script.into());
+        self
+    }
+    fn session_identifier(mut self, session_identifier: &str) -> Self {
+        self.0
+            .args
+            .insert("session".into(), session_identifier.into());
+        self
+    }
+    fn aliases(mut self, alias: HashMap<String, String>) -> Self {
+        self.0.args.insert("aliases".into(), alias.into());
+        self
+    }
     fn language(mut self, language: &str) -> Self {
         self.0.args.insert("language".into(), language.into());
-        self
-    }
-    fn script(mut self, script_lang: &str, script: &str) -> Self {
-        self.0.args.insert(script_lang.into(), script.into());
-        self
-    }
-    fn bindings(mut self, bindings: HashMap<MapKeys, GraphBinary>) -> Self {
-        self.0.args.insert("bindings".into(), bindings.into());
         self
     }
     fn build(self) -> Request {
         self.0
     }
+}
+
+struct AuthRequestBuilder(Request);
+
+impl AuthRequestBuilder {
+    fn sasl_mechanism(mut self, mechanism: &str) -> Self {
+        self.0.args.insert("saslMechanism".into(), mechanism.into());
+        self
+    }
+
+    fn sasl(mut self, sasl: &str) -> Self {
+        self.0.args.insert("sasl".into(), sasl.into());
+        self
+    }
+    fn build(self) -> Request {
+        self.0
+    }
+}
+
+#[test]
+fn test() {
+    let req = Request::builder()
+        .session("aklshdJBASFKABFHuh1KJBJKlkjA")
+        .request_id(Uuid::from_bytes([
+            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
+            0xee, 0xff,
+        ]))
+        .eval()
+        .aliases(HashMap::from([("g".into(), "social".into())]))
+        .gremlin("social.V(x).values('age')")
+        .bindings(HashMap::from([("x".into(), 1_i32.into())]))
+        .build();
+
+    let mut args: HashMap<MapKeys, GraphBinary> = HashMap::<MapKeys, GraphBinary>::from([
+        ("session".into(), "aklshdJBASFKABFHuh1KJBJKlkjA".into()),
+        ("language".into(), "gremlin-groovy".to_string().into()),
+        ("gremlin".into(), "social.V(x).values('age')".into()),
+    ]);
+
+    args.insert(
+        "bindings".into(),
+        HashMap::<String, GraphBinary>::from([("x".into(), 1_i32.into())]).into(),
+    );
+    args.insert(
+        "aliases".into(),
+        HashMap::<String, GraphBinary>::from([("g".into(), "social".into())]).into(),
+    );
+
+    assert_eq!(
+        Request {
+            version: 0x81,
+            request_id: Uuid::from_bytes([
+                0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
+                0xee, 0xff
+            ]),
+            op: "eval".to_string(),
+            processor: "session".to_string(),
+            args
+        },
+        req
+    )
 }
 
 #[derive(Debug, PartialEq)]
