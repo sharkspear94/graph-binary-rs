@@ -1,6 +1,6 @@
 use crate::{
     error::EncodeError,
-    graph_binary::{Decode, Encode},
+    graph_binary::{Decode, Encode, GraphBinary, MapKeys},
     specs::CoreType,
 };
 use std::collections::HashMap;
@@ -60,6 +60,13 @@ where
             len += V::consumed_bytes(&bytes[len..])?;
         }
         Ok(len)
+    }
+}
+
+impl<K: Into<MapKeys>, V: Into<GraphBinary>> From<HashMap<K, V>> for GraphBinary {
+    fn from(m: HashMap<K, V>) -> Self {
+        let map = m.into_iter().map(|(k, v)| (k.into(), v.into())).collect();
+        GraphBinary::Map(map)
     }
 }
 

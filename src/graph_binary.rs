@@ -1,15 +1,14 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 use std::io::{Read, Write};
 
 use crate::structure::binding::Binding;
 use crate::structure::bulkset::BulkSet;
+use crate::structure::bytecode::ByteCode;
 use crate::structure::enums::{
     Barrier, Cardinality, Column, Direction, Merge, Operator, Order, Pick, Pop, Scope, TextP, P, T,
 };
 use crate::structure::graph::Graph;
 use crate::structure::lambda::Lambda;
-// use crate::structure::list::List1;
-use crate::structure::bytecode::ByteCode;
 use crate::structure::metrics::{Metrics, TraversalMetrics};
 use crate::structure::path::Path;
 use crate::structure::primitivs::UuidDef;
@@ -19,23 +18,8 @@ use crate::structure::vertex::Vertex;
 use crate::structure::vertex_property::VertexProperty;
 use crate::{specs::CoreType, structure::edge::Edge};
 use serde::de::Visitor;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use uuid::Uuid;
-
-pub const VALUE_PRESENT: u8 = 0x00;
-pub const VALUE_NULL: u8 = 0x01;
-
-pub const VALUE_PRESENT_BYTE_LEN: usize = 2;
-pub const INT32_LEN: usize = 4;
-pub const LONG64_LEN: usize = 8;
-
-pub const INT32_TYPE_CODE: u8 = 0x01;
-pub const INT64_TYPE_CODE: u8 = 0x02;
-pub const STRING_TYPE_CODE: u8 = 0x03;
-pub const DATE_TYPE_CODE: u8 = 0x04;
-
-pub const LIST_TYPE_CODE: u8 = 0x09;
-pub const MAP_TYPE_CODE: u8 = 0x0a;
 
 #[derive(Debug, PartialEq)]
 pub enum GraphBinary {
@@ -724,6 +708,22 @@ pub trait Decode {
         let partial_bytes = Self::partial_count_bytes(&bytes[2..])?;
         Ok(partial_bytes + 2)
     }
+
+    fn partial_nullable_decode<R: Read>(reader: &mut R) -> Result<Option<Self>, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let mut buf = [255_u8; 1];
+        reader.read_exact(&mut buf)?;
+        match buf[0] {
+            0 => Ok(Self::partial_decode(reader).ok()),
+            1 => Ok(None),
+            err => Err(DecodeError::DecodeError(format!(
+                "found {} expected 0 or 1",
+                err
+            ))),
+        }
+    }
 }
 
 use crate::error::{DecodeError, EncodeError};
@@ -734,18 +734,21 @@ pub trait Encode {
     fn write_patial_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError>;
 
     fn write_full_qualified_null_bytes<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
-        writer.write_all(&[Self::type_code(), VALUE_NULL])?;
+        writer.write_all(&[Self::type_code(), 0x01])?;
         Ok(())
     }
 
     fn write_full_qualified_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
-        writer.write_all(&[Self::type_code(), VALUE_PRESENT])?;
+        writer.write_all(&[Self::type_code(), 0x00])?;
         self.write_patial_bytes(writer)
     }
 
     fn write_nullable_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
-        writer.write_all(&[VALUE_PRESENT])?;
+        writer.write_all(&[0x00])?;
         self.write_patial_bytes(writer)
+    }
+    fn write_partial_nullable_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+        unimplemented!("this Method should only be called from Option<T>")
     }
 }
 

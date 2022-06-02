@@ -465,6 +465,19 @@ impl<T: Encode> Encode for Option<T> {
             None => build_fq_null_bytes(writer),
         }
     }
+
+    fn write_partial_nullable_bytes<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), EncodeError> {
+        match self {
+            Some(val) => {
+                writer.write_all(&[0])?;
+                val.write_patial_bytes(writer)
+            }
+            None => Ok(writer.write_all(&[1])?),
+        }
+    }
 }
 
 impl<T: Decode> Decode for Option<T> {
