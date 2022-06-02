@@ -4,10 +4,7 @@ use crate::{error::EncodeError, graph_binary::Encode};
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::graph_binary::{
-    build_fq_null_bytes, Decode, GraphBinary, INT32_LEN, INT32_TYPE_CODE, INT64_TYPE_CODE,
-    STRING_TYPE_CODE, VALUE_PRESENT,
-};
+use crate::graph_binary::{build_fq_null_bytes, Decode, GraphBinary};
 
 use std::io::Read;
 use std::slice;
@@ -572,18 +569,7 @@ fn encode_string_test() {
     let mut buf: Vec<u8> = vec![];
     s.write_full_qualified_bytes(&mut buf).unwrap();
     assert_eq!(
-        &[
-            STRING_TYPE_CODE,
-            VALUE_PRESENT,
-            0x00,
-            0x00,
-            0x00,
-            0x04,
-            0x74,
-            0x65,
-            0x73,
-            0x74
-        ][..],
+        &[0x03, 0x00, 0x00, 0x00, 0x00, 0x04, 0x74, 0x65, 0x73, 0x74][..],
         &buf
     );
 }
@@ -595,15 +581,12 @@ fn encode_empty_string_test() {
     let mut buf: Vec<u8> = vec![];
     s.write_full_qualified_bytes(&mut buf).unwrap();
 
-    assert_eq!(
-        &[STRING_TYPE_CODE, VALUE_PRESENT, 0x00, 0x00, 0x00, 0x00][..],
-        &buf
-    );
+    assert_eq!(&[0x03, 0x00, 0x00, 0x00, 0x00, 0x00][..], &buf);
 }
 
 #[test]
 fn decode_fq_empty_string_test() {
-    let buf: Vec<u8> = vec![0x03, VALUE_PRESENT, 0x00, 0x00, 0x00, 0x00];
+    let buf: Vec<u8> = vec![0x03, 0x00, 0x00, 0x00, 0x00, 0x00];
 
     let s = String::fully_self_decode(&mut &buf[..]);
 
@@ -650,18 +633,12 @@ fn encode_int32_test() {
     let mut buf: Vec<u8> = vec![];
     i32::MAX.write_full_qualified_bytes(&mut buf).unwrap();
 
-    assert_eq!(
-        &[INT32_TYPE_CODE, VALUE_PRESENT, 0x7F, 0xFF, 0xFF, 0xFF][..],
-        buf
-    );
+    assert_eq!(&[0x01, 0x00, 0x7F, 0xFF, 0xFF, 0xFF][..], buf);
 
     buf.clear();
     i32::MIN.write_full_qualified_bytes(&mut buf).unwrap();
 
-    assert_eq!(
-        &[INT32_TYPE_CODE, VALUE_PRESENT, 0x80, 0x00, 0x00, 0x00][..],
-        buf
-    );
+    assert_eq!(&[0x01, 0x00, 0x80, 0x00, 0x00, 0x00][..], buf);
 }
 
 #[test]
