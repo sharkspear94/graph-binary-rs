@@ -197,12 +197,6 @@ impl<'de> Visitor<'de> for GraphBinaryVisitor {
             // _ => todo!(),
         }
     }
-    // fn visit_u128<E>(self, v: u128) -> Result<Self::Value, E>
-    // where
-    //     E: de::Error,
-    // {
-    //     Ok(GraphBinary::Uuid(Uuid::from_u128(v)))
-    // }
 }
 
 #[test]
@@ -430,17 +424,6 @@ fn test_uuid() {
         0xdd, 0xee, 0xff,
     ];
 
-    // let map = HashMap::from([
-    //     // (MapKeys::String("test".into()), 1.into()),
-    //     (
-    //         MapKeys::Uuid(uuid::Uuid::from_bytes([
-    //             0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
-    //             0xee, 0xff,
-    //         ])),
-    //         true.into(),
-    //     ),
-    // ]);
-
     assert_eq!(
         GraphBinary::Uuid(Uuid::from_bytes([
             0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
@@ -448,4 +431,28 @@ fn test_uuid() {
         ])),
         from_slice(&reader).unwrap()
     )
+}
+
+#[test]
+fn test_struct_from_gb() {
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct TestStruct {
+        test: i32,
+        abc: GraphBinary,
+        milli: i16,
+    }
+
+    let gb = GraphBinary::Map(HashMap::from([
+        ("test".into(), 1_i32.into()),
+        ("abc".into(), GraphBinary::Boolean(true)),
+        ("milli".into(), 1_i16.into()),
+    ]));
+
+    let expected = TestStruct {
+        test: 1,
+        abc: GraphBinary::Boolean(true),
+        milli: 1,
+    };
+    let test_struct = crate::de::from_graph_binary(gb).unwrap();
+    assert_eq!(expected, test_struct)
 }
