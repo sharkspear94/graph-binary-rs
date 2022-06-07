@@ -1,6 +1,7 @@
 use std::collections::{BTreeSet, HashMap};
 use std::io::{Read, Write};
 
+use crate::error::{DecodeError, EncodeError};
 use crate::structure::binding::Binding;
 use crate::structure::bulkset::BulkSet;
 use crate::structure::bytecode::ByteCode;
@@ -187,12 +188,10 @@ impl GraphBinary {
             graph_binary => Some(graph_binary),
         }
     }
-
-    fn decode<R: Read>(reader: R) {}
 }
 
 impl Decode for GraphBinary {
-    fn partial_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    fn partial_decode<R: Read>(_reader: &mut R) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -210,7 +209,7 @@ impl Decode for GraphBinary {
         decode(reader)
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
+    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
         unimplemented!("partial_count_bytes is not supported for GraphBinary")
     }
 
@@ -363,7 +362,7 @@ impl Encode for MapKeys {
         unimplemented!()
     }
 
-    fn write_patial_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_patial_bytes<W: Write>(&self, _writer: &mut W) -> Result<(), EncodeError> {
         todo!()
     }
 
@@ -382,7 +381,7 @@ impl Decode for MapKeys {
         unimplemented!()
     }
 
-    fn partial_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    fn partial_decode<R: Read>(_reader: &mut R) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -400,15 +399,30 @@ impl Decode for MapKeys {
             (0x02, 0) => Ok(MapKeys::Long(i64::partial_decode(reader)?)),
             (0x03, 0) => Ok(MapKeys::String(String::partial_decode(reader)?)),
             (0x0c, 0) => Ok(MapKeys::Uuid(Uuid::partial_decode(reader)?)),
+            (0x18, 0) => match Direction::partial_decode(reader)? {
+                Direction::In => Ok(MapKeys::String("IN".to_string())),
+                Direction::Out => Ok(MapKeys::String("OUT".to_string())),
+                _ => Err(DecodeError::DecodeError(
+                    "Direction conversion for Mapkeys faild".to_string(),
+                )),
+            },
+            (0x20, 0) => match T::partial_decode(reader)? {
+                T::Id => Ok(MapKeys::String("id".to_string())),
+                T::Label => Ok(MapKeys::String("label".to_string())),
+                _ => Err(DecodeError::DecodeError(
+                    "T conversion for Mapkeys faild".to_string(),
+                )),
+            },
+
             (code, _) => Err(DecodeError::DecodeError(format!(
-                "{} CoreType found: MapKey not Supported in Rust must implement Eq and Hash",
+                "0x{:x} CoreType found: MapKey not Supported in Rust must implement Eq and Hash",
                 code
             ))),
         }
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
-        todo!()
+    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+        unimplemented!("use consume_bytes insted")
     }
 
     fn consumed_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
@@ -418,7 +432,7 @@ impl Decode for MapKeys {
             (0x03, 0) => String::consumed_bytes(bytes),
             (0x0c, 0) => Uuid::consumed_bytes(bytes),
             (code, _) => Err(DecodeError::DecodeError(format!(
-                "{} CoreType found: MapKey not Supported in Rust must implement Eq and Hash",
+                "{:x} CoreType found: MapKey not Supported in Rust must implement Eq and Hash",
                 code
             ))),
         }
@@ -471,13 +485,6 @@ impl<'de> serde::de::Visitor<'de> for MapKeysVisitor {
         Ok(MapKeys::Long(v))
     }
 
-    fn visit_u128<E>(self, v: u128) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        Ok(MapKeys::Uuid(Uuid::from_u128(v)))
-    }
-
     fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
     where
         A: serde::de::MapAccess<'de>,
@@ -515,104 +522,63 @@ pub fn decode<R: Read>(reader: &mut R) -> Result<GraphBinary, DecodeError> {
     let value_flag = ValueFlag::try_from(buf[1])?;
 
     match (identifier, value_flag) {
-        (CoreType::Int32, ValueFlag::Set) => Ok(GraphBinary::Int(i32::partial_decode(reader)?)),
-        (CoreType::Long, ValueFlag::Set) => Ok(GraphBinary::Long(i64::partial_decode(reader)?)),
-        (CoreType::Long, ValueFlag::Null) => todo!(),
-        (CoreType::String, ValueFlag::Set) => {
-            Ok(GraphBinary::String(String::partial_decode(reader)?))
-        }
-        (CoreType::String, ValueFlag::Null) => todo!(),
-        (CoreType::Class, ValueFlag::Set) => {
-            Ok(GraphBinary::Class(String::partial_decode(reader)?))
-        }
-        (CoreType::Class, ValueFlag::Null) => todo!(),
-        (CoreType::Double, ValueFlag::Set) => Ok(GraphBinary::Double(f64::partial_decode(reader)?)),
-        (CoreType::Double, ValueFlag::Null) => todo!(),
-        (CoreType::Float, ValueFlag::Set) => Ok(GraphBinary::Float(f32::partial_decode(reader)?)),
-        (CoreType::Float, ValueFlag::Null) => todo!(),
-        (CoreType::List, ValueFlag::Set) => Ok(GraphBinary::List(Vec::partial_decode(reader)?)),
-        (CoreType::List, ValueFlag::Null) => todo!(),
-        (CoreType::Set, ValueFlag::Set) => Ok(GraphBinary::Set(Vec::partial_decode(reader)?)),
-        (CoreType::Set, ValueFlag::Null) => todo!(),
-        (CoreType::Map, ValueFlag::Set) => todo!(),
-        (CoreType::Map, ValueFlag::Null) => todo!(),
-        (CoreType::Uuid, ValueFlag::Set) => todo!(),
-        (CoreType::Uuid, ValueFlag::Null) => todo!(),
-        (CoreType::Edge, ValueFlag::Set) => todo!(),
-        (CoreType::Edge, ValueFlag::Null) => todo!(),
-        (CoreType::Path, ValueFlag::Set) => todo!(),
-        (CoreType::Path, ValueFlag::Null) => todo!(),
-        (CoreType::Property, ValueFlag::Set) => {
-            Ok(GraphBinary::Property(Property::partial_decode(reader)?))
-        }
-        (CoreType::Property, ValueFlag::Null) => todo!(),
-        (CoreType::Graph, ValueFlag::Set) => todo!(),
-        (CoreType::Graph, ValueFlag::Null) => todo!(),
-        (CoreType::Vertex, ValueFlag::Set) => todo!(),
-        (CoreType::Vertex, ValueFlag::Null) => todo!(),
-        (CoreType::VertexProperty, ValueFlag::Set) => todo!(),
-        (CoreType::VertexProperty, ValueFlag::Null) => todo!(),
-        (CoreType::Short, ValueFlag::Set) => todo!(),
-        (CoreType::Short, ValueFlag::Null) => todo!(),
-        (CoreType::Boolean, ValueFlag::Set) => todo!(),
-        (CoreType::Boolean, ValueFlag::Null) => todo!(),
-        (CoreType::Cardinality, ValueFlag::Set) => todo!(),
-        (CoreType::Cardinality, ValueFlag::Null) => todo!(),
-        (CoreType::Column, ValueFlag::Set) => todo!(),
-        (CoreType::Column, ValueFlag::Null) => todo!(),
-        (CoreType::Direction, ValueFlag::Set) => todo!(),
-        (CoreType::Direction, ValueFlag::Null) => todo!(),
-        (CoreType::Operator, ValueFlag::Set) => todo!(),
-        (CoreType::Operator, ValueFlag::Null) => todo!(),
-        (CoreType::Order, ValueFlag::Set) => todo!(),
-        (CoreType::Order, ValueFlag::Null) => todo!(),
-        (CoreType::Pick, ValueFlag::Set) => todo!(),
-        (CoreType::Pick, ValueFlag::Null) => todo!(),
-        (CoreType::Pop, ValueFlag::Set) => todo!(),
-        (CoreType::Pop, ValueFlag::Null) => todo!(),
-        (CoreType::P, ValueFlag::Set) => todo!(),
-        (CoreType::P, ValueFlag::Null) => todo!(),
-        (CoreType::Scope, ValueFlag::Set) => todo!(),
-        (CoreType::Scope, ValueFlag::Null) => todo!(),
-        (CoreType::T, ValueFlag::Set) => todo!(),
-        (CoreType::T, ValueFlag::Null) => todo!(),
-        (CoreType::Barrier, ValueFlag::Set) => todo!(),
-        (CoreType::Barrier, ValueFlag::Null) => todo!(),
-        (CoreType::Binding, ValueFlag::Set) => todo!(),
-        (CoreType::Binding, ValueFlag::Null) => todo!(),
-        (CoreType::ByteCode, ValueFlag::Set) => todo!(),
-        (CoreType::ByteCode, ValueFlag::Null) => todo!(),
-        (CoreType::Lambda, ValueFlag::Set) => todo!(),
-        (CoreType::Lambda, ValueFlag::Null) => todo!(),
-        (CoreType::Traverser, ValueFlag::Set) => todo!(),
-        (CoreType::Traverser, ValueFlag::Null) => todo!(),
-        (CoreType::Byte, ValueFlag::Set) => todo!(),
-        (CoreType::Byte, ValueFlag::Null) => todo!(),
-        (CoreType::ByteBuffer, ValueFlag::Set) => todo!(),
-        (CoreType::ByteBuffer, ValueFlag::Null) => todo!(),
-        (CoreType::TextP, ValueFlag::Set) => todo!(),
-        (CoreType::TextP, ValueFlag::Null) => todo!(),
-        (CoreType::TraversalStrategy, ValueFlag::Set) => todo!(),
-        (CoreType::TraversalStrategy, ValueFlag::Null) => todo!(),
-        (CoreType::Tree, ValueFlag::Set) => todo!(),
-        (CoreType::Tree, ValueFlag::Null) => todo!(),
-        (CoreType::Metrics, ValueFlag::Set) => todo!(),
-        (CoreType::Metrics, ValueFlag::Null) => todo!(),
-        (CoreType::TraversalMetrics, ValueFlag::Set) => todo!(),
-        (CoreType::TraversalMetrics, ValueFlag::Null) => todo!(),
-        (CoreType::Merge, ValueFlag::Set) => todo!(),
-        (CoreType::Merge, ValueFlag::Null) => todo!(),
-        (CoreType::UnspecifiedNullObject, ValueFlag::Set) => todo!(),
-        (CoreType::UnspecifiedNullObject, ValueFlag::Null) => {
-            Ok(GraphBinary::UnspecifiedNullObject)
-        }
-        (CoreType::Int32, ValueFlag::Null) => todo!(),
-        // (CoreType::Int32,0x00) => GraphBinary::Int(i32::decode(reader)?),
-        // (0x02,0x00) => GraphBinary::Long(i64::decode(reader)?),
-        // (LIST_TYPE_CODE,0x0) => GraphBinary::List(List::decode(reader)?),
-        // (_,_) => return Err(DecodeError::DecodeError("qualifier not known".to_string())),
-        (_, _) => Err(DecodeError::DecodeError(
-            "Coretype not Implemented".to_string(),
+        (_, ValueFlag::Null) => Ok(GraphBinary::UnspecifiedNullObject),
+        (CoreType::Int32, _) => Ok(GraphBinary::Int(i32::partial_decode(reader)?)),
+        (CoreType::Long, _) => Ok(GraphBinary::Long(i64::partial_decode(reader)?)),
+        (CoreType::String, _) => Ok(GraphBinary::String(String::partial_decode(reader)?)),
+        (CoreType::Class, _) => Ok(GraphBinary::Class(String::partial_decode(reader)?)),
+        (CoreType::Double, _) => Ok(GraphBinary::Double(f64::partial_decode(reader)?)),
+        (CoreType::Float, _) => Ok(GraphBinary::Float(f32::partial_decode(reader)?)),
+        (CoreType::List, _) => Ok(GraphBinary::List(Vec::partial_decode(reader)?)),
+        (CoreType::Set, _) => Ok(GraphBinary::Set(Vec::partial_decode(reader)?)),
+        (CoreType::Map, _) => Ok(GraphBinary::Map(
+            HashMap::<MapKeys, GraphBinary>::partial_decode(reader)?,
+        )),
+        (CoreType::Uuid, _) => Ok(GraphBinary::Uuid(Uuid::partial_decode(reader)?)),
+        (CoreType::Edge, _) => Ok(GraphBinary::Edge(Edge::partial_decode(reader)?)),
+        (CoreType::Path, _) => Ok(GraphBinary::Path(Path::partial_decode(reader)?)),
+        (CoreType::Property, _) => Ok(GraphBinary::Property(Property::partial_decode(reader)?)),
+        (CoreType::Graph, _) => Ok(GraphBinary::Graph(Graph::partial_decode(reader)?)),
+        (CoreType::Vertex, _) => Ok(GraphBinary::Vertex(Vertex::partial_decode(reader)?)),
+        (CoreType::VertexProperty, _) => Ok(GraphBinary::VertexProperty(
+            VertexProperty::partial_decode(reader)?,
+        )),
+        (CoreType::Short, _) => Ok(GraphBinary::Short(i16::partial_decode(reader)?)),
+        (CoreType::Boolean, _) => Ok(GraphBinary::Boolean(bool::partial_decode(reader)?)),
+
+        (CoreType::Cardinality, _) => Ok(GraphBinary::Cardinality(Cardinality::partial_decode(
+            reader,
+        )?)),
+        (CoreType::Column, _) => Ok(GraphBinary::Column(Column::partial_decode(reader)?)),
+        (CoreType::Direction, _) => Ok(GraphBinary::Direction(Direction::partial_decode(reader)?)),
+        (CoreType::Operator, _) => Ok(GraphBinary::Operator(Operator::partial_decode(reader)?)),
+        (CoreType::Order, _) => Ok(GraphBinary::Order(Order::partial_decode(reader)?)),
+        (CoreType::Pick, _) => Ok(GraphBinary::Pick(Pick::partial_decode(reader)?)),
+        (CoreType::Pop, _) => Ok(GraphBinary::Pop(Pop::partial_decode(reader)?)),
+        (CoreType::P, _) => Ok(GraphBinary::P(P::partial_decode(reader)?)),
+        (CoreType::Scope, _) => Ok(GraphBinary::Scope(Scope::partial_decode(reader)?)),
+        (CoreType::T, _) => Ok(GraphBinary::T(T::partial_decode(reader)?)),
+        (CoreType::Barrier, _) => Ok(GraphBinary::Barrier(Barrier::partial_decode(reader)?)),
+        (CoreType::Binding, _) => Ok(GraphBinary::Binding(Binding::partial_decode(reader)?)),
+        (CoreType::ByteCode, _) => Ok(GraphBinary::ByteCode(ByteCode::partial_decode(reader)?)),
+        (CoreType::Lambda, _) => Ok(GraphBinary::Lambda(Lambda::partial_decode(reader)?)),
+        (CoreType::Traverser, _) => Ok(GraphBinary::Traverser(Traverser::partial_decode(reader)?)),
+        (CoreType::Byte, _) => Ok(GraphBinary::Byte(u8::partial_decode(reader)?)),
+        (CoreType::ByteBuffer, _) => todo!(),
+        (CoreType::TextP, _) => Ok(GraphBinary::TextP(TextP::partial_decode(reader)?)),
+        (CoreType::TraversalStrategy, _) => Ok(GraphBinary::TraversalStrategy(
+            TraversalStrategy::partial_decode(reader)?,
+        )),
+        (CoreType::Tree, _) => todo!(),
+        (CoreType::Metrics, _) => Ok(GraphBinary::Metrics(Metrics::partial_decode(reader)?)),
+
+        (CoreType::TraversalMetrics, _) => Ok(GraphBinary::TraversalMetrics(
+            TraversalMetrics::partial_decode(reader)?,
+        )),
+        (CoreType::Merge, _) => Ok(GraphBinary::Merge(Merge::partial_decode(reader)?)),
+        (CoreType::BulkSet, _) => Ok(GraphBinary::BulkSet(BulkSet::partial_decode(reader)?)),
+        (CoreType::UnspecifiedNullObject, _) => Err(DecodeError::DecodeError(
+            "UnspecifiedNullObject wrong valueflag".to_string(),
         )),
     }
 }
@@ -726,8 +692,6 @@ pub trait Decode {
     }
 }
 
-use crate::error::{DecodeError, EncodeError};
-
 pub trait Encode {
     fn type_code() -> u8;
 
@@ -747,7 +711,7 @@ pub trait Encode {
         writer.write_all(&[0x00])?;
         self.write_patial_bytes(writer)
     }
-    fn write_partial_nullable_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_partial_nullable_bytes<W: Write>(&self, _writer: &mut W) -> Result<(), EncodeError> {
         unimplemented!("this Method should only be called from Option<T>")
     }
 }
@@ -762,21 +726,3 @@ fn testing() {
     15_i32.write_full_qualified_bytes(&mut buf).unwrap();
     assert_eq!([0x01, 0x00, 0x00, 0x00, 0x00, 0x0F], buf.as_slice());
 }
-
-// pub enum Parent {
-//     Edge(Edge),
-//     VertexProperty(VertexProperty),
-// }
-
-// impl FullyQualifiedBytes for Binding {
-//     fn get_type_code(&self) -> Bytes {
-//         Bytes::from_static(&[CORE_TYPE_BINDING])
-//     }
-
-//     fn generate_byte_representation(&self) -> Bytes {
-//         let mut ret = bytes::BytesMut::with_capacity(64);
-//         ret.extend(self.key.generate_byte_representation());
-//         ret.extend(self.val.build_fq_bytes());
-//         ret.freeze()
-//     }
-// }
