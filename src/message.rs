@@ -1,14 +1,18 @@
 use std::collections::HashMap;
+use std::vec;
 
 use serde::de::{IntoDeserializer, Visitor};
 use serde::Deserialize;
 use uuid::Uuid;
 
+use crate::de::from_slice;
 use crate::error::EncodeError;
 use crate::graph_binary::{Decode, Encode, GraphBinary, MapKeys};
+use crate::structure::bytecode::{ByteCode, Step};
+use crate::structure::enums::T;
 
 #[derive(Debug, PartialEq)]
-struct Request {
+pub struct Request {
     version: u8,
     request_id: uuid::Uuid,
     op: String,
@@ -17,7 +21,7 @@ struct Request {
 }
 
 impl Request {
-    fn write_gb_respons_bytes<W: std::io::Write>(
+    pub fn write_gb_respons_bytes<W: std::io::Write>(
         &self,
         writer: &mut W,
         mime_type: &str,
@@ -63,52 +67,60 @@ impl Encode for Request {
     }
 }
 impl Request {
-    fn builder() -> RequestBuilder {
+    pub fn builder() -> RequestBuilder {
         RequestBuilder(Request::default())
     }
 }
 
-struct RequestBuilder(Request);
+pub struct RequestBuilder(Request);
 
 impl RequestBuilder {
-    fn version(mut self, version: u8) -> Self {
+    pub fn version(mut self, version: u8) -> Self {
         self.0.version = version;
         self
     }
-    fn request_id(mut self, request_id: Uuid) -> Self {
+    pub fn request_id(mut self, request_id: Uuid) -> Self {
         self.0.request_id = request_id;
         self
     }
-    fn session(mut self, session_identifier: &str) -> Self {
+    pub fn session(mut self, session_identifier: &str) -> Self {
         self.0.processor = "session".to_owned();
         self.0
             .args
             .insert("session".into(), session_identifier.into());
         self
     }
-    fn op(mut self, op: &str) -> Self {
+    pub fn op(mut self, op: &str) -> Self {
         self.0.op = op.to_owned();
         self
     }
-    fn processor(mut self, processor: &str) -> Self {
+    pub fn processor(mut self, processor: &str) -> Self {
         self.0.processor = processor.to_owned();
         self
     }
-    fn authentication(mut self) -> AuthRequestBuilder {
+    pub fn authentication(mut self) -> AuthRequestBuilder {
         self.0.op = "authentication".to_owned();
         self.0.processor = "".to_owned();
         self.0.args.insert("saslMechanism".into(), "PLAIN".into());
-        self.0.args.remove(&"session".into());
         AuthRequestBuilder(self.0)
     }
-    fn eval(mut self) -> ScriptBuilder {
+    pub fn eval(mut self) -> EvalBuilder {
         self.0.op = "eval".to_owned();
         self.0
             .args
             .insert("language".into(), "gremlin-groovy".into());
-        ScriptBuilder(self.0)
+        EvalBuilder(self.0)
     }
-    fn close(mut self, session_identifier: &str) -> Request {
+    pub fn bytecode(mut self) -> BytecodeBuilder {
+        self.0.op = "bytecode".to_owned();
+        self.0.processor = "traversal".to_owned();
+        self.0.args.insert(
+            MapKeys::String("aliases".to_string()),
+            GraphBinary::Map(HashMap::from([("g".into(), "g".into())])),
+        );
+        BytecodeBuilder(self.0)
+    }
+    pub fn close(mut self, session_identifier: &str) -> Request {
         self.0.op = "close".into();
         self.0.processor = "session".to_owned();
         self.0
@@ -118,49 +130,88 @@ impl RequestBuilder {
     }
 }
 
-struct ScriptBuilder(Request);
+pub struct BytecodeBuilder(Request);
 
-impl ScriptBuilder {
-    fn bindings(mut self, bindings: HashMap<String, GraphBinary>) -> Self {
+impl BytecodeBuilder {
+    pub fn gremlin(mut self, bytecode: ByteCode) -> Self {
+        self.0.args.insert("gremlin".into(), bytecode.into());
+        self
+    }
+    pub fn aliases(mut self, aliases: HashMap<String, String>) -> Self {
+        self.0.args.insert("aliases".into(), aliases.into());
+        self
+    }
+    pub fn build(self) -> Request {
+        self.0
+    }
+}
+
+pub struct EvalBuilder(Request);
+
+impl EvalBuilder {
+    pub fn bindings(mut self, bindings: HashMap<String, GraphBinary>) -> Self {
         self.0.args.insert("bindings".into(), bindings.into());
         self
     }
-    fn gremlin(mut self, script: &str) -> Self {
+    pub fn gremlin(mut self, script: &str) -> Self {
         self.0.args.insert("gremlin".into(), script.into());
         self
     }
-    fn session_identifier(mut self, session_identifier: &str) -> Self {
+    pub fn session(mut self, session_identifier: &str) -> Self {
+        self.0.processor = "session".to_owned();
         self.0
             .args
             .insert("session".into(), session_identifier.into());
         self
     }
-    fn aliases(mut self, alias: HashMap<String, String>) -> Self {
-        self.0.args.insert("aliases".into(), alias.into());
+    pub fn aliases(mut self, aliases: HashMap<String, String>) -> Self {
+        if let Some(GraphBinary::Map(map)) = self.0.args.get_mut(&"aliases".into()) {
+            map.extend(aliases.into_iter().map(|(k, v)| (k.into(), v.into())));
+        } else {
+            self.0.args.insert("aliases".into(), aliases.into());
+        }
         self
     }
-    fn language(mut self, language: &str) -> Self {
+    pub fn alias(mut self, source: &str, alias: &str) -> Self {
+        if let Some(GraphBinary::Map(map)) = self.0.args.get_mut(&"aliases".into()) {
+            map.insert(source.into(), alias.into());
+        } else {
+            self.0.args.insert(
+                "aliases".into(),
+                HashMap::<MapKeys, GraphBinary>::from([(source.into(), alias.into())]).into(),
+            );
+        }
+        self
+    }
+    pub fn language(mut self, language: &str) -> Self {
         self.0.args.insert("language".into(), language.into());
         self
     }
-    fn build(self) -> Request {
+    pub fn build(self) -> Request {
         self.0
     }
 }
 
-struct AuthRequestBuilder(Request);
+pub struct AuthRequestBuilder(Request);
 
 impl AuthRequestBuilder {
-    fn sasl_mechanism(mut self, mechanism: &str) -> Self {
+    pub fn sasl_mechanism(mut self, mechanism: &str) -> Self {
         self.0.args.insert("saslMechanism".into(), mechanism.into());
         self
     }
 
-    fn sasl(mut self, sasl: &str) -> Self {
+    pub fn sasl(mut self, sasl: &str) -> Self {
         self.0.args.insert("sasl".into(), sasl.into());
         self
     }
-    fn build(self) -> Request {
+    pub fn session(mut self, session_identifier: &str) -> Self {
+        self.0.processor = "session".to_owned();
+        self.0
+            .args
+            .insert("session".into(), session_identifier.into());
+        self
+    }
+    pub fn build(self) -> Request {
         self.0
     }
 }
@@ -174,7 +225,8 @@ fn test() {
             0xee, 0xff,
         ]))
         .eval()
-        .aliases(HashMap::from([("g".into(), "social".into())]))
+        .alias("g", "social")
+        .alias("t", "test")
         .gremlin("social.V(x).values('age')")
         .bindings(HashMap::from([("x".into(), 1_i32.into())]))
         .build();
@@ -191,7 +243,11 @@ fn test() {
     );
     args.insert(
         "aliases".into(),
-        HashMap::<String, GraphBinary>::from([("g".into(), "social".into())]).into(),
+        HashMap::<String, GraphBinary>::from([
+            ("g".into(), "social".into()),
+            ("t".into(), "test".into()),
+        ])
+        .into(),
     );
 
     assert_eq!(
@@ -210,7 +266,7 @@ fn test() {
 }
 
 #[derive(Debug, PartialEq)]
-struct Response {
+pub struct Response {
     version: u8,
     request_id: Option<uuid::Uuid>,
     status_code: i32,
@@ -252,10 +308,14 @@ impl Response {
             resp: Response::new(),
         }
     }
+
+    fn result_data(&self) -> &GraphBinary {
+        &self.result_data
+    }
 }
 
 #[derive(Debug)]
-struct ResponseBuilder {
+pub struct ResponseBuilder {
     resp: Response,
 }
 
@@ -502,6 +562,34 @@ fn test_respose() {
 }
 
 #[test]
+fn test_respose_with_t() {
+    let bytes = vec![
+        0x81, 0x0, 0x0, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc,
+        0xdd, 0xee, 0xff, 0x0, 0x0, 0x0, 0xc8, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x3,
+        0x0, 0x0, 0x0, 0x0, 0x4, 0x68, 0x6f, 0x73, 0x74, 0x3, 0x0, 0x0, 0x0, 0x0, 0x10, 0x2f, 0x31,
+        0x32, 0x37, 0x2e, 0x30, 0x2e, 0x30, 0x2e, 0x31, 0x3a, 0x31, 0x32, 0x33, 0x34, 0x35, 0x0,
+        0x0, 0x0, 0x0, 0x20, 0x0, 0x03, 0x0, 0x0, 0x0, 0x0, 0x2, b'i', b'd',
+    ];
+
+    let resp = from_slice(&bytes).unwrap();
+
+    let expected = Response::builder()
+        .version(0x81)
+        .request_id(Some(Uuid::from_bytes([
+            0x0, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
+            0xee, 0xff,
+        ])))
+        .status_code(200)
+        .status_message(Some("".to_owned()))
+        .status_attribute(HashMap::from([("host".into(), "/127.0.0.1:12345".into())]))
+        .result_meta(HashMap::new())
+        .result_data(T::Id.into())
+        .build();
+
+    assert_eq!(expected, resp)
+}
+
+#[test]
 fn test_respose_from_slice() {
     use crate::de::from_slice;
     let bytes = vec![
@@ -528,6 +616,34 @@ fn test_respose_from_slice() {
         .build();
 
     assert_eq!(expected, resp)
+}
+
+#[test]
+fn test_respose_with_t_nested() {
+    let bytes = vec![
+        0x81, 0x0, 0x0, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc,
+        0xdd, 0xee, 0xff, 0x0, 0x0, 0x0, 0xc8, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x3,
+        0x0, 0x0, 0x0, 0x0, 0x4, 0x68, 0x6f, 0x73, 0x74, 0x3, 0x0, 0x0, 0x0, 0x0, 0x10, 0x2f, 0x31,
+        0x32, 0x37, 0x2e, 0x30, 0x2e, 0x30, 0x2e, 0x31, 0x3a, 0x31, 0x32, 0x33, 0x34, 0x35, 0x0,
+        0x0, 0x0, 0x0, 0x20, 0x0, 0x03, 0x0, 0x0, 0x0, 0x0, 0x2, b'i', b'd',
+    ];
+
+    let resp = from_slice(&bytes).unwrap();
+
+    let expected = Response::builder()
+        .version(0x81)
+        .request_id(Some(Uuid::from_bytes([
+            0x0, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
+            0xee, 0xff,
+        ])))
+        .status_code(200)
+        .status_message(Some("".to_owned()))
+        .status_attribute(HashMap::from([("host".into(), "/127.0.0.1:12345".into())]))
+        .result_meta(HashMap::new())
+        .result_data(T::Id.into())
+        .build();
+
+    assert_eq!(expected, resp);
 }
 
 #[test]
@@ -569,4 +685,100 @@ fn print_msg() {
     req.write_gb_respons_bytes(&mut buf, "application/vnd.graphbinary-v1.0")
         .unwrap();
     println!("printing: {:?}", buf);
+}
+
+#[test]
+fn print_msg1() {
+    let mut args = HashMap::new();
+
+    args.insert(
+        MapKeys::String("gremlin".to_string()),
+        GraphBinary::ByteCode(ByteCode {
+            steps: vec![
+                Step {
+                    name: "V".to_string(),
+                    values: vec![],
+                },
+                Step {
+                    name: "hasLabel".to_string(),
+                    values: vec!["person".into()],
+                },
+            ],
+            sources: vec![],
+        }),
+    );
+    args.insert(
+        MapKeys::String("aliases".to_string()),
+        GraphBinary::Map(HashMap::from([("g".into(), "g".into())])),
+    );
+
+    // args.insert(
+    //     MapKeys::String("language".to_string()),
+    //     GraphBinary::String("gremlin-groovy".to_string()),
+    // );
+
+    // let mut bindings = HashMap::new();
+    // bindings.insert(
+    //     MapKeys::String("x".to_string()),
+    //     GraphBinary::String("1".to_string()),
+    // );
+
+    // args.insert(
+    //     MapKeys::String("bindings".to_string()),
+    //     GraphBinary::Map(bindings),
+    // );
+
+    let req = Request {
+        version: 0x81,
+        request_id: uuid::Uuid::from_bytes([
+            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
+            0xee, 0xff,
+        ]),
+        op: "bytecode".to_owned(),
+        processor: "traversal".to_owned(),
+        args,
+    };
+
+    let mut buf: Vec<u8> = vec![];
+    req.write_gb_respons_bytes(&mut buf, "application/vnd.graphbinary-v1.0")
+        .unwrap();
+    println!("printing: {:?}", buf);
+}
+
+#[test]
+fn test_respose_from_slice1() {
+    use crate::de::from_slice;
+    let bytes = vec![
+        0x81, 0x0, 0x0, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc,
+        0xdd, 0xee, 0xff, 0x0, 0x0, 0x0, 0xc8, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x3,
+        0x0, 0x0, 0x0, 0x0, 0x4, 0x68, 0x6f, 0x73, 0x74, 0x3, 0x0, 0x0, 0x0, 0x0, 0x11, 0x2f, 0x31,
+        0x37, 0x32, 0x2e, 0x32, 0x31, 0x2e, 0x30, 0x2e, 0x31, 0x3a, 0x34, 0x36, 0x37, 0x37, 0x36,
+        0x0, 0x0, 0x0, 0x0, 0x9, 0x0, 0x0, 0x0, 0x0, 0x4, 0x21, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+        0x0, 0x1, 0x11, 0x0, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x6,
+        0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e, 0xfe, 0x1, 0x21, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+        0x0, 0x1, 0x11, 0x0, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x6,
+        0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e, 0xfe, 0x1, 0x21, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+        0x0, 0x1, 0x11, 0x0, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x4, 0x0, 0x0, 0x0, 0x6,
+        0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e, 0xfe, 0x1, 0x21, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+        0x0, 0x1, 0x11, 0x0, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x6, 0x0, 0x0, 0x0, 0x6,
+        0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e, 0xfe, 0x1,
+    ];
+
+    let resp: Response = from_slice(&bytes).unwrap();
+
+    // let expected = Response::builder()
+    //     .version(0x81)
+    //     .request_id(Some(Uuid::from_bytes([
+    //         0x0, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
+    //         0xee, 0xff,
+    //     ])))
+    //     .status_code(200)
+    //     .status_message(Some("".to_owned()))
+    //     .status_attribute(HashMap::from([("host".into(), "/127.0.0.1:12345".into())]))
+    //     .result_meta(HashMap::new())
+    //     .result_data(vec![29_i32].into())
+    //     .build();
+
+    print!("{:?}", resp);
+    // assert_eq!(expected, resp)
 }
