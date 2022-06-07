@@ -85,6 +85,116 @@ impl From<&str> for GraphBinary {
     }
 }
 
+impl Encode for char {
+    fn type_code() -> u8 {
+        CoreType::Char.into()
+    }
+
+    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+        let mut buf = [0; 4];
+        let slice = self.encode_utf8(&mut buf);
+        writer.write_all(slice.as_bytes())?;
+        Ok(())
+    }
+}
+
+impl Decode for char {
+    fn expected_type_code() -> u8 {
+        CoreType::Char.into()
+    }
+
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let mut first_byte = [0_u8; 1];
+        reader.read_exact(&mut first_byte)?;
+
+        match first_byte[0] {
+            one if one < 0b1000_0000 => Ok(char::from(one)),
+            two if (0b1100_0000..0b1110_0000).contains(&two) => {
+                let mut second_byte = [0_u8; 1];
+                reader.read_exact(&mut second_byte)?;
+                std::str::from_utf8(&[first_byte[0], second_byte[0]])?
+                    .chars()
+                    .next()
+                    .ok_or_else(|| {
+                        DecodeError::DecodeError("error converting u32 to char".to_string())
+                    })
+            }
+            three if (0b1110_0000..0b1111_0000).contains(&three) => {
+                let mut rest = [0_u8; 2];
+                reader.read_exact(&mut rest)?;
+                std::str::from_utf8(&[first_byte[0], rest[0], rest[1]])?
+                    .chars()
+                    .next()
+                    .ok_or_else(|| {
+                        DecodeError::DecodeError("error converting u32 to char".to_string())
+                    })
+            }
+            four if (0b1111_0000..0b1111_1000).contains(&four) => {
+                let mut rest = [0_u8; 3];
+                reader.read_exact(&mut rest)?;
+                std::str::from_utf8(&[first_byte[0], rest[0], rest[1], rest[2]])?
+                    .chars()
+                    .next()
+                    .ok_or_else(|| {
+                        DecodeError::DecodeError("error converting u32 to char".to_string())
+                    })
+            }
+            rest => Err(DecodeError::DecodeError(format!(
+                "not a valid utf-8 first byte: value {:b}",
+                rest
+            ))),
+        }
+    }
+
+    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
+        match bytes[0] {
+            one if one < 0b1000_0000 => Ok(1),
+            two if (0b1100_0000..0b1110_0000).contains(&two) => Ok(2),
+            three if (0b1110_0000..0b1111_0000).contains(&three) => Ok(3),
+            four if (0b1111_0000..0b1111_1000).contains(&four) => Ok(4),
+            rest => Err(DecodeError::DecodeError(format!(
+                "not a valid utf-8 first byte: value {:b}",
+                rest
+            ))),
+        }
+    }
+}
+
+#[test]
+fn test3() {
+    let reader = [0x80_u8, 0x0, 0xe2, 0x99, 0xa5];
+    let c = char::fully_self_decode(&mut &reader[..]).unwrap();
+
+    assert_eq!('♥', c)
+}
+
+#[test]
+fn test1() {
+    let reader = [0x80_u8, 0x0, 65];
+    let c = char::fully_self_decode(&mut &reader[..]).unwrap();
+
+    assert_eq!('A', c)
+}
+
+#[test]
+fn test2() {
+    let reader = [0x80_u8, 0x0, 0xc3, 0x9f];
+    let c = char::fully_self_decode(&mut &reader[..]).unwrap();
+
+    assert_eq!('ß', c)
+}
+
+#[test]
+fn test4() {
+    let reader = [0x80_u8, 0x0, 0xf0, 0x9f, 0xa6, 0x80];
+    let c = char::fully_self_decode(&mut &reader[..]).unwrap();
+
+    assert_eq!('🦀', c)
+}
+
 impl Encode for u8 {
     fn type_code() -> u8 {
         CoreType::Byte.into()

@@ -111,6 +111,7 @@ pub enum CoreType {
     Merge,
 
     UnspecifiedNullObject,
+    Char,
 }
 
 impl From<CoreType> for u8 {
@@ -160,6 +161,7 @@ impl From<CoreType> for u8 {
             CoreType::BulkSet => CORE_TYPE_BULK_SET,
             CoreType::Merge => CORE_TYPE_MERGE,
             CoreType::UnspecifiedNullObject => CORE_TYPE_UNSPECIFIED_NULL,
+            CoreType::Char => EXTENDED_TYPE_CHAR,
         }
     }
 }
@@ -221,6 +223,21 @@ impl TryFrom<u8> for CoreType {
             CORE_TYPE_MERGE => Ok(CoreType::Merge),
             CORE_TYPE_UNSPECIFIED_NULL => Ok(CoreType::UnspecifiedNullObject),
             // CORE_TYPE_CUSTOM => Ok(CoreType::),
+            EXTENDED_TYPE_CHAR => Ok(CoreType::Char),
+            EXTENDED_TYPE_DURATION => unimplemented!("extended Types are not yet supported"),
+            EXTENDED_TYPE_INET_ADDRESS => unimplemented!("extended Types are not yet supported"),
+            EXTENDED_TYPE_INSTANT => unimplemented!("extended Types are not yet supported"),
+            EXTENDED_TYPE_LOCAL_DATE => unimplemented!("extended Types are not yet supported"),
+            EXTENDED_TYPE_LOCAL_DATETIME => unimplemented!("extended Types are not yet supported"),
+            EXTENDED_TYPE_LOCAL_TIME => unimplemented!("extended Types are not yet supported"),
+            EXTENDED_TYPE_MONTH_DAY => unimplemented!("extended Types are not yet supported"),
+            EXTENDED_TYPE_OFFSET_DATETIME => unimplemented!("extended Types are not yet supported"),
+            EXTENDED_TYPE_OFFSET_TIME => unimplemented!("extended Types are not yet supported"),
+            EXTENDED_TYPE_PERIOD => unimplemented!("extended Types are not yet supported"),
+            EXTENDED_TYPE_YEAR => unimplemented!("extended Types are not yet supported"),
+            EXTENDED_TYPE_YEAR_MONTH => unimplemented!("extended Types are not yet supported"),
+            EXTENDED_TYPE_ZONED_DATETIME => unimplemented!("extended Types are not yet supported"),
+            EXTENDED_TYPE_ZONED_OFFSET => unimplemented!("extended Types are not yet supported"),
             rest => Err(DecodeError::ConvertError(format!("found {rest}"))),
         }
     }
