@@ -118,9 +118,9 @@ impl TryFrom<&str> for Direction {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
-            "both" => Ok(Direction::Both),
-            "in" => Ok(Direction::In),
-            "out" => Ok(Direction::Out),
+            "BOTH" => Ok(Direction::Both),
+            "IN" => Ok(Direction::In),
+            "OUT" => Ok(Direction::Out),
             _ => Err(DecodeError::ConvertError("Direction".to_string())),
         }
     }
@@ -129,10 +129,17 @@ impl TryFrom<&str> for Direction {
 impl Direction {
     fn to_str(&self) -> &str {
         match self {
-            Direction::Both => "both",
-            Direction::In => "in",
-            Direction::Out => "out",
+            Direction::Both => "BOTH",
+            Direction::In => "IN",
+            Direction::Out => "OUT",
         }
+    }
+
+    fn to() -> Self {
+        Direction::In
+    }
+    fn from() -> Self {
+        Direction::Out
     }
 }
 
@@ -294,7 +301,11 @@ pub enum P {
     Within(Vec<GraphBinary>),
     Without(Vec<GraphBinary>),
 }
-
+impl From<P> for GraphBinary {
+    fn from(p: P) -> Self {
+        GraphBinary::P(p)
+    }
+}
 impl P {
     fn write_variant<W: std::io::Write>(
         &self,
@@ -342,7 +353,8 @@ fn write_name_value<W: std::io::Write>(
     value: &GraphBinary,
     writer: &mut W,
 ) -> Result<(), crate::error::EncodeError> {
-    name.write_full_qualified_bytes(writer)?;
+    name.write_patial_bytes(writer)?;
+    1_i32.write_patial_bytes(writer)?; // value length
     value.build_fq_bytes(writer)
 }
 
@@ -364,7 +376,7 @@ impl serde::Serialize for P {
     where
         S: serde::Serializer,
     {
-        let mut buf = Vec::new(); // TODO capacity??
+        let mut buf = Vec::with_capacity(32);
         self.write_full_qualified_bytes(&mut buf)
             .expect("error during write of P");
         serializer.serialize_bytes(&buf[..])
@@ -473,7 +485,7 @@ impl TryFrom<&str> for Scope {
 pub enum T {
     Id,
     Key,
-    Lable,
+    Label,
     Value,
 }
 
@@ -482,7 +494,7 @@ impl T {
         match self {
             T::Id => "id",
             T::Key => "key",
-            T::Lable => "label",
+            T::Label => "label",
             T::Value => "value",
         }
     }
@@ -495,7 +507,7 @@ impl TryFrom<&str> for T {
         match value {
             "id" => Ok(T::Id),
             "key" => Ok(T::Key),
-            "label" => Ok(T::Lable),
+            "label" => Ok(T::Label),
             "value" => Ok(T::Value),
             _ => Err(DecodeError::ConvertError("T".to_string())),
         }
@@ -504,7 +516,6 @@ impl TryFrom<&str> for T {
 
 #[derive(Debug, PartialEq)]
 pub enum TextP {
-    // TODO not sure if graphbinray or String
     StartingWith(Vec<GraphBinary>),
     EndingWith(Vec<GraphBinary>),
     Containing(Vec<GraphBinary>),
@@ -513,12 +524,18 @@ pub enum TextP {
     NotContaining(Vec<GraphBinary>),
 }
 
+impl From<TextP> for GraphBinary {
+    fn from(text_p: TextP) -> Self {
+        GraphBinary::TextP(text_p)
+    }
+}
+
 fn combine_text_value<W: std::io::Write>(
     name: &str,
     value: &[GraphBinary],
     writer: &mut W,
 ) -> Result<(), crate::error::EncodeError> {
-    name.write_full_qualified_bytes(writer)?;
+    name.write_patial_bytes(writer)?;
     value.write_patial_bytes(writer)
 }
 
@@ -547,7 +564,7 @@ impl serde::Serialize for TextP {
     where
         S: serde::Serializer,
     {
-        let mut buf = Vec::new(); // TODO capacity??
+        let mut buf = Vec::with_capacity(32);
         self.write_full_qualified_bytes(&mut buf)
             .expect("error during write of TextP");
         serializer.serialize_bytes(&buf[..])
@@ -724,8 +741,6 @@ fn t_decode_test() {
 
     let p = T::partial_decode(&mut &reader[..]);
 
-    // assert!(p.is_ok());
-
     assert_eq!(T::Id, p.unwrap());
 }
 
@@ -738,8 +753,6 @@ fn p_decode_test() {
     ];
 
     let p = P::partial_decode(&mut &reader[..]);
-
-    // assert!(p.is_ok());
 
     assert_eq!(P::Without(vec![1.into(), 2.into(), 3.into()]), p.unwrap());
 }
@@ -754,8 +767,6 @@ fn text_p_fq_decode_test() {
 
     let p = TextP::fully_self_decode(&mut &reader[..]);
 
-    // assert!(p.is_ok());
-
     assert_eq!(TextP::StartingWith(vec!["test".into()]), p.unwrap());
 }
 
@@ -768,8 +779,6 @@ fn text_p_consumed_bytes() {
     ];
 
     let p = TextP::consumed_bytes(&reader);
-
-    // assert!(p.is_ok());
 
     assert_eq!(reader.len(), p.unwrap());
 }
