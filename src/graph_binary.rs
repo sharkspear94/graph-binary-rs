@@ -22,7 +22,7 @@ use serde::de::Visitor;
 use serde::Deserialize;
 use uuid::Uuid;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum GraphBinary {
     Int(i32),
     Long(i64),
@@ -72,6 +72,7 @@ pub enum GraphBinary {
     Merge(Merge),
     UnspecifiedNullObject,
     // Custom
+    Char(char),
 }
 
 pub fn build_fq_null_bytes<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
@@ -129,6 +130,7 @@ impl GraphBinary {
             GraphBinary::TraversalMetrics(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::Merge(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::UnspecifiedNullObject => build_fq_null_bytes(writer),
+            GraphBinary::Char(_) => todo!(),
             // GraphBinary::Custom => todo!(),
             // _ =>  Bytes::new()
         }
@@ -179,6 +181,7 @@ impl GraphBinary {
             GraphBinary::BulkSet(_) => CoreType::BulkSet,
             GraphBinary::UnspecifiedNullObject => CoreType::UnspecifiedNullObject,
             GraphBinary::Merge(_) => CoreType::Merge,
+            GraphBinary::Char(_) => todo!(),
         }
     }
 
@@ -223,7 +226,7 @@ impl Decode for GraphBinary {
             CoreType::Float => f32::consumed_bytes(bytes),
             CoreType::List => Vec::<GraphBinary>::consumed_bytes(bytes),
             CoreType::Set => Vec::<GraphBinary>::consumed_bytes(bytes),
-            CoreType::Map => todo!(),
+            CoreType::Map => HashMap::<MapKeys, GraphBinary>::consumed_bytes(bytes),
             CoreType::Uuid => Uuid::consumed_bytes(bytes),
             CoreType::Edge => Edge::consumed_bytes(bytes),
             CoreType::Path => Path::consumed_bytes(bytes),
@@ -258,6 +261,7 @@ impl Decode for GraphBinary {
             CoreType::BulkSet => todo!(),
             CoreType::Merge => Merge::consumed_bytes(bytes),
             CoreType::UnspecifiedNullObject => Ok(2),
+            CoreType::Char => char::consumed_bytes(bytes),
         }
     }
 }
@@ -280,7 +284,7 @@ pub struct BigDecimal {}
 
 pub struct BigInteger {}
 
-#[derive(Debug, Hash, PartialEq, Eq)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum MapKeys {
     Int(i32),
     String(String),
@@ -580,6 +584,7 @@ pub fn decode<R: Read>(reader: &mut R) -> Result<GraphBinary, DecodeError> {
         (CoreType::UnspecifiedNullObject, _) => Err(DecodeError::DecodeError(
             "UnspecifiedNullObject wrong valueflag".to_string(),
         )),
+        (CoreType::Char, _) => Ok(GraphBinary::Char(char::partial_decode(reader)?)),
     }
 }
 
