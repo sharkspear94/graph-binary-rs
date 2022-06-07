@@ -6,7 +6,7 @@ use crate::{
 
 use super::{property::Property, vertex::Vertex};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct VertexProperty {
     pub id: Box<GraphBinary>, // needs refinment
     pub label: String,

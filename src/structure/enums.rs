@@ -6,7 +6,7 @@ use crate::{
     specs::CoreType,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Barrier {
     NormSack,
 }
@@ -30,7 +30,7 @@ impl Barrier {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Cardinality {
     List,
     Set,
@@ -60,26 +60,7 @@ impl Cardinality {
     }
 }
 
-// impl Encode for Cardinality {
-//     fn type_code() -> u8 {
-//         CoreType::Cardinality.into()
-//     }
-
-//     fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-//         self.to_str().fq_gb_bytes(writer)
-//     }
-// }
-
-// impl Decode for Cardinality {
-//     fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
-//     where
-//         Self: std::marker::Sized,
-//     {
-//         Cardinality::try_from(String::decode(reader)?.as_str())
-//     }
-// }
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Column {
     Keys,
     Values,
@@ -106,7 +87,7 @@ impl TryFrom<&str> for Column {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Direction {
     Both,
     In,
@@ -143,7 +124,7 @@ impl Direction {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Operator {
     AddAll,
     And,
@@ -197,7 +178,7 @@ impl TryFrom<&str> for Operator {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Order {
     Shuffle,
     Asc,
@@ -227,7 +208,7 @@ impl Order {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Pick {
     Any,
     None,
@@ -254,7 +235,7 @@ impl Pick {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Pop {
     All,
     First,
@@ -287,7 +268,7 @@ impl Pop {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum P {
     Eq(Box<GraphBinary>),
     Neq(Box<GraphBinary>),
@@ -454,7 +435,7 @@ impl Decode for P {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Scope {
     Local,
     Global,
@@ -481,7 +462,7 @@ impl TryFrom<&str> for Scope {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum T {
     Id,
     Key,
@@ -514,7 +495,7 @@ impl TryFrom<&str> for T {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum TextP {
     StartingWith(Vec<GraphBinary>),
     EndingWith(Vec<GraphBinary>),
@@ -600,7 +581,7 @@ impl Decode for TextP {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Merge {
     OnCreate,
     OnMatch,

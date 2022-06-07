@@ -4,7 +4,7 @@ use crate::{
     struct_de_serialize,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Lambda {
     language: String,
     script: String,

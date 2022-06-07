@@ -26,15 +26,12 @@ impl<T: Encode> Encode for Vec<T> {
     }
 }
 
-impl<T: Into<GraphBinary> + Clone> From<Vec<T>> for GraphBinary {
+impl<T> From<Vec<T>> for GraphBinary
+where
+    T: Into<GraphBinary>,
+{
     fn from(v: Vec<T>) -> Self {
-        GraphBinary::List(v.iter().map(|v| v.into()).collect())
-    }
-}
-
-impl<T: Into<GraphBinary> + Clone> From<&T> for GraphBinary {
-    fn from(v: &T) -> Self {
-        v.clone().into()
+        GraphBinary::List(v.into_iter().map(|v| v.into()).collect())
     }
 }
 

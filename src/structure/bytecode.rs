@@ -4,22 +4,40 @@ use crate::{
     struct_de_serialize,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default, Clone)]
 pub struct ByteCode {
-    steps: Vec<Step>,
-    sources: Vec<Source>,
+    pub steps: Vec<Step>,
+    pub sources: Vec<Source>,
 }
 
-#[derive(Debug, PartialEq)]
-struct Step {
-    name: String,
-    values: Vec<GraphBinary>,
+#[derive(Debug, PartialEq, Clone)]
+pub struct Step {
+    pub name: String,
+    pub values: Vec<GraphBinary>,
 }
 
-#[derive(Debug, PartialEq)]
-struct Source {
-    name: String,
-    values: Vec<GraphBinary>,
+#[derive(Debug, PartialEq, Clone)]
+pub struct Source {
+    pub name: String,
+    pub values: Vec<GraphBinary>,
+}
+
+impl ByteCode {
+    pub fn new() -> Self {
+        ByteCode::default()
+    }
+    pub fn add_step(&mut self, name: &str, values: Vec<GraphBinary>) {
+        self.steps.push(Step {
+            name: name.to_string(),
+            values,
+        });
+    }
+    pub fn add_source(&mut self, name: &str, values: Option<Vec<GraphBinary>>) {
+        self.sources.push(Source {
+            name: name.to_string(),
+            values: values.unwrap_or_default(),
+        });
+    }
 }
 
 impl Encode for ByteCode {

@@ -3,7 +3,7 @@ use crate::{
     specs::CoreType,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct BulkSet(Vec<(GraphBinary, i64)>);
 
 impl Encode for BulkSet {

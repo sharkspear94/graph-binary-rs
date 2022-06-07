@@ -1,16 +1,13 @@
-use serde::{de::Visitor, Deserialize};
-
 use crate::{
     error::DecodeError,
     graph_binary::{Decode, Encode, GraphBinary},
     specs::{self, CoreType},
     struct_de_serialize,
-    structure::property::Property,
 };
 
 use super::vertex_property::VertexProperty;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Vertex {
     pub id: Box<GraphBinary>,
     pub label: String,
@@ -62,7 +59,7 @@ impl Decode for Vertex {
     }
 }
 
-struct_de_serialize!((Vertex, VertexVisitor,32));
+struct_de_serialize!((Vertex, VertexVisitor, 32));
 
 #[test]
 fn test_vertex_none_encode() {
@@ -80,27 +77,6 @@ fn test_vertex_none_encode() {
     assert!(v.is_ok());
     assert_eq!(expected, buf[..])
 }
-
-// #[test]
-// fn test_vertex_some_encode() {
-//     let expected = [
-//         0x11_u8, 0x0, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x6, 0x70,
-//         0x65, 0x72, 0x73, 0x6f, 0x6e, 0x0f, 0x0, 0x0, 0x0, 0x0, 0x4, b'n', b'a', b'm', b'e', 0x3,
-//         0x0, 0x0, 0x0, 0x0, 0x5, b'm', b'a', b'r', b'k', b'o',
-//     ];
-//     let v = Vertex {
-//         id: Box::new(1_i64.into()),
-//         label: String::from("person"),
-//         properties: Box::new(Some(VertexProperty { id: todo!(), label: todo!(), value: todo!(), parent: todo!(), properties: todo!() }
-//             key: "name".to_string(),
-//             value: Box::new("marko".into()),
-//         }))),
-//     };
-//     let mut buf = Vec::new();
-//     let v = v.write_full_qualified_bytes(&mut buf);
-//     assert!(v.is_ok());
-//     assert_eq!(expected, buf[..])
-// }
 
 #[test]
 fn test_vertex_decode_none() {
@@ -120,29 +96,6 @@ fn test_vertex_decode_none() {
 
     assert_eq!(expected, v.unwrap())
 }
-
-// #[test]
-// fn test_vertex_decode_some() {
-//     let reader = vec![
-//         0x11_u8, 0x0, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x6, 0x70,
-//         0x65, 0x72, 0x73, 0x6f, 0x6e, 0x0f, 0x0, 0x0, 0x0, 0x0, 0x4, b'n', b'a', b'm', b'e', 0x3,
-//         0x0, 0x0, 0x0, 0x0, 0x5, b'm', b'a', b'r', b'k', b'o',
-//     ];
-
-//     let v = Vertex::fully_self_decode(&mut &reader[..]);
-//     assert!(v.is_ok());
-
-//     let expected = Vertex {
-//         id: Box::new(1_i64.into()),
-//         label: String::from("person"),
-//         properties: Box::new(Some(GraphBinary::Property(Property {
-//             key: "name".to_string(),
-//             value: Box::new("marko".into()),
-//         }))),
-//     };
-
-//     assert_eq!(expected, v.unwrap())
-// }
 
 #[test]
 fn test_vertex_consume() {

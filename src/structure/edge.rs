@@ -6,7 +6,7 @@ use crate::{
 
 use super::vertex::Vertex;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Edge {
     pub id: Box<GraphBinary>,
     pub label: String,

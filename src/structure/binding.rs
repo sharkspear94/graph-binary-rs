@@ -1,9 +1,10 @@
 use crate::{
     graph_binary::{Decode, Encode, GraphBinary},
-    specs::CoreType, struct_de_serialize,
+    specs::CoreType,
+    struct_de_serialize,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Binding {
     key: String,
     value: Box<GraphBinary>,
@@ -44,7 +45,7 @@ impl Decode for Binding {
         Ok(len)
     }
 }
-struct_de_serialize!((Binding, BindingVisitor,16));
+struct_de_serialize!((Binding, BindingVisitor, 16));
 
 #[test]
 fn test_binding_encode() {

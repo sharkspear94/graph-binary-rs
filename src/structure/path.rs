@@ -4,7 +4,7 @@ use crate::{
     struct_de_serialize,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Path {
     labels: Vec<Vec<String>>,  // List<Set<String>>
     objects: Vec<GraphBinary>, // List<T>

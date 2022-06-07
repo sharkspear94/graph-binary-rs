@@ -1,9 +1,10 @@
 use crate::{
     graph_binary::{Decode, Encode, GraphBinary},
-    specs::{self, CoreType}, struct_de_serialize,
+    specs::{self, CoreType},
+    struct_de_serialize,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Property {
     pub key: String,
     pub value: Box<GraphBinary>,
@@ -49,4 +50,4 @@ impl Decode for Property {
     }
 }
 
-struct_de_serialize!((Property, PropertyVisitor,32));
+struct_de_serialize!((Property, PropertyVisitor, 32));

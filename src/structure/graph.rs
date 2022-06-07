@@ -6,13 +6,13 @@ use crate::{
 
 use super::{property::Property, vertex::Vertex, vertex_property::VertexProperty};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Graph {
     vertexes: Vec<Vertex>,
     edges: Vec<GraphEdge>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct GraphEdge {
     id: GraphBinary,
     label: String,

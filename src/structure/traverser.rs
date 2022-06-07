@@ -6,7 +6,7 @@ use crate::{
     struct_de_serialize,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Traverser {
     bulk: i64,
     value: Box<GraphBinary>,
@@ -48,7 +48,7 @@ impl Decode for Traverser {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct TraversalStrategy {
     strategy_class: String,                      // class
     configuration: HashMap<String, GraphBinary>, // not sure if key is correct

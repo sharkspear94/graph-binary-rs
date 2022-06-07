@@ -6,14 +6,14 @@ use crate::{
     struct_de_serialize,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Metrics {
-    id: String,
-    name: String,
-    duration: i64,
-    counts: HashMap<String, i64>,
-    annotation: HashMap<String, GraphBinary>,
-    nested_metrics: Vec<Metrics>,
+    pub id: String,
+    pub name: String,
+    pub duration: i64,
+    pub counts: HashMap<String, i64>,
+    pub annotation: HashMap<String, GraphBinary>,
+    pub nested_metrics: Vec<Metrics>,
 }
 
 impl Encode for Metrics {
@@ -71,10 +71,10 @@ impl Decode for Metrics {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct TraversalMetrics {
-    duration: i64,
-    metrics: Vec<Metrics>,
+    pub duration: i64,
+    pub metrics: Vec<Metrics>,
 }
 
 impl Encode for TraversalMetrics {
@@ -114,7 +114,7 @@ impl Decode for TraversalMetrics {
 }
 
 struct_de_serialize!(
-    (TraversalMetrics, TraversalMetricsVisitor, 64),
+    (TraversalMetrics, TraversalMetricsVisitor, 128),
     (Metrics, MetricsVisitor, 64)
 );
 
@@ -191,7 +191,7 @@ fn traversal_metric_encode_test() {
 
     let traversal_metric = TraversalMetrics {
         duration: 214692,
-        metrics: vec![metric],
+        metrics: vec![metric.clone(), metric],
     };
     let mut buf = vec![];
     traversal_metric
