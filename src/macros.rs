@@ -36,7 +36,7 @@ macro_rules! struct_de_serialize {
     where
         S: serde::Serializer,
     {
-        let mut buf: Vec<u8> = Vec::with_capacity(64);
+        let mut buf: Vec<u8> = Vec::with_capacity($capa);
         match self.write_full_qualified_bytes(&mut buf) {
             Ok(_) => serializer.serialize_bytes(&buf),
             Err(e) => Err(serde::ser::Error::custom(format!(
