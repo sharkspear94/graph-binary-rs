@@ -415,7 +415,7 @@ impl serde::Serializer for GraphBinarySerializer {
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        Ok(GraphBinary::Char(v))
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
@@ -582,6 +582,7 @@ impl Serialize for GraphBinary {
             GraphBinary::BulkSet(value) => todo!(),
             GraphBinary::UnspecifiedNullObject => todo!(),
             GraphBinary::Merge(value) => value.serialize(serializer),
+            GraphBinary::Char(value) => value.serialize(serializer),
         }
     }
 }
@@ -836,7 +837,7 @@ fn ser_struct_option_gb_test() {
 }
 
 #[test]
-fn ser__test() {
+fn ser_struct_t_test() {
     #[derive(Debug, Serialize)]
     struct Millimeters(i32);
 

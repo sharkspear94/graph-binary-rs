@@ -345,7 +345,7 @@ impl<'de> serde::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: serde::de::Visitor<'de>,
     {
-        todo!()
+        visitor.visit_char(char::fully_self_decode(&mut self.bytes)?)
     }
 
     fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -615,7 +615,7 @@ impl<'de> serde::de::Deserializer<'de> for GraphBinaryDeserializer {
             GraphBinary::String(v) => visitor.visit_str(&v),
             GraphBinary::Float(v) => visitor.visit_f32(v),
             GraphBinary::Double(v) => visitor.visit_f64(v),
-
+            GraphBinary::Char(v) => visitor.visit_char(v),
             GraphBinary::List(v) => visitor.visit_seq(SeqDeser {
                 iter: v.into_iter(),
             }),
@@ -630,6 +630,7 @@ impl<'de> serde::de::Deserializer<'de> for GraphBinaryDeserializer {
             GraphBinary::Byte(v) => visitor.visit_u8(v),
             GraphBinary::Short(v) => visitor.visit_i16(v),
             GraphBinary::Boolean(v) => visitor.visit_bool(v),
+            // GraphBinary::Traverser(t) =>
             _ => Err(DecodeError::DecodeError(
                 "Graphbinary not supported in deserialize_any".to_string(),
             )),
@@ -663,7 +664,8 @@ impl<'de> serde::de::Deserializer<'de> for GraphBinaryDeserializer {
                 value: None,
             }),
             _ => Err(DecodeError::DecodeError(
-                "Graphbinary not supported in deserialize_struct".to_string(),
+                "Graphbinary Deserializer only supports GraphBinary::Map in deserialize_struct"
+                    .to_string(),
             )),
         }
     }
@@ -827,6 +829,15 @@ fn test_seq_set() {
     let val: HashSet<i32> = from_slice(&reader).unwrap();
 
     assert_eq!(HashSet::from([254, 255]), val)
+}
+
+#[test]
+fn test_char() {
+    let reader = [0x80_u8, 0x0, 0xf0, 0x9f, 0xa6, 0x80];
+
+    let val: char = from_slice(&reader).unwrap();
+
+    assert_eq!('🦀', val)
 }
 
 #[test]

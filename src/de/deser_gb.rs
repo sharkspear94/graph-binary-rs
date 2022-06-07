@@ -55,6 +55,13 @@ impl<'de> Visitor<'de> for GraphBinaryVisitor {
         Ok(GraphBinary::Boolean(v))
     }
 
+    fn visit_char<E>(self, v: char) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(GraphBinary::Char(v))
+    }
+
     fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
     where
         E: serde::de::Error,
@@ -194,7 +201,7 @@ impl<'de> Visitor<'de> for GraphBinaryVisitor {
             CoreType::Tree => todo!(),
             CoreType::Merge => Ok(GraphBinary::Merge(map.next_value::<Merge>()?)),
             CoreType::UnspecifiedNullObject => todo!(),
-            // _ => todo!(),
+            CoreType::Char => todo!(), // _ => todo!(),
         }
     }
 }
