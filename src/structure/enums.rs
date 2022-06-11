@@ -6,7 +6,7 @@ use crate::{
     specs::CoreType,
 };
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Barrier {
     NormSack,
 }
@@ -30,7 +30,7 @@ impl Barrier {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Cardinality {
     List,
     Set,
@@ -60,7 +60,7 @@ impl Cardinality {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Column {
     Keys,
     Values,
@@ -87,7 +87,7 @@ impl TryFrom<&str> for Column {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Direction {
     Both,
     In,
@@ -124,7 +124,7 @@ impl Direction {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Operator {
     AddAll,
     And,
@@ -178,7 +178,7 @@ impl TryFrom<&str> for Operator {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Order {
     Shuffle,
     Asc,
@@ -208,7 +208,7 @@ impl Order {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Pick {
     Any,
     None,
@@ -235,7 +235,7 @@ impl Pick {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Pop {
     All,
     First,
@@ -276,9 +276,9 @@ pub enum P {
     Lte(Box<GraphBinary>),
     Gt(Box<GraphBinary>),
     Gte(Box<GraphBinary>),
-    Inside(Box<GraphBinary>, Box<GraphBinary>),
-    Outside(Box<GraphBinary>, Box<GraphBinary>),
-    Between(Box<GraphBinary>, Box<GraphBinary>),
+    Inside(Box<(GraphBinary, GraphBinary)>),
+    Outside(Box<(GraphBinary, GraphBinary)>),
+    Between(Box<(GraphBinary, GraphBinary)>),
     Within(Vec<GraphBinary>),
     Without(Vec<GraphBinary>),
 }
@@ -288,6 +288,49 @@ impl From<P> for GraphBinary {
     }
 }
 impl P {
+    pub fn eq<T: Into<GraphBinary> + PartialEq>(val: T) -> Self {
+        P::Eq(Box::new(val.into()))
+    }
+    pub fn neq<T: Into<GraphBinary> + PartialEq>(val: T) -> Self {
+        P::Neq(Box::new(val.into()))
+    }
+
+    pub fn lt<T: Into<GraphBinary> + PartialOrd>(val: T) -> Self {
+        P::Lt(Box::new(val.into()))
+    }
+
+    pub fn lte<T: Into<GraphBinary> + PartialOrd>(val: T) -> Self {
+        P::Lte(Box::new(val.into()))
+    }
+
+    pub fn gt<T: Into<GraphBinary> + PartialOrd>(val: T) -> Self {
+        P::Gt(Box::new(val.into()))
+    }
+
+    pub fn gte<T: Into<GraphBinary> + PartialOrd>(val: T) -> Self {
+        P::Gte(Box::new(val.into()))
+    }
+
+    pub fn between<T: Into<GraphBinary> + PartialOrd>(lower: T, upper: T) -> Self {
+        P::Between(Box::new((lower.into(), upper.into())))
+    }
+
+    pub fn inside<T: Into<GraphBinary> + PartialOrd>(lower: T, upper: T) -> Self {
+        P::Inside(Box::new((lower.into(), upper.into())))
+    }
+
+    pub fn outside<T: Into<GraphBinary> + PartialOrd>(lower: T, upper: T) -> Self {
+        P::Outside(Box::new((lower.into(), upper.into())))
+    }
+
+    pub fn within<T: Into<GraphBinary> + Clone + PartialOrd>(val: &[T]) -> Self {
+        P::Within(val.iter().map(Into::into).collect())
+    }
+
+    pub fn without<T: Into<GraphBinary> + Clone + PartialOrd>(val: &[T]) -> Self {
+        P::Without(val.iter().map(Into::into).collect())
+    }
+
     fn write_variant<W: std::io::Write>(
         &self,
         writer: &mut W,
@@ -299,23 +342,23 @@ impl P {
             P::Lte(v) => write_name_value("lte", v, writer),
             P::Gt(v) => write_name_value("gt", v, writer),
             P::Gte(v) => write_name_value("gte", v, writer),
-            P::Inside(v1, v2) => {
+            P::Inside(v) => {
                 "inside".write_full_qualified_bytes(writer)?;
                 2_i32.write_patial_bytes(writer)?; // len of tuple only len = 2 will be used
-                v1.write_full_qualified_bytes(writer)?;
-                v2.write_full_qualified_bytes(writer)
+                v.0.write_full_qualified_bytes(writer)?;
+                v.1.write_full_qualified_bytes(writer)
             }
-            P::Outside(v1, v2) => {
+            P::Outside(v) => {
                 "outside".write_full_qualified_bytes(writer)?;
                 2_i32.write_patial_bytes(writer)?; // len of tuple only len = 2 will be used
-                v1.write_full_qualified_bytes(writer)?;
-                v2.write_full_qualified_bytes(writer)
+                v.0.write_full_qualified_bytes(writer)?;
+                v.1.write_full_qualified_bytes(writer)
             }
-            P::Between(v1, v2) => {
+            P::Between(v) => {
                 "between".write_full_qualified_bytes(writer)?;
                 2_i32.write_patial_bytes(writer)?; // len of tuple only len = 2 will be used
-                v1.write_full_qualified_bytes(writer)?;
-                v2.write_full_qualified_bytes(writer)
+                v.0.write_full_qualified_bytes(writer)?;
+                v.1.write_full_qualified_bytes(writer)
             }
             P::Within(v) => {
                 "within".write_full_qualified_bytes(writer)?;
@@ -400,24 +443,15 @@ impl Decode for P {
             }
             "inside" => {
                 i32::partial_decode(reader)?;
-                Ok(P::Inside(
-                    Box::new(decode(reader)?),
-                    Box::new(decode(reader)?),
-                ))
+                Ok(P::Inside(Box::new((decode(reader)?, decode(reader)?))))
             }
             "outside" => {
                 i32::partial_decode(reader)?;
-                Ok(P::Outside(
-                    Box::new(decode(reader)?),
-                    Box::new(decode(reader)?),
-                ))
+                Ok(P::Outside(Box::new((decode(reader)?, decode(reader)?))))
             }
             "between" => {
                 i32::partial_decode(reader)?;
-                Ok(P::Between(
-                    Box::new(decode(reader)?),
-                    Box::new(decode(reader)?),
-                ))
+                Ok(P::Between(Box::new((decode(reader)?, decode(reader)?))))
             }
             "within" => Ok(P::Within(Vec::partial_decode(reader)?)),
             "without" => Ok(P::Without(Vec::partial_decode(reader)?)),
@@ -435,7 +469,7 @@ impl Decode for P {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Scope {
     Local,
     Global,
@@ -462,7 +496,7 @@ impl TryFrom<&str> for Scope {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum T {
     Id,
     Key,
@@ -499,15 +533,44 @@ impl TryFrom<&str> for T {
 pub enum TextP {
     StartingWith(Vec<GraphBinary>),
     EndingWith(Vec<GraphBinary>),
-    Containing(Vec<GraphBinary>),
     NotStartingWith(Vec<GraphBinary>),
     NotEndingWith(Vec<GraphBinary>),
+    Containing(Vec<GraphBinary>),
     NotContaining(Vec<GraphBinary>),
+    Regex(Vec<GraphBinary>),
+    NotRegex(Vec<GraphBinary>),
 }
 
 impl From<TextP> for GraphBinary {
     fn from(text_p: TextP) -> Self {
         GraphBinary::TextP(text_p)
+    }
+}
+
+impl TextP {
+    pub fn starting_with(val: &str) -> Self {
+        TextP::StartingWith(vec![val.into()])
+    }
+    pub fn not_starting_with(val: &str) -> Self {
+        TextP::NotStartingWith(vec![val.into()])
+    }
+    pub fn ending_with(val: &str) -> Self {
+        TextP::EndingWith(vec![val.into()])
+    }
+    pub fn not_ending_with(val: &str) -> Self {
+        TextP::NotEndingWith(vec![val.into()])
+    }
+    pub fn containing(val: &str) -> Self {
+        TextP::Containing(vec![val.into()])
+    }
+    pub fn not_containing(val: &str) -> Self {
+        TextP::NotContaining(vec![val.into()])
+    }
+    pub fn regex(val: &str) -> Self {
+        TextP::Regex(vec![val.into()])
+    }
+    pub fn not_regex(val: &str) -> Self {
+        TextP::NotRegex(vec![val.into()])
     }
 }
 
@@ -536,6 +599,8 @@ impl Encode for TextP {
             TextP::NotStartingWith(text) => combine_text_value("notStartingWith", text, writer),
             TextP::NotEndingWith(text) => combine_text_value("notEndingWith", text, writer),
             TextP::NotContaining(text) => combine_text_value("notContaining", text, writer),
+            TextP::Regex(text) => combine_text_value("regex", text, writer),
+            TextP::NotRegex(text) => combine_text_value("notRegex", text, writer),
         }
     }
 }
@@ -568,6 +633,8 @@ impl Decode for TextP {
             "notStartingWith" => Ok(TextP::NotStartingWith(Vec::partial_decode(reader)?)),
             "notEndingWith" => Ok(TextP::NotEndingWith(Vec::partial_decode(reader)?)),
             "notContaining" => Ok(TextP::NotContaining(Vec::partial_decode(reader)?)),
+            "regex" => Ok(TextP::Regex(Vec::partial_decode(reader)?)),
+            "notRegex" => Ok(TextP::NotRegex(Vec::partial_decode(reader)?)),
             v => Err(DecodeError::DecodeError(format!(
                 "expected TextP found variant text: {}",
                 v
@@ -581,7 +648,7 @@ impl Decode for TextP {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Merge {
     OnCreate,
     OnMatch,
@@ -736,6 +803,18 @@ fn p_decode_test() {
     let p = P::partial_decode(&mut &reader[..]);
 
     assert_eq!(P::Without(vec![1.into(), 2.into(), 3.into()]), p.unwrap());
+}
+
+#[test]
+fn p_decode_inside_test() {
+    let reader = vec![
+        0x03, 0x0, 0x0, 0x0, 0x0, 0x06, b'i', b'n', b's', b'i', b'd', b'e', 0x0, 0x0, 0x0, 0x02,
+        0x1, 0x0, 0x0, 0x0, 0x0, 0x01, 0x01, 0x0, 0x0, 0x0, 0x0, 0xff,
+    ];
+
+    let p = P::partial_decode(&mut &reader[..]);
+
+    assert_eq!(P::inside(1, 255), p.unwrap());
 }
 
 #[test]
