@@ -3,9 +3,9 @@ use crate::{
     graph_binary::{Decode, Encode, GraphBinary, MapKeys},
     specs::CoreType,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::BuildHasher};
 
-impl<K, V> Encode for HashMap<K, V>
+impl<K, V, S: BuildHasher> Encode for HashMap<K, V, S>
 where
     K: Encode,
     V: Encode,
@@ -26,10 +26,11 @@ where
     }
 }
 
-impl<K, V> Decode for HashMap<K, V>
+impl<K, V, S> Decode for HashMap<K, V, S>
 where
     K: Decode + std::cmp::Eq + std::hash::Hash,
     V: Decode,
+    S: BuildHasher + Default,
 {
     fn expected_type_code() -> u8 {
         CoreType::Map.into()
@@ -40,7 +41,7 @@ where
         Self: std::marker::Sized,
     {
         let len = i32::partial_decode(reader)? as usize;
-        let mut hash_map = HashMap::with_capacity(len);
+        let mut hash_map = HashMap::with_capacity_and_hasher(len, Default::default());
         for _ in 0..len {
             let key = K::fully_self_decode(reader)?;
             let value = V::fully_self_decode(reader)?;

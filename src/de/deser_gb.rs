@@ -254,7 +254,7 @@ fn test_p() {
     let gb = from_slice::<GraphBinary>(&buf).unwrap();
 
     assert_eq!(
-        GraphBinary::P(P::Between(Box::new(1.into()), Box::new(10.into()))),
+        GraphBinary::P(P::between(1,10)),
         gb
     );
 }

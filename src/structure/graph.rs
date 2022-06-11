@@ -108,7 +108,7 @@ impl Encode for Graph {
         }
 
         e_len.write_patial_bytes(writer)?;
-        for edge in self.edges.iter() {
+        for edge in &self.edges {
             edge.id.write_full_qualified_bytes(writer)?;
             edge.label.write_patial_bytes(writer)?;
             edge.in_v_id.write_full_qualified_bytes(writer)?;
@@ -150,18 +150,18 @@ impl Decode for Graph {
                     value: Box::new(p_value),
                     parent: p_parent,
                     properties: p_properties,
-                })
+                });
             }
             v_vec.push(Vertex {
                 id: Box::new(v_id),
                 label: v_label,
                 properties: Some(p_vec),
-            })
+            });
         }
         let e_len = i32::partial_decode(reader)? as usize;
         let mut e_vec = Vec::with_capacity(v_len);
         for _ in 0..e_len {
-            e_vec.push(GraphEdge::partial_decode(reader)?)
+            e_vec.push(GraphEdge::partial_decode(reader)?);
         }
         Ok(Graph {
             vertexes: v_vec,

@@ -31,7 +31,7 @@ where
     T: Into<GraphBinary>,
 {
     fn from(v: Vec<T>) -> Self {
-        GraphBinary::List(v.into_iter().map(|v| v.into()).collect())
+        GraphBinary::List(v.into_iter().map(Into::into).collect())
     }
 }
 
@@ -52,7 +52,7 @@ impl<T: Decode> Decode for Vec<T> {
         }
         let mut list: Vec<T> = Vec::with_capacity(len as usize);
         for _ in 0..len {
-            list.push(T::fully_self_decode(reader)?)
+            list.push(T::fully_self_decode(reader)?);
         }
         Ok(list)
     }
@@ -62,7 +62,7 @@ impl<T: Decode> Decode for Vec<T> {
         let vec_len = i32::from_be_bytes(t);
         let mut len = 4;
         for _ in 0..vec_len {
-            len += T::consumed_bytes(&bytes[len..])?
+            len += T::consumed_bytes(&bytes[len..])?;
         }
         Ok(len)
     }

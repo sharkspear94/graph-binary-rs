@@ -32,10 +32,10 @@ impl ByteCode {
             values,
         });
     }
-    pub fn add_source(&mut self, name: &str, values: Option<Vec<GraphBinary>>) {
+    pub fn add_source(&mut self, name: &str, values: Vec<GraphBinary>) {
         self.sources.push(Source {
             name: name.to_string(),
-            values: values.unwrap_or_default(),
+            values,
         });
     }
 }
@@ -79,7 +79,7 @@ impl Decode for ByteCode {
         for _ in 0..len {
             let name = String::partial_decode(reader)?;
             let values = Vec::<GraphBinary>::partial_decode(reader)?;
-            steps.push(Step { name, values })
+            steps.push(Step { name, values });
         }
 
         let len = i32::partial_decode(reader)? as usize;
@@ -87,7 +87,7 @@ impl Decode for ByteCode {
         for _ in 0..len {
             let name = String::partial_decode(reader)?;
             let values = Vec::<GraphBinary>::partial_decode(reader)?;
-            sources.push(Source { name, values })
+            sources.push(Source { name, values });
         }
 
         Ok(ByteCode { steps, sources })

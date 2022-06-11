@@ -39,7 +39,7 @@ impl Decode for String {
             reader
                 .bytes()
                 .take(len as usize)
-                .filter_map(|c| c.ok())
+                .filter_map(Result::ok)
                 .collect(),
         )?;
 

@@ -191,7 +191,7 @@ fn traversal_metric_encode_test() {
 
     let traversal_metric = TraversalMetrics {
         duration: 214692,
-        metrics: vec![metric.clone(), metric],
+        metrics: vec![metric],
     };
     let mut buf = vec![];
     traversal_metric
