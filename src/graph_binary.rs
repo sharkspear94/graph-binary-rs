@@ -81,6 +81,13 @@ pub fn build_fq_null_bytes<W: Write>(writer: &mut W) -> Result<(), EncodeError> 
 }
 
 impl GraphBinary {
+    pub fn string(&self) -> Option<String> {
+        match self {
+            GraphBinary::String(s) => Some(s.clone()),
+            _ => None,
+        }
+    }
+
     pub fn build_fq_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         match self {
             GraphBinary::Int(val) => val.write_full_qualified_bytes(writer),
@@ -115,22 +122,22 @@ impl GraphBinary {
             GraphBinary::P(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::Scope(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::T(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Traverser(val) => todo!(),
+            GraphBinary::Traverser(val) => val.write_full_qualified_bytes(writer),
             // GraphBinary::BigDecimal(_) => todo!(),
             // GraphBinary::BigInteger(_) => todo!(),
-            GraphBinary::Byte(_) => todo!(),
+            GraphBinary::Byte(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::ByteBuffer(buf) => todo!(),
             GraphBinary::Short(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::Boolean(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::TextP(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::TraversalStrategy(_) => todo!(),
+            GraphBinary::TraversalStrategy(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::BulkSet(_) => todo!(),
             GraphBinary::Tree(_) => todo!(),
             GraphBinary::Metrics(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::TraversalMetrics(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::Merge(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::UnspecifiedNullObject => build_fq_null_bytes(writer),
-            GraphBinary::Char(_) => todo!(),
+            GraphBinary::Char(val) => val.write_full_qualified_bytes(writer),
             // GraphBinary::Custom => todo!(),
             // _ =>  Bytes::new()
         }
@@ -290,6 +297,8 @@ pub enum MapKeys {
     String(String),
     Long(i64),
     Uuid(Uuid),
+    T(T),
+    Direction(Direction),
 }
 
 impl From<MapKeys> for GraphBinary {
@@ -299,23 +308,20 @@ impl From<MapKeys> for GraphBinary {
             MapKeys::String(val) => GraphBinary::String(val),
             MapKeys::Long(val) => GraphBinary::Long(val),
             MapKeys::Uuid(val) => GraphBinary::Uuid(val),
+            MapKeys::T(val) => GraphBinary::T(val),
+            MapKeys::Direction(val) => GraphBinary::Direction(val),
         }
     }
 }
 
-impl From<&MapKeys> for GraphBinary {
-    fn from(keys: &MapKeys) -> GraphBinary {
-        match keys {
-            MapKeys::Int(val) => GraphBinary::Int(*val),
-            MapKeys::String(val) => GraphBinary::String(val.clone()),
-            MapKeys::Long(val) => GraphBinary::Long(*val),
-            MapKeys::Uuid(val) => GraphBinary::Uuid(*val),
-        }
+impl<T: Into<GraphBinary> + Clone> From<&T> for GraphBinary {
+    fn from(t: &T) -> Self {
+        t.clone().into()
     }
 }
 
 impl TryFrom<GraphBinary> for MapKeys {
-    type Error = EncodeError;
+    type Error = DecodeError;
 
     fn try_from(value: GraphBinary) -> Result<Self, Self::Error> {
         match value {
@@ -323,7 +329,9 @@ impl TryFrom<GraphBinary> for MapKeys {
             GraphBinary::Long(val) => Ok(MapKeys::Long(val)),
             GraphBinary::String(val) => Ok(MapKeys::String(val)),
             GraphBinary::Uuid(val) => Ok(MapKeys::Uuid(val)),
-            rest => Err(EncodeError::SerilizationError(format!(
+            GraphBinary::T(val) => Ok(MapKeys::T(val)),
+            GraphBinary::Direction(val) => Ok(MapKeys::Direction(val)),
+            rest => Err(DecodeError::ConvertError(format!(
                 "cannot convert from {:?} to MapKeys",
                 rest
             ))),
@@ -376,6 +384,8 @@ impl Encode for MapKeys {
             MapKeys::String(val) => val.write_full_qualified_bytes(writer),
             MapKeys::Long(val) => val.write_full_qualified_bytes(writer),
             MapKeys::Uuid(val) => val.write_full_qualified_bytes(writer),
+            MapKeys::T(val) => val.write_full_qualified_bytes(writer),
+            MapKeys::Direction(val) => val.write_full_qualified_bytes(writer),
         }
     }
 }
@@ -396,33 +406,8 @@ impl Decode for MapKeys {
     where
         Self: std::marker::Sized,
     {
-        let mut buf = [255_u8; 2];
-        reader.read_exact(&mut buf)?;
-        match (buf[0], buf[1]) {
-            (0x01, 0) => Ok(MapKeys::Int(i32::partial_decode(reader)?)),
-            (0x02, 0) => Ok(MapKeys::Long(i64::partial_decode(reader)?)),
-            (0x03, 0) => Ok(MapKeys::String(String::partial_decode(reader)?)),
-            (0x0c, 0) => Ok(MapKeys::Uuid(Uuid::partial_decode(reader)?)),
-            (0x18, 0) => match Direction::partial_decode(reader)? {
-                Direction::In => Ok(MapKeys::String("IN".to_string())),
-                Direction::Out => Ok(MapKeys::String("OUT".to_string())),
-                _ => Err(DecodeError::DecodeError(
-                    "Direction conversion for Mapkeys faild".to_string(),
-                )),
-            },
-            (0x20, 0) => match T::partial_decode(reader)? {
-                T::Id => Ok(MapKeys::String("id".to_string())),
-                T::Label => Ok(MapKeys::String("label".to_string())),
-                _ => Err(DecodeError::DecodeError(
-                    "T conversion for Mapkeys faild".to_string(),
-                )),
-            },
-
-            (code, _) => Err(DecodeError::DecodeError(format!(
-                "0x{:x} CoreType found: MapKey not Supported in Rust must implement Eq and Hash",
-                code
-            ))),
-        }
+        let key = GraphBinary::fully_self_decode(reader)?;
+        MapKeys::try_from(key)
     }
 
     fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
@@ -430,16 +415,7 @@ impl Decode for MapKeys {
     }
 
     fn consumed_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
-        match (bytes[0], bytes[1]) {
-            (0x01, 0) => i32::consumed_bytes(bytes),
-            (0x02, 0) => i64::consumed_bytes(bytes),
-            (0x03, 0) => String::consumed_bytes(bytes),
-            (0x0c, 0) => Uuid::consumed_bytes(bytes),
-            (code, _) => Err(DecodeError::DecodeError(format!(
-                "{:x} CoreType found: MapKey not Supported in Rust must implement Eq and Hash",
-                code
-            ))),
-        }
+        GraphBinary::consumed_bytes(bytes)
     }
 }
 
@@ -497,6 +473,8 @@ impl<'de> serde::de::Visitor<'de> for MapKeysVisitor {
 
         match core_type {
             CoreType::Uuid => Ok(MapKeys::Uuid(Uuid::from(map.next_value::<UuidDef>()?))), // can be implemented on visit_u128
+            CoreType::T => Ok(MapKeys::T(map.next_value::<T>()?)),
+            CoreType::Direction => Ok(MapKeys::Direction(map.next_value::<Direction>()?)),
             _ => unimplemented!("Mapkeys Error"),
         }
     }
