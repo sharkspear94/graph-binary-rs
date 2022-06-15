@@ -38,6 +38,22 @@ impl ByteCode {
             values,
         });
     }
+
+    pub fn extend_last_step(&mut self, values: impl Iterator<Item = impl Into<GraphBinary>>) {
+        let last = self
+            .steps
+            .last_mut()
+            .expect("Bytecode step cannot be extended without prior step");
+        last.values.extend(values.map(Into::into))
+    }
+
+    pub fn add_to_last_step(&mut self, value: impl Into<GraphBinary>) {
+        let last = self
+            .steps
+            .last_mut()
+            .expect("Bytecode step cannot be extended without prior step");
+        last.values.push(value.into())
+    }
 }
 
 impl Encode for ByteCode {
