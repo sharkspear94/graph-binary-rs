@@ -50,8 +50,8 @@ impl Decode for Traverser {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TraversalStrategy {
-    strategy_class: String,                      // class
-    configuration: HashMap<String, GraphBinary>, // not sure if key is correct
+    pub strategy_class: String,                      // class
+    pub configuration: HashMap<String, GraphBinary>, // not sure if key is correct
 }
 
 impl Encode for TraversalStrategy {
