@@ -4,7 +4,7 @@ pub trait CoalesceParams {
     fn bytecode(self, name: &str, bc: &mut ByteCode);
 }
 
-impl<S, E, T> CoalesceParams for GraphTraversal<S, E, T> {
+impl<E, T> CoalesceParams for GraphTraversal<E, T> {
     fn bytecode(self, name: &str, bc: &mut ByteCode) {
         bc.add_step(name, vec![self.into()])
     }
@@ -16,7 +16,7 @@ impl CoalesceParams for () {
     }
 }
 
-impl<S, E, T> CoalesceParams for (GraphTraversal<S, E, T>, GraphTraversal<S, E, T>) {
+impl<E, T> CoalesceParams for (GraphTraversal<E, T>, GraphTraversal<E, T>) {
     fn bytecode(self, name: &str, bc: &mut ByteCode) {
         bc.add_step(name, vec![self.0.into(), self.1.into()])
     }

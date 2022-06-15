@@ -19,7 +19,7 @@ impl FromStepParams for &Vertex {
     }
 }
 
-impl<S> FromStepParams for GraphTraversal<S, Vertex, Vertex> {
+impl FromStepParams for GraphTraversal<Vertex, Vertex> {
     fn bytecode(self, name: &str, bc: &mut ByteCode) {
         bc.add_step(name, vec![self.bytecode.into()])
     }

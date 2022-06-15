@@ -47,55 +47,52 @@ use super::{
 };
 
 #[derive(Debug, PartialEq, Default, Clone)]
-pub struct GraphTraversal<S, E, T> {
-    start: PhantomData<S>,
+pub struct GraphTraversal<E, T> {
     end: PhantomData<E>,
     pub bytecode: ByteCode,
     terminator: PhantomData<T>,
 }
 
-impl<S, E, T> GraphTraversal<S, E, T> {
-    pub fn new(bytecode: ByteCode) -> GraphTraversal<S, E, T> {
+impl<E, T> GraphTraversal<E, T> {
+    pub fn new(bytecode: ByteCode) -> GraphTraversal<E, T> {
         GraphTraversal {
-            start: PhantomData,
             end: PhantomData,
             bytecode,
             terminator: PhantomData,
         }
     }
 
-    pub fn id(mut self) -> GraphTraversal<S, Ids, Ids> {
+    pub fn id(mut self) -> GraphTraversal<Ids, Ids> {
         self.bytecode.add_step("id", vec![]);
         GraphTraversal {
-            start: PhantomData,
             end: PhantomData,
             bytecode: self.bytecode,
             terminator: PhantomData,
         }
     }
 
-    pub fn label(mut self) -> GraphTraversal<S, String, String> {
+    pub fn label(mut self) -> GraphTraversal<String, String> {
         self.bytecode.add_step("label", vec![]);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn constant<C: Into<GraphBinary>>(mut self, constant: C) -> GraphTraversal<S, C, C> {
+    pub fn constant<C: Into<GraphBinary>>(mut self, constant: C) -> GraphTraversal<C, C> {
         self.bytecode.add_step("constant", vec![constant.into()]);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn v<A: Into<GraphBinary>>(mut self, a: A) -> GraphTraversal<S, Vertex, T> {
+    pub fn v<A: Into<GraphBinary>>(mut self, a: A) -> GraphTraversal<Vertex, T> {
         self.bytecode.add_step("V", vec![a.into()]);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn to(mut self, to_vertex: impl ToStepParams) -> GraphTraversal<S, Vertex, Vertex> {
+    pub fn to(mut self, to_vertex: impl ToStepParams) -> GraphTraversal<Vertex, Vertex> {
         // TODO overload of to return different traversal
         to_vertex.bytecode("to", &mut self.bytecode);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn out(mut self, labels: impl MultiStringParams) -> GraphTraversal<S, Vertex, Vertex> {
+    pub fn out(mut self, labels: impl MultiStringParams) -> GraphTraversal<Vertex, Vertex> {
         labels.bytecode("out", &mut self.bytecode);
         GraphTraversal::new(self.bytecode)
     }
@@ -112,48 +109,48 @@ impl<S, E, T> GraphTraversal<S, E, T> {
         mut self,
         direction: Direction,
         labels: impl MultiStringParams,
-    ) -> GraphTraversal<S, Edge, Edge> {
+    ) -> GraphTraversal<Edge, Edge> {
         self.bytecode.add_step("in", vec![direction.into()]);
         labels.extend_step(&mut self.bytecode);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn out_e(mut self, labels: impl MultiStringParams) -> GraphTraversal<S, Edge, Edge> {
+    pub fn out_e(mut self, labels: impl MultiStringParams) -> GraphTraversal<Edge, Edge> {
         labels.bytecode("outE", &mut self.bytecode);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn in_e(mut self, labels: impl MultiStringParams) -> GraphTraversal<S, Edge, Edge> {
+    pub fn in_e(mut self, labels: impl MultiStringParams) -> GraphTraversal<Edge, Edge> {
         labels.bytecode("inE", &mut self.bytecode);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn both_e(mut self, labels: impl MultiStringParams) -> GraphTraversal<S, Edge, Edge> {
+    pub fn both_e(mut self, labels: impl MultiStringParams) -> GraphTraversal<Edge, Edge> {
         labels.bytecode("bothE", &mut self.bytecode);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn to_v(mut self, direction: Direction) -> GraphTraversal<S, Vertex, Vertex> {
+    pub fn to_v(mut self, direction: Direction) -> GraphTraversal<Vertex, Vertex> {
         self.bytecode.add_step("toV", vec![direction.into()]);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn in_v(mut self) -> GraphTraversal<S, Vertex, Vertex> {
+    pub fn in_v(mut self) -> GraphTraversal<Vertex, Vertex> {
         self.bytecode.add_step("inV", vec![]);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn out_v(mut self) -> GraphTraversal<S, Vertex, Vertex> {
+    pub fn out_v(mut self) -> GraphTraversal<Vertex, Vertex> {
         self.bytecode.add_step("outV", vec![]);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn both_v(mut self) -> GraphTraversal<S, Vertex, Vertex> {
+    pub fn both_v(mut self) -> GraphTraversal<Vertex, Vertex> {
         self.bytecode.add_step("bothV", vec![]);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn other_v(mut self) -> GraphTraversal<S, Vertex, Vertex> {
+    pub fn other_v(mut self) -> GraphTraversal<Vertex, Vertex> {
         self.bytecode.add_step("otherV", vec![]);
         GraphTraversal::new(self.bytecode)
     }
@@ -167,10 +164,7 @@ impl<S, E, T> GraphTraversal<S, E, T> {
         property_keys.bytecode("properties", &mut self.bytecode)
     }
 
-    pub fn values<E2>(
-        mut self,
-        property_keys: impl MultiStringParams,
-    ) -> GraphTraversal<S, E2, E2> {
+    pub fn values<E2>(mut self, property_keys: impl MultiStringParams) -> GraphTraversal<E2, E2> {
         property_keys.bytecode("values", &mut self.bytecode);
         GraphTraversal::new(self.bytecode)
     }
@@ -181,7 +175,7 @@ impl<S, E, T> GraphTraversal<S, E, T> {
 
     pub fn element_map(
         mut self,
-    ) -> GraphTraversal<S, HashMap<MapKeys, GraphBinary>, HashMap<MapKeys, GraphBinary>> {
+    ) -> GraphTraversal<HashMap<MapKeys, GraphBinary>, HashMap<MapKeys, GraphBinary>> {
         self.bytecode.add_step("elementMap", vec![]);
         GraphTraversal::new(self.bytecode)
     }
@@ -190,7 +184,7 @@ impl<S, E, T> GraphTraversal<S, E, T> {
         property_keys.bytecode("valueMap", &mut self.bytecode)
     }
 
-    pub fn key(mut self) -> GraphTraversal<S, String, String> {
+    pub fn key(mut self) -> GraphTraversal<String, String> {
         self.bytecode.add_step("key", vec![]);
         GraphTraversal::new(self.bytecode)
     }
@@ -200,15 +194,15 @@ impl<S, E, T> GraphTraversal<S, E, T> {
         self
     }
 
-    pub fn path(mut self) -> GraphTraversal<S, Path, Path> {
+    pub fn path(mut self) -> GraphTraversal<Path, Path> {
         self.bytecode.add_step("path", vec![]);
         GraphTraversal::new(self.bytecode)
     }
 
     pub fn match_(
         mut self,
-        match_traversal: GraphTraversal<S, E, T>,
-    ) -> GraphTraversal<S, HashMap<MapKeys, GraphBinary>, HashMap<MapKeys, GraphBinary>> {
+        match_traversal: GraphTraversal<E, T>,
+    ) -> GraphTraversal<HashMap<MapKeys, GraphBinary>, HashMap<MapKeys, GraphBinary>> {
         self.bytecode
             .add_step("match", vec![match_traversal.bytecode.into()]);
         GraphTraversal::new(self.bytecode)
@@ -216,7 +210,7 @@ impl<S, E, T> GraphTraversal<S, E, T> {
 
     pub fn sack() {}
 
-    pub fn loops(mut self, s: impl SingleStringParam) -> GraphTraversal<S, i32, i32> {
+    pub fn loops(mut self, s: impl SingleStringParam) -> GraphTraversal<i32, i32> {
         s.bytecode("loops", &mut self.bytecode);
         GraphTraversal::new(self.bytecode)
     }
@@ -225,7 +219,7 @@ impl<S, E, T> GraphTraversal<S, E, T> {
         mut self,
         property_key: &str,
         other_property_keys: impl MultiStringParams,
-    ) -> GraphTraversal<S, HashMap<String, GraphBinary>, HashMap<String, GraphBinary>> {
+    ) -> GraphTraversal<HashMap<String, GraphBinary>, HashMap<String, GraphBinary>> {
         self.bytecode.add_step("project", vec![property_key.into()]);
         other_property_keys.extend_step(&mut self.bytecode);
         GraphTraversal::new(self.bytecode)
@@ -234,7 +228,7 @@ impl<S, E, T> GraphTraversal<S, E, T> {
     // pub fn select_map(
     //     mut self,
     //     select_params: impl SelectMapParam,
-    // ) -> GraphTraversal<S, HashMap<String, GraphBinary>, HashMap<String, GraphBinary>> {
+    // ) -> GraphTraversal<HashMap<String, GraphBinary>, HashMap<String, GraphBinary>> {
     //     select_params.bytecode("select", &mut self.bytecode);
     //     GraphTraversal::new(self.bytecode)
     // }
@@ -242,17 +236,17 @@ impl<S, E, T> GraphTraversal<S, E, T> {
     pub fn select(
         mut self,
         select_params: impl SelectParam,
-    ) -> GraphTraversal<S, GraphBinary, GraphBinary> {
+    ) -> GraphTraversal<GraphBinary, GraphBinary> {
         select_params.bytecode("select", &mut self.bytecode);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn unfold(mut self) -> GraphTraversal<S, GraphBinary, GraphBinary> {
+    pub fn unfold(mut self) -> GraphTraversal<GraphBinary, GraphBinary> {
         self.bytecode.add_step("unfold", vec![]);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn fold<E2>(mut self) -> GraphTraversal<S, Vec<E2>, Vec<E2>> {
+    pub fn fold<E2>(mut self) -> GraphTraversal<Vec<E2>, Vec<E2>> {
         self.bytecode.add_step("fold", vec![]);
         GraphTraversal::new(self.bytecode)
     }
@@ -261,36 +255,36 @@ impl<S, E, T> GraphTraversal<S, E, T> {
         mut self,
         seed: E2,
         lambda: L,
-    ) -> GraphTraversal<S, E2, E2> {
+    ) -> GraphTraversal<E2, E2> {
         self.bytecode
             .add_step("fold", vec![seed.into(), lambda.into().into()]);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn count(mut self, scope: impl ScopeParams) -> GraphTraversal<S, i64, i64> {
+    pub fn count(mut self, scope: impl ScopeParams) -> GraphTraversal<i64, i64> {
         scope.bytecode("count", &mut self.bytecode);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn sum<V: PartialOrd>(mut self, scope: impl ScopeParams) -> GraphTraversal<S, V, V> {
+    pub fn sum<V: PartialOrd>(mut self, scope: impl ScopeParams) -> GraphTraversal<V, V> {
         //TODO // Num Trait
         scope.bytecode("sum", &mut self.bytecode);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn max<V: PartialOrd>(mut self, scope: impl ScopeParams) -> GraphTraversal<S, V, V> {
+    pub fn max<V: PartialOrd>(mut self, scope: impl ScopeParams) -> GraphTraversal<V, V> {
         //TODO
         scope.bytecode("max", &mut self.bytecode);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn min<V: PartialOrd>(mut self, scope: impl ScopeParams) -> GraphTraversal<S, V, V> {
+    pub fn min<V: PartialOrd>(mut self, scope: impl ScopeParams) -> GraphTraversal<V, V> {
         //TODO
         scope.bytecode("min", &mut self.bytecode);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn mean<V: PartialOrd>(mut self, scope: impl ScopeParams) -> GraphTraversal<S, V, V> {
+    pub fn mean<V: PartialOrd>(mut self, scope: impl ScopeParams) -> GraphTraversal<V, V> {
         //TODO
         scope.bytecode("mean", &mut self.bytecode);
         GraphTraversal::new(self.bytecode)
@@ -299,7 +293,7 @@ impl<S, E, T> GraphTraversal<S, E, T> {
     pub fn group(
         mut self,
         side_effect_key: impl SingleStringParam,
-    ) -> GraphTraversal<S, HashMap<MapKeys, GraphBinary>, HashMap<MapKeys, GraphBinary>> {
+    ) -> GraphTraversal<HashMap<MapKeys, GraphBinary>, HashMap<MapKeys, GraphBinary>> {
         side_effect_key.bytecode("group", &mut self.bytecode);
         GraphTraversal::new(self.bytecode)
     }
@@ -307,7 +301,7 @@ impl<S, E, T> GraphTraversal<S, E, T> {
     pub fn group_count(
         mut self,
         side_effect_key: impl SingleStringParam,
-    ) -> GraphTraversal<S, HashMap<MapKeys, GraphBinary>, HashMap<MapKeys, i64>> {
+    ) -> GraphTraversal<HashMap<MapKeys, GraphBinary>, HashMap<MapKeys, i64>> {
         side_effect_key.bytecode("groupMap", &mut self.bytecode);
         GraphTraversal::new(self.bytecode)
     }
@@ -318,22 +312,19 @@ impl<S, E, T> GraphTraversal<S, E, T> {
         self
     }
 
-    pub fn add_v(
-        mut self,
-        vertex_label: impl AddElementParams,
-    ) -> GraphTraversal<S, Vertex, Vertex> {
+    pub fn add_v(mut self, vertex_label: impl AddElementParams) -> GraphTraversal<Vertex, Vertex> {
         vertex_label.bytecode("addE", &mut self.bytecode);
         GraphTraversal::new(self.bytecode)
     }
-    pub fn merge_v(mut self, merge_params: impl MergeParams) -> GraphTraversal<S, Vertex, Vertex> {
+    pub fn merge_v(mut self, merge_params: impl MergeParams) -> GraphTraversal<Vertex, Vertex> {
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn merge_e(mut self, merge_params: impl MergeParams) -> GraphTraversal<S, Edge, Edge> {
+    pub fn merge_e(mut self, merge_params: impl MergeParams) -> GraphTraversal<Edge, Edge> {
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn add_e(mut self, edge_label: impl AddElementParams) -> GraphTraversal<S, Edge, Edge> {
+    pub fn add_e(mut self, edge_label: impl AddElementParams) -> GraphTraversal<Edge, Edge> {
         edge_label.bytecode("addE", &mut self.bytecode);
         GraphTraversal::new(self.bytecode)
     }
@@ -343,7 +334,7 @@ impl<S, E, T> GraphTraversal<S, E, T> {
         self
     }
 
-    pub fn math(mut self, expression: &str) -> GraphTraversal<S, f64, f64> {
+    pub fn math(mut self, expression: &str) -> GraphTraversal<f64, f64> {
         self.bytecode.add_step("math", vec![expression.into()]);
         GraphTraversal::new(self.bytecode)
     }
@@ -370,7 +361,7 @@ impl<S, E, T> GraphTraversal<S, E, T> {
 
     pub fn and() {} // TODO
 
-    pub fn inject<I: Into<GraphBinary>>(mut self, items: I) -> GraphTraversal<S, I, I> {
+    pub fn inject<I: Into<GraphBinary>>(mut self, items: I) -> GraphTraversal<I, I> {
         self.bytecode.add_step("inject", vec![items.into()]);
         GraphTraversal::new(self.bytecode)
     }
@@ -423,10 +414,7 @@ impl<S, E, T> GraphTraversal<S, E, T> {
         self
     }
 
-    pub fn not<S1: Into<GraphBinary>, S2: Into<GraphBinary>>(
-        mut self,
-        not_traversal: GraphTraversal<S1, S2, S2>,
-    ) -> Self {
+    pub fn not<S2: Into<GraphBinary>>(mut self, not_traversal: GraphTraversal<S2, S2>) -> Self {
         self.bytecode.add_step("not", vec![not_traversal.into()]);
         self
     }
@@ -485,7 +473,7 @@ impl<S, E, T> GraphTraversal<S, E, T> {
         self
     }
 
-    pub fn side_effect(mut self, side_effect_traversal: GraphTraversal<S, E, T>) -> Self {
+    pub fn side_effect(mut self, side_effect_traversal: GraphTraversal<E, T>) -> Self {
         //TODO
         self.bytecode
             .add_step("sideEffect", vec![side_effect_traversal.into()]);
@@ -496,7 +484,7 @@ impl<S, E, T> GraphTraversal<S, E, T> {
         mut self,
         side_effect_key: &str,
         side_effect_keys: impl MultiStringParams,
-    ) -> GraphTraversal<S, V, V> {
+    ) -> GraphTraversal<V, V> {
         self.bytecode.add_step("cap", vec![side_effect_key.into()]);
         side_effect_keys.extend_step(&mut self.bytecode);
         GraphTraversal::new(self.bytecode)
@@ -533,13 +521,13 @@ impl<S, E, T> GraphTraversal<S, E, T> {
 
     pub fn choose(mut self) {}
 
-    pub fn optional<E2>(mut self, optional_traversel: GraphTraversal<S, E2, E2>) -> Self {
+    pub fn optional<E2>(mut self, optional_traversel: GraphTraversal<E2, E2>) -> Self {
         self.bytecode
             .add_step("optional", vec![optional_traversel.into()]);
         self
     }
 
-    pub fn union(mut self, union_traversal: GraphTraversal<S, E, T>) -> Self {
+    pub fn union(mut self, union_traversal: GraphTraversal<E, T>) -> Self {
         self.bytecode
             .add_step("union", vec![union_traversal.bytecode.into()]);
         self
@@ -548,7 +536,7 @@ impl<S, E, T> GraphTraversal<S, E, T> {
     pub fn coalesce(
         mut self,
         coalesce_traversals: impl CoalesceParams,
-    ) -> GraphTraversal<S, GraphBinary, GraphBinary> {
+    ) -> GraphTraversal<GraphBinary, GraphBinary> {
         coalesce_traversals.bytecode("coalesce", &mut self.bytecode);
         GraphTraversal::new(self.bytecode)
     }
@@ -556,7 +544,7 @@ impl<S, E, T> GraphTraversal<S, E, T> {
     pub fn repeat(
         mut self,
         loop_name: impl SingleStringParam,
-        loop_traversal: GraphTraversal<S, E, T>,
+        loop_traversal: GraphTraversal<E, T>,
     ) -> Self {
         loop_name.bytecode("repeat", &mut self.bytecode);
         self.bytecode.add_to_last_step(loop_traversal);
@@ -578,10 +566,7 @@ impl<S, E, T> GraphTraversal<S, E, T> {
         self
     }
 
-    pub fn local<E2>(
-        mut self,
-        local_traversal: GraphTraversal<S, E2, E2>,
-    ) -> GraphTraversal<S, E2, E2> {
+    pub fn local<E2>(mut self, local_traversal: GraphTraversal<E2, E2>) -> GraphTraversal<E2, E2> {
         self.bytecode
             .add_step("local", vec![local_traversal.into()]);
         GraphTraversal::new(self.bytecode)
@@ -651,14 +636,14 @@ impl<S, E, T> GraphTraversal<S, E, T> {
     }
 }
 
-impl<S, E, T> From<GraphTraversal<S, E, T>> for GraphBinary {
-    fn from(g: GraphTraversal<S, E, T>) -> Self {
+impl<E, T> From<GraphTraversal<E, T>> for GraphBinary {
+    fn from(g: GraphTraversal<E, T>) -> Self {
         g.bytecode.into()
     }
 }
 
-impl<S, E, T> From<GraphTraversal<S, E, T>> for ByteCode {
-    fn from(g: GraphTraversal<S, E, T>) -> Self {
+impl<E, T> From<GraphTraversal<E, T>> for ByteCode {
+    fn from(g: GraphTraversal<E, T>) -> Self {
         g.bytecode
     }
 }
@@ -1257,7 +1242,7 @@ impl AnonymousTraversal {
 
 #[test]
 fn test() {
-    let g = GraphTraversalSource::<(), ()>::new();
+    let g = GraphTraversalSource::<()>::new();
     // g.v(()).has("label", "key", P::eq(2f32));
 
     // g.v(()).has("label", "key", P::gt(2f32));
@@ -1265,12 +1250,11 @@ fn test() {
 
 #[test]
 fn test1() {
-    let mut g = GraphTraversalSource::<GraphBinary, GraphBinary> {
-        start: PhantomData,
+    let mut g = GraphTraversalSource::<GraphBinary> {
         bc: Some(ByteCode::default()),
         end: PhantomData,
     };
-    let mut g1 = GraphTraversalSource::<(), ()>::new();
+    let mut g1 = GraphTraversalSource::<()>::new();
     let t1 = g1.inject(vec![1, 123, 3, 4]);
 
     let t = g.with_computer().inject(vec![1, 123, 3, 4]);

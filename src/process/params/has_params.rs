@@ -32,13 +32,13 @@ impl<V: Into<GraphBinary>> HasStepParams for (String, V) {
 //     }
 // }
 
-impl<S, M> HasStepParams for (&str, GraphTraversal<S, M, M>) {
+impl<M> HasStepParams for (&str, GraphTraversal< M, M>) {
     fn bytecode(self, step: &str, bc: &mut ByteCode) {
         bc.add_step(step, vec![self.0.into(), self.1.bytecode.into()]);
     }
 }
 
-impl<M> HasStepParams for (T, GraphTraversal<M, M, M>) {
+impl<M> HasStepParams for (T, GraphTraversal< M, M>) {
     fn bytecode(self, step: &str, bc: &mut ByteCode) {
         bc.add_step(step, vec![self.0.into(), self.1.bytecode.into()]);
     }

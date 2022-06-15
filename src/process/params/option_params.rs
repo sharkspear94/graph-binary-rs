@@ -10,13 +10,13 @@ pub trait OptionParams {
     fn bytecode(self, step: &str, bc: &mut ByteCode);
 }
 
-impl<S, E, T> OptionParams for GraphTraversal<S, E, T> {
+impl< E, T> OptionParams for GraphTraversal< E, T> {
     fn bytecode(self, step: &str, bc: &mut ByteCode) {
         bc.add_step(step, vec![self.into()])
     }
 }
 
-impl<Token: Into<GraphBinary>, S, E, T> OptionParams for (Token, GraphTraversal<S, E, T>) {
+impl<Token: Into<GraphBinary>, E, T> OptionParams for (Token, GraphTraversal< E, T>) {
     fn bytecode(self, step: &str, bc: &mut ByteCode) {
         bc.add_step(step, vec![self.0.into(), self.1.into()])
     }

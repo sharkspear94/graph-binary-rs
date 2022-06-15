@@ -51,13 +51,13 @@ impl<S: MultiStringParams> SelectParam for (Pop, &str, S) {
     }
 }
 
-impl<S, E, T> SelectParam for GraphTraversal<S, E, T> {
+impl< E, T> SelectParam for GraphTraversal< E, T> {
     fn bytecode(self, step: &str, bc: &mut ByteCode) {
         bc.add_step(step, vec![self.into()])
     }
 }
 
-impl<S, E, T> SelectParam for (Pop, GraphTraversal<S, E, T>) {
+impl< E, T> SelectParam for (Pop, GraphTraversal< E, T>) {
     fn bytecode(self, step: &str, bc: &mut ByteCode) {
         bc.add_step(step, vec![self.0.into(), self.1.into()])
     }

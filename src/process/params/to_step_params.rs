@@ -27,7 +27,7 @@ impl ToStepParams for String {
     }
 }
 
-impl<S> ToStepParams for GraphTraversal<S, Vertex, Vertex> {
+impl ToStepParams for GraphTraversal<Vertex, Vertex> {
     fn bytecode(self, name: &str, bc: &mut ByteCode) {
         bc.add_step(name, vec![self.bytecode.into()])
     }

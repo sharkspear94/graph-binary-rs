@@ -34,7 +34,7 @@ impl ByParams for &str {
     }
 }
 
-impl<S, E, T> ByParams for GraphTraversal<S, E, T> {
+impl<E, T> ByParams for GraphTraversal<E, T> {
     fn bytecode(self, name: &str, bc: &mut ByteCode) {
         bc.add_step(name, vec![self.into()])
     }

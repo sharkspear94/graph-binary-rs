@@ -16,7 +16,7 @@ impl AddElementParams for String {
     }
 }
 
-impl<S> AddElementParams for GraphTraversal<S, String, String> {
+impl AddElementParams for GraphTraversal<String, String> {
     fn bytecode(self, step: &str, bc: &mut ByteCode) {
         bc.add_step(step, vec![self.bytecode.into()])
     }

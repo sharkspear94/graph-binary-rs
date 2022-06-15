@@ -31,7 +31,7 @@ impl WhereParams for (String, PublicP2<String>) {
     }
 }
 
-impl<S, E, T> WhereParams for GraphTraversal<S, E, T> {
+impl<E, T> WhereParams for GraphTraversal<E, T> {
     fn bytecode(self, step: &str, bc: &mut ByteCode) {
         bc.add_step(step, vec![self.bytecode.into()])
     }
