@@ -16,31 +16,34 @@ use crate::{
     },
 };
 
-use super::params::{
-    self,
-    add_element_params::AddElementParams,
-    by_params::ByParams,
-    coalesce_params::CoalesceParams,
-    emit_params::EmitParams,
-    fold_params::{self, FoldParams},
-    from_step_params::FromStepParams,
-    has_id_params::HasIdParams,
-    has_params::HasStepParams,
-    has_strings_params::HasStringsParams,
-    is_param::IsParam,
-    merge_params::MergeParams,
-    multi_strings::MultiStringParams,
-    object_param::{MultiObjectParam, ObjectParam},
-    option_params::OptionParams,
-    property_params::PropertyParam,
-    repeat_param::RepeatParam,
-    scope_params::ScopeParams,
-    select_params::SelectParam,
-    single_string::SingleStringParam,
-    tail_params::TailParams,
-    to_step_params::ToStepParams,
-    until_params::UntilParams,
-    where_params::WhereParams,
+use super::{
+    graph_traversal_source::GraphTraversalSource,
+    params::{
+        self,
+        add_element_params::AddElementParams,
+        by_params::ByParams,
+        coalesce_params::CoalesceParams,
+        emit_params::EmitParams,
+        fold_params::{self, FoldParams},
+        from_step_params::FromStepParams,
+        has_id_params::HasIdParams,
+        has_params::HasStepParams,
+        has_strings_params::HasStringsParams,
+        is_param::IsParam,
+        merge_params::MergeParams,
+        multi_strings::MultiStringParams,
+        object_param::{MultiObjectParam, ObjectParam},
+        option_params::OptionParams,
+        property_params::PropertyParam,
+        repeat_param::RepeatParam,
+        scope_params::ScopeParams,
+        select_params::SelectParam,
+        single_string::SingleStringParam,
+        tail_params::TailParams,
+        to_step_params::ToStepParams,
+        until_params::UntilParams,
+        where_params::WhereParams,
+    },
 };
 
 #[derive(Debug, PartialEq, Default, Clone)]
@@ -51,68 +54,8 @@ pub struct GraphTraversal<S, E, T> {
     terminator: PhantomData<T>,
 }
 
-pub struct GraphTraversalSource<S, E> {
-    start: PhantomData<S>,
-    bc: Option<ByteCode>,
-    end: PhantomData<E>,
-}
-
-impl<S, E> GraphTraversalSource<S, E> {
-    pub fn v<I>(&mut self, ids: I) -> GraphTraversal<S, Vertex, Vertex>
-    where
-        I: Into<Ids>,
-    {
-        if let Some(mut bc) = self.bc.take() {
-            bc.add_step("V", ids.into().into());
-            GraphTraversal::new(bc)
-        } else {
-            let mut bc = ByteCode::new();
-            bc.add_step("V", ids.into().into());
-            GraphTraversal::new(bc)
-        }
-    }
-    // pub fn add_v<L>(self, label: L) -> GraphTraverser<S, Vertex, Vertex> {
-    //     let bc = ByteCode::new();
-    //     bc.add_step("addV", ids.into().into());
-    //     GraphTraverser::new(bc)
-    // }
-    pub fn e<I: Into<Ids>>(&self, ids: I) -> GraphTraversal<S, Edge, Edge> {
-        let mut bc = ByteCode::new();
-        bc.add_step("E", ids.into().into());
-        GraphTraversal::new(bc)
-    }
-
-    // pub fn add_e<L>(&self, label: L) -> GraphTraversal<S, Edge, Edge> {
-    //     let bc = ByteCode::new();
-    //     bc.add_step("addE", ids.into().into());
-    //     GraphTraverser::new(bc)
-    // }
-
-    pub fn with_computer(&mut self) -> &mut Self {
-        if let Some(ref mut bc) = self.bc {
-            bc.add_source("withComputer", vec![])
-        } else {
-            let mut bc = ByteCode::default();
-            bc.add_source("withComputer", vec![]);
-            self.bc = Some(bc)
-        }
-        self
-    }
-
-    pub fn inject<I: Into<GraphBinary>>(&mut self, items: I) -> GraphTraversal<S, I, I> {
-        if let Some(mut bc) = self.bc.take() {
-            bc.add_step("V", vec![items.into()]);
-            GraphTraversal::new(bc)
-        } else {
-            let mut bc = ByteCode::new();
-            bc.add_step("V", vec![items.into()]);
-            GraphTraversal::new(bc)
-        }
-    }
-}
-
 impl<S, E, T> GraphTraversal<S, E, T> {
-    fn new(bytecode: ByteCode) -> GraphTraversal<S, E, T> {
+    pub fn new(bytecode: ByteCode) -> GraphTraversal<S, E, T> {
         GraphTraversal {
             start: PhantomData,
             end: PhantomData,
@@ -465,9 +408,6 @@ impl<S, E, T> GraphTraversal<S, E, T> {
         self
     }
 
-    // pub fn to_list(self) -> T {
-    // }
-
     pub fn has_value(
         mut self,
         value: impl Into<GraphBinary>,
@@ -654,7 +594,10 @@ impl<S, E, T> GraphTraversal<S, E, T> {
         self
     }
 
-    pub fn connected_component(mut self) {}
+    pub fn connected_component(mut self) -> Self {
+        self.bytecode.add_step("connectedComponent", vec![]);
+        self
+    }
 
     pub fn shortest_path(mut self) -> Self {
         self.bytecode.add_step("shortestPath", vec![]);
@@ -1314,11 +1257,7 @@ impl AnonymousTraversal {
 
 #[test]
 fn test() {
-    let g = GraphTraversalSource::<(), ()> {
-        start: PhantomData,
-        bc: Some(ByteCode::default()),
-        end: PhantomData,
-    };
+    let g = GraphTraversalSource::<(), ()>::new();
     // g.v(()).has("label", "key", P::eq(2f32));
 
     // g.v(()).has("label", "key", P::gt(2f32));
@@ -1331,6 +1270,9 @@ fn test1() {
         bc: Some(ByteCode::default()),
         end: PhantomData,
     };
+    let mut g1 = GraphTraversalSource::<(), ()>::new();
+    let t1 = g1.inject(vec![1, 123, 3, 4]);
+
     let t = g.with_computer().inject(vec![1, 123, 3, 4]);
 
     let v = vec!["asasdd".to_string()];
@@ -1343,11 +1285,11 @@ fn test1() {
         .option((Merge::OnCreate, HashMap::from([("asd", 3)])));
 
     let t = g.v(()).coalesce([g.v(()).values("age"), g.e(())]);
-    let t = g.v(()).is(Vertex {
-        id: todo!(),
-        label: todo!(),
-        properties: todo!(),
-    });
+    // let t = g.v(()).is(Vertex {
+    //     id: todo!(),
+    //     label: todo!(),
+    //     properties: todo!(),
+    // });
     let t = g.v(()).not(g.v(()).values("as").is(1)); // TODO
     let t = g.v(()).project("id", ["s"]).by(g.v(()).id()).by(g.v(())); // TODO project params are stupid
     let t = g.v(()).project("id", ["s"]).by(g.v(()).id()).by(g.v(()));
