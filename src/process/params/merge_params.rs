@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     graph_binary::{GraphBinary, MapKeys},
-    process::traversal::GraphTraversal,
+    process::bytecode_traversal::BytecodeTraversal,
     structure::bytecode::ByteCode,
 };
 
@@ -16,16 +16,14 @@ impl MergeParams for () {
     }
 }
 
-impl MergeParams
-    for GraphTraversal< HashMap<MapKeys, GraphBinary>, HashMap<MapKeys, GraphBinary>>
-{
+impl MergeParams for BytecodeTraversal {
     fn bytecode(&self, name: &str, bc: &mut ByteCode) {
         bc.add_step(name, vec![self.into()]);
     }
 }
 
-impl MergeParams for HashMap<MapKeys, GraphBinary> {
+impl<K: Into<MapKeys> + Clone, V: Into<GraphBinary> + Clone> MergeParams for HashMap<K, V> {
     fn bytecode(&self, name: &str, bc: &mut ByteCode) {
-        bc.add_step(name, vec![self.into()]);
+        bc.add_step(name, vec![self.into()])
     }
 }

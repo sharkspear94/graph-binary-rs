@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::vec;
 
 use serde::de::{IntoDeserializer, Visitor};
@@ -10,6 +11,7 @@ use crate::error::EncodeError;
 use crate::graph_binary::{Decode, Encode, GraphBinary, MapKeys};
 use crate::structure::bytecode::{ByteCode, Step};
 use crate::structure::enums::T;
+use crate::structure::lambda::Lambda;
 
 #[derive(Debug, PartialEq)]
 pub struct Request {
@@ -21,7 +23,7 @@ pub struct Request {
 }
 
 impl Request {
-    pub fn write_gb_respons_bytes<W: std::io::Write>(
+    pub fn write_gb_request_bytes<W: std::io::Write>(
         &self,
         writer: &mut W,
         mime_type: &str,
@@ -363,6 +365,28 @@ impl ResponseBuilder {
     }
 }
 
+impl Display for Response {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.status_code {
+            200 => todo!(),
+            500 => {
+                writeln!(f, "status Code: 500")?;
+                writeln!(f, "request Id: {}", self.request_id.unwrap_or_default())?;
+                writeln!(
+                    f,
+                    "status_message: {}",
+                    self.status_message.clone().unwrap_or_default()
+                )?;
+                let v = self.status_attribute.get(&"exceptions".into()).unwrap();
+                writeln!(f, "exceptions: {}", &v.exceptions().unwrap_or_default())?;
+                let v = self.status_attribute.get(&"stackTrace".into()).unwrap();
+                writeln!(f, "stackTrace : {}", v.string().unwrap_or_default())
+            }
+            _ => todo!(),
+        }
+    }
+}
+
 impl<'de> Deserialize<'de> for Response {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -528,7 +552,7 @@ fn request_message_with_mimetype_test() {
 
     let mut buf: Vec<u8> = vec![];
 
-    req.write_gb_respons_bytes(&mut buf, "application/vnd.graphbinary-v1.0")
+    req.write_gb_request_bytes(&mut buf, "application/vnd.graphbinary-v1.0")
         .unwrap();
     assert_eq!(msg.len(), buf.len())
 }
@@ -682,7 +706,7 @@ fn print_msg() {
     };
 
     let mut buf: Vec<u8> = vec![];
-    req.write_gb_respons_bytes(&mut buf, "application/vnd.graphbinary-v1.0")
+    req.write_gb_request_bytes(&mut buf, "application/vnd.graphbinary-v1.0")
         .unwrap();
     println!("printing: {:?}", buf);
 }
@@ -696,12 +720,20 @@ fn print_msg1() {
         GraphBinary::ByteCode(ByteCode {
             steps: vec![
                 Step {
-                    name: "V".to_string(),
-                    values: vec![],
+                    name: "inject".to_string(),
+                    values: vec![1.into(), 2.into(), 3.into(), 4.into(), 5.into()],
                 },
                 Step {
-                    name: "hasLabel".to_string(),
-                    values: vec!["person".into()],
+                    name: "fold".to_string(),
+                    values: vec![
+                        0.into(),
+                        Lambda {
+                            language: "groovy".to_string(),
+                            script: "{ a,b -> a+b }".to_string(),
+                            arguments_length: 2,
+                        }
+                        .into(),
+                    ],
                 },
             ],
             sources: vec![],
@@ -740,7 +772,7 @@ fn print_msg1() {
     };
 
     let mut buf: Vec<u8> = vec![];
-    req.write_gb_respons_bytes(&mut buf, "application/vnd.graphbinary-v1.0")
+    req.write_gb_request_bytes(&mut buf, "application/vnd.graphbinary-v1.0")
         .unwrap();
     println!("printing: {:?}", buf);
 }

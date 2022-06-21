@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use serde::Deserialize;
 
 use crate::{
@@ -282,6 +284,89 @@ pub enum P {
     Within(Vec<GraphBinary>),
     Without(Vec<GraphBinary>),
 }
+pub struct PublicP<T: Into<GraphBinary> + Clone> {
+    p: P,
+    marker: PhantomData<T>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum PublicP2<V: Into<GraphBinary>> {
+    Eq(T),
+    Neq(T),
+    Lt(T),
+    Lte(T),
+    Gt(T),
+    Gte(T),
+    Inside((V, V)),
+    Outside((V, V)),
+    Between((V, V)),
+    Within(Vec<V>),
+    Without(Vec<V>),
+}
+
+impl<V: Into<GraphBinary>> PublicP2<V> {
+    pub fn into_p(self) -> P {
+        match self {
+            PublicP2::Eq(val) => P::Eq(Box::new(val.into())),
+            PublicP2::Neq(val) => P::Neq(Box::new(val.into())),
+            PublicP2::Lt(val) => P::Lt(Box::new(val.into())),
+            PublicP2::Lte(val) => P::Lte(Box::new(val.into())),
+            PublicP2::Gt(val) => P::Gt(Box::new(val.into())),
+            PublicP2::Gte(val) => P::Gte(Box::new(val.into())),
+            PublicP2::Inside(val) => P::Inside(Box::new((val.0.into(), val.1.into()))),
+            PublicP2::Outside(val) => P::Outside(Box::new((val.0.into(), val.1.into()))),
+            PublicP2::Between(val) => P::Between(Box::new((val.0.into(), val.1.into()))),
+            PublicP2::Within(val) => P::Within(val.into_iter().map(Into::into).collect()),
+            PublicP2::Without(val) => P::Without(val.into_iter().map(Into::into).collect()),
+        }
+    }
+}
+
+impl<T: Into<GraphBinary> + Clone> PublicP<T> {
+    pub fn eq(val: T) -> P {
+        P::Eq(Box::new(val.into()))
+    }
+    pub fn neq(val: T) -> P {
+        P::Neq(Box::new(val.into()))
+    }
+
+    pub fn lt(val: T) -> P {
+        P::Lt(Box::new(val.into()))
+    }
+
+    pub fn lte(val: T) -> P {
+        P::Lte(Box::new(val.into()))
+    }
+
+    pub fn gt(val: T) -> P {
+        P::Gt(Box::new(val.into()))
+    }
+
+    pub fn gte(val: T) -> P {
+        P::Gte(Box::new(val.into()))
+    }
+
+    pub fn between(lower: T, upper: T) -> P {
+        P::Between(Box::new((lower.into(), upper.into())))
+    }
+
+    pub fn inside(lower: T, upper: T) -> P {
+        P::Inside(Box::new((lower.into(), upper.into())))
+    }
+
+    pub fn outside(lower: T, upper: T) -> P {
+        P::Outside(Box::new((lower.into(), upper.into())))
+    }
+
+    pub fn within(val: &[T]) -> P {
+        P::Within(val.iter().map(Into::into).collect())
+    }
+
+    pub fn without(val: &[T]) -> P {
+        P::Without(val.iter().map(Into::into).collect())
+    }
+}
+
 impl From<P> for GraphBinary {
     fn from(p: P) -> Self {
         GraphBinary::P(p)

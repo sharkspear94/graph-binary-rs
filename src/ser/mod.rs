@@ -580,7 +580,7 @@ impl Serialize for GraphBinary {
             GraphBinary::Metrics(value) => value.serialize(serializer),
             GraphBinary::TraversalMetrics(value) => value.serialize(serializer),
             GraphBinary::BulkSet(value) => todo!(),
-            GraphBinary::UnspecifiedNullObject => todo!(),
+            GraphBinary::UnspecifiedNullObject => serializer.serialize_none(),
             GraphBinary::Merge(value) => value.serialize(serializer),
             GraphBinary::Char(value) => value.serialize(serializer),
         }
@@ -653,7 +653,7 @@ impl SerializeMap for GraphBinarySerializerMap {
         K: Serialize,
         V: Serialize,
     {
-        let key = MapKeys::try_from(key.serialize(GraphBinarySerializer)?)?;
+        let key = MapKeys::try_from(key.serialize(GraphBinarySerializer)?).unwrap(); // TODO tryFrom needs own Error
         self.0.insert(key, value.serialize(GraphBinarySerializer)?);
         Ok(())
     }

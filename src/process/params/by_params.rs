@@ -1,5 +1,5 @@
 use crate::{
-    process::traversal::GraphTraversal,
+    process::{bytecode_traversal::BytecodeTraversal, traversal::GraphTraversal},
     structure::{
         bytecode::ByteCode,
         enums::{Order, T},
@@ -34,7 +34,13 @@ impl ByParams for &str {
     }
 }
 
-impl<E, T> ByParams for GraphTraversal<E, T> {
+impl ByParams for (&str, Order) {
+    fn bytecode(self, name: &str, bc: &mut ByteCode) {
+        bc.add_step(name, vec![self.0.into(), self.1.into()])
+    }
+}
+
+impl ByParams for BytecodeTraversal {
     fn bytecode(self, name: &str, bc: &mut ByteCode) {
         bc.add_step(name, vec![self.into()])
     }

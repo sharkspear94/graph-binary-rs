@@ -26,7 +26,7 @@ use crate::structure::property::Property;
 use crate::structure::traverser::{TraversalStrategy, Traverser};
 use crate::structure::vertex::Vertex;
 use crate::structure::vertex_property::VertexProperty;
-use crate::structure::{primitivs, vertex};
+
 use crate::{
     error::EncodeError,
     graph_binary::{Decode, GraphBinary, MapKeys},

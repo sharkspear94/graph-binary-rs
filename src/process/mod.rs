@@ -1,3 +1,4 @@
-mod graph_traversal_source;
+pub mod bytecode_traversal;
+pub mod graph_traversal_source;
 mod params;
-mod traversal;
+pub mod traversal;

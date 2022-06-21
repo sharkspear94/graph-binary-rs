@@ -1,14 +1,27 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     graph_binary::{Decode, Encode, GraphBinary},
+    ser::to_bytes,
     specs::CoreType,
     struct_de_serialize,
 };
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Lambda {
-    language: String,
-    script: String,
-    arguments_length: i32,
+    pub language: String,
+    pub script: String,
+    pub arguments_length: i32,
+}
+
+impl Lambda {
+    pub fn new(script: &str) -> Self {
+        Lambda {
+            language: "gremlin-groovy".to_string(),
+            script: script.to_string(),
+            arguments_length: 1,
+        }
+    }
 }
 
 impl Encode for Lambda {
@@ -55,3 +68,18 @@ impl Decode for Lambda {
 }
 
 struct_de_serialize!((Lambda, LambdaVisitor, 254));
+
+#[test]
+fn test() {
+    let l = Lambda {
+        language: "java".to_string(),
+        script: "asd".to_string(),
+        arguments_length: 5,
+    };
+
+    let json = serde_json::to_string_pretty(&l).unwrap();
+    let b = to_bytes(&l).unwrap();
+
+    println!("{json}");
+    println!("{:?}", b);
+}

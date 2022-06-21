@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use serde::Serialize;
+
 use crate::{
     graph_binary::{Decode, Encode, GraphBinary},
     specs::CoreType,
@@ -146,6 +148,24 @@ fn metric_encode_test() {
     ];
 
     assert_eq!(&msg[..], &buf)
+}
+#[test]
+fn metric_json() {
+    let expected = Metrics {
+        id: "4.0.0()".to_string(),
+        name: "TinkerGraphStep(vertex,[1])".to_string(),
+        duration: 1,
+        counts: HashMap::from([
+            // ("traverserCount".to_string(), 1),
+            ("elementCount".to_string(), 1),
+        ]),
+        annotation: HashMap::from([("percentDur".to_string(), 0_f64.into())]),
+        nested_metrics: Vec::new(),
+    };
+
+    let json = serde_json::to_string_pretty(&expected).unwrap();
+
+    print!("{json}")
 }
 
 #[test]

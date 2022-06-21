@@ -14,7 +14,15 @@ pub struct Vertex {
     pub properties: Option<Vec<VertexProperty>>,
 }
 
-impl Vertex {}
+impl Vertex {
+    pub fn new<ID: Into<GraphBinary>>(id: ID, label: &str) -> Self {
+        Vertex {
+            id: Box::new(id.into()),
+            label: label.to_owned(),
+            properties: None,
+        }
+    }
+}
 
 impl Encode for Vertex {
     fn type_code() -> u8 {

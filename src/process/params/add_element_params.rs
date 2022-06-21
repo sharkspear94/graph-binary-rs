@@ -1,4 +1,4 @@
-use crate::{process::traversal::GraphTraversal, structure::bytecode::ByteCode};
+use crate::{process::bytecode_traversal::BytecodeTraversal, structure::bytecode::ByteCode};
 
 pub trait AddElementParams {
     fn bytecode(self, step: &str, bc: &mut ByteCode);
@@ -16,8 +16,8 @@ impl AddElementParams for String {
     }
 }
 
-impl AddElementParams for GraphTraversal<String, String> {
+impl AddElementParams for BytecodeTraversal {
     fn bytecode(self, step: &str, bc: &mut ByteCode) {
-        bc.add_step(step, vec![self.bytecode.into()])
+        bc.add_step(step, vec![self.into()])
     }
 }

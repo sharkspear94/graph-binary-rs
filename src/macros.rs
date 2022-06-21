@@ -33,16 +33,14 @@ macro_rules! struct_de_serialize {
 
             impl serde::ser::Serialize for $t {
                 fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut buf: Vec<u8> = Vec::with_capacity($capa);
-        match self.write_full_qualified_bytes(&mut buf) {
-            Ok(_) => serializer.serialize_bytes(&buf),
-            Err(e) => Err(serde::ser::Error::custom(format!(
-                "serilization Error of {}: reason: {}",stringify!($t),e
-            ))),
-        }
+                where S: serde::Serializer, {
+                    let mut buf: Vec<u8> = Vec::with_capacity($capa);
+                    match self.write_full_qualified_bytes(&mut buf) {
+                        Ok(_) => serializer.serialize_bytes(&buf),
+                        Err(e) => Err(serde::ser::Error::custom(format!(
+                            "serilization Error of {}: reason: {}",stringify!($t),e
+                        ))),
+                }
     }
             }
 

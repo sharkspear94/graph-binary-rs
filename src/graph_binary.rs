@@ -1,4 +1,5 @@
 use std::collections::{BTreeSet, HashMap};
+use std::fmt::write;
 use std::io::{Read, Write};
 
 use crate::error::{DecodeError, EncodeError};
@@ -88,6 +89,17 @@ impl GraphBinary {
         }
     }
 
+    pub fn exceptions(&self) -> Option<String> {
+        match self {
+            GraphBinary::List(l) => l.iter().map(|s| s.string().unwrap_or_default()).next(),
+            _ => None,
+        }
+    }
+
+    pub fn display_results(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f,"Results: ")
+    }
+
     pub fn build_fq_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         match self {
             GraphBinary::Int(val) => val.write_full_qualified_bytes(writer),
@@ -118,7 +130,7 @@ impl GraphBinary {
             GraphBinary::Order(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::Pick(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::Pop(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Lambda(val) => todo!(),
+            GraphBinary::Lambda(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::P(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::Scope(val) => val.write_full_qualified_bytes(writer),
             GraphBinary::T(val) => val.write_full_qualified_bytes(writer),
@@ -278,7 +290,7 @@ impl Encode for GraphBinary {
         todo!()
     }
 
-    fn write_patial_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn write_patial_bytes<W: Write>(&self, _writer: &mut W) -> Result<(), EncodeError> {
         todo!()
     }
 
@@ -317,6 +329,12 @@ impl From<MapKeys> for GraphBinary {
 impl<T: Into<GraphBinary> + Clone> From<&T> for GraphBinary {
     fn from(t: &T) -> Self {
         t.clone().into()
+    }
+}
+
+impl<T: Into<GraphBinary>, const N: usize> From<[T; N]> for GraphBinary {
+    fn from(array: [T; N]) -> Self {
+        GraphBinary::List(array.into_iter().map(Into::into).collect())
     }
 }
 
