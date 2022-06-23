@@ -6,10 +6,51 @@ use crate::{
     struct_de_serialize,
 };
 
+use super::graph;
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Traverser {
-    bulk: i64,
-    value: Box<GraphBinary>,
+    pub bulk: i64,
+    pub value: Box<GraphBinary>,
+}
+
+pub struct TraverserIter<'a> {
+    bulk: usize,
+    val: &'a GraphBinary,
+}
+
+impl Traverser {
+    pub fn iter(&self) -> TraverserIter {
+        TraverserIter {
+            bulk: self.bulk as usize,
+            val: &self.value,
+        }
+    }
+}
+
+impl<'a> Iterator for TraverserIter<'a> {
+    type Item = &'a GraphBinary;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.bulk > 0 {
+            self.bulk -= 1;
+            Some(self.val)
+        } else {
+            None
+        }
+    }
+}
+
+#[test]
+fn test() {
+    let t = Traverser {
+        bulk: 3,
+        value: Box::new(1.into()),
+    };
+    let mut iter = t.iter();
+    assert_eq!(iter.next(), Some(&1.into()));
+    assert_eq!(iter.next(), Some(&1.into()));
+    assert_eq!(iter.next(), Some(&1.into()));
+    assert_eq!(iter.next(), None)
 }
 
 impl Encode for Traverser {
@@ -17,12 +58,12 @@ impl Encode for Traverser {
         CoreType::Traverser.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(
+    fn partial_encode<W: std::io::Write>(
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
-        self.bulk.write_patial_bytes(writer)?;
-        self.value.write_full_qualified_bytes(writer)
+        self.bulk.partial_encode(writer)?;
+        self.value.encode(writer)
     }
 }
 
@@ -36,14 +77,14 @@ impl Decode for Traverser {
         Self: std::marker::Sized,
     {
         let bulk = i64::partial_decode(reader)?;
-        let value = Box::new(GraphBinary::fully_self_decode(reader)?);
+        let value = Box::new(GraphBinary::decode(reader)?);
 
         Ok(Traverser { bulk, value })
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = i64::partial_count_bytes(bytes)?;
-        len += GraphBinary::consumed_bytes(&bytes[len..])?;
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
+        let mut len = i64::get_partial_len(bytes)?;
+        len += GraphBinary::get_len(&bytes[len..])?;
         Ok(len)
     }
 }
@@ -59,12 +100,12 @@ impl Encode for TraversalStrategy {
         CoreType::TraversalStrategy.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(
+    fn partial_encode<W: std::io::Write>(
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
-        self.strategy_class.write_patial_bytes(writer)?;
-        self.configuration.write_patial_bytes(writer)
+        self.strategy_class.partial_encode(writer)?;
+        self.configuration.partial_encode(writer)
     }
 }
 
@@ -86,9 +127,9 @@ impl Decode for TraversalStrategy {
         })
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = String::partial_count_bytes(bytes)?;
-        len += HashMap::<String, GraphBinary>::partial_count_bytes(&bytes[len..])?;
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
+        let mut len = String::get_partial_len(bytes)?;
+        len += HashMap::<String, GraphBinary>::get_partial_len(&bytes[len..])?;
         Ok(len)
     }
 }
@@ -110,7 +151,7 @@ fn encode_traverser() {
         value: Box::new("abc".into()),
     };
     let mut writer = Vec::<u8>::new();
-    t.write_full_qualified_bytes(&mut writer).unwrap();
+    t.encode(&mut writer).unwrap();
     assert_eq!(expected, &writer[..])
 }
 
@@ -126,8 +167,5 @@ fn decode_traverser() {
         value: Box::new("abc".into()),
     };
 
-    assert_eq!(
-        expected,
-        Traverser::fully_self_decode(&mut &reader[..]).unwrap()
-    )
+    assert_eq!(expected, Traverser::decode(&mut &reader[..]).unwrap())
 }

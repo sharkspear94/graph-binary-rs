@@ -52,7 +52,7 @@ impl ser::Serializer for &mut Serializer {
     type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
-        v.write_full_qualified_bytes(&mut self.writer)
+        v.encode(&mut self.writer)
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
@@ -64,15 +64,15 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        v.write_full_qualified_bytes(&mut self.writer)
+        v.encode(&mut self.writer)
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
-        v.write_full_qualified_bytes(&mut self.writer)
+        v.encode(&mut self.writer)
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
-        v.write_full_qualified_bytes(&mut self.writer)
+        v.encode(&mut self.writer)
     }
 
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
@@ -88,11 +88,11 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
-        v.write_full_qualified_bytes(&mut self.writer)
+        v.encode(&mut self.writer)
     }
 
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
-        v.write_full_qualified_bytes(&mut self.writer)
+        v.encode(&mut self.writer)
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
@@ -100,7 +100,7 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        v.write_full_qualified_bytes(&mut self.writer)
+        v.encode(&mut self.writer)
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {

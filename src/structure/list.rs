@@ -11,15 +11,15 @@ impl<T: Encode> Encode for Vec<T> {
         CoreType::List.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(
+    fn partial_encode<W: std::io::Write>(
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
         let len = self.len() as i32;
-        len.write_patial_bytes(writer)?;
+        len.partial_encode(writer)?;
 
         for item in self {
-            item.write_full_qualified_bytes(writer)?;
+            item.encode(writer)?;
         }
 
         Ok(())
@@ -52,17 +52,17 @@ impl<T: Decode> Decode for Vec<T> {
         }
         let mut list: Vec<T> = Vec::with_capacity(len as usize);
         for _ in 0..len {
-            list.push(T::fully_self_decode(reader)?);
+            list.push(T::decode(reader)?);
         }
         Ok(list)
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError> {
         let t: [u8; 4] = bytes[0..4].try_into()?;
         let vec_len = i32::from_be_bytes(t);
         let mut len = 4;
         for _ in 0..vec_len {
-            len += T::consumed_bytes(&bytes[len..])?;
+            len += T::get_len(&bytes[len..])?;
         }
         Ok(len)
     }
@@ -98,7 +98,7 @@ fn vec_consume_bytes() {
         0x0, 0x0, 0x0, 0x0, 0x04, 0x01, 0x0, 0x0, 0x0, 0x0, 0x04,
     ];
 
-    let s = Vec::<GraphBinary>::partial_count_bytes(&reader);
+    let s = Vec::<GraphBinary>::get_partial_len(&reader);
 
     assert!(s.is_ok());
     let s = s.unwrap();

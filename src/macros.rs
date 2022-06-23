@@ -24,7 +24,7 @@ macro_rules! struct_de_serialize {
                 where
                     E: serde::de::Error,
                 {
-                    match $t::fully_self_decode(&mut v) {
+                    match $t::decode(&mut v) {
                         Ok(val) => Ok(val),
                         Err(_) => Err(E::custom(concat!(stringify!($t)," Visitor Decode Error"))),
                     }
@@ -35,7 +35,7 @@ macro_rules! struct_de_serialize {
                 fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
                 where S: serde::Serializer, {
                     let mut buf: Vec<u8> = Vec::with_capacity($capa);
-                    match self.write_full_qualified_bytes(&mut buf) {
+                    match self.encode(&mut buf) {
                         Ok(_) => serializer.serialize_bytes(&buf),
                         Err(e) => Err(serde::ser::Error::custom(format!(
                             "serilization Error of {}: reason: {}",stringify!($t),e

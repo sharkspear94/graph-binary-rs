@@ -428,30 +428,30 @@ impl P {
             P::Gt(v) => write_name_value("gt", v, writer),
             P::Gte(v) => write_name_value("gte", v, writer),
             P::Inside(v) => {
-                "inside".write_full_qualified_bytes(writer)?;
-                2_i32.write_patial_bytes(writer)?; // len of tuple only len = 2 will be used
-                v.0.write_full_qualified_bytes(writer)?;
-                v.1.write_full_qualified_bytes(writer)
+                "inside".encode(writer)?;
+                2_i32.partial_encode(writer)?; // len of tuple only len = 2 will be used
+                v.0.encode(writer)?;
+                v.1.encode(writer)
             }
             P::Outside(v) => {
-                "outside".write_full_qualified_bytes(writer)?;
-                2_i32.write_patial_bytes(writer)?; // len of tuple only len = 2 will be used
-                v.0.write_full_qualified_bytes(writer)?;
-                v.1.write_full_qualified_bytes(writer)
+                "outside".encode(writer)?;
+                2_i32.partial_encode(writer)?; // len of tuple only len = 2 will be used
+                v.0.encode(writer)?;
+                v.1.encode(writer)
             }
             P::Between(v) => {
-                "between".write_full_qualified_bytes(writer)?;
-                2_i32.write_patial_bytes(writer)?; // len of tuple only len = 2 will be used
-                v.0.write_full_qualified_bytes(writer)?;
-                v.1.write_full_qualified_bytes(writer)
+                "between".encode(writer)?;
+                2_i32.partial_encode(writer)?; // len of tuple only len = 2 will be used
+                v.0.encode(writer)?;
+                v.1.encode(writer)
             }
             P::Within(v) => {
-                "within".write_full_qualified_bytes(writer)?;
-                v.write_patial_bytes(writer)
+                "within".encode(writer)?;
+                v.partial_encode(writer)
             }
             P::Without(v) => {
-                "without".write_full_qualified_bytes(writer)?;
-                v.write_patial_bytes(writer)
+                "without".encode(writer)?;
+                v.partial_encode(writer)
             }
         }
     }
@@ -462,8 +462,8 @@ fn write_name_value<W: std::io::Write>(
     value: &GraphBinary,
     writer: &mut W,
 ) -> Result<(), crate::error::EncodeError> {
-    name.write_patial_bytes(writer)?;
-    1_i32.write_patial_bytes(writer)?; // value length
+    name.partial_encode(writer)?;
+    1_i32.partial_encode(writer)?; // value length
     value.build_fq_bytes(writer)
 }
 
@@ -472,7 +472,7 @@ impl Encode for P {
         CoreType::P.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(
+    fn partial_encode<W: std::io::Write>(
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
@@ -486,8 +486,7 @@ impl serde::Serialize for P {
         S: serde::Serializer,
     {
         let mut buf = Vec::with_capacity(32);
-        self.write_full_qualified_bytes(&mut buf)
-            .expect("error during write of P");
+        self.encode(&mut buf).expect("error during write of P");
         serializer.serialize_bytes(&buf[..])
     }
 }
@@ -501,7 +500,7 @@ impl Decode for P {
     where
         Self: std::marker::Sized,
     {
-        match String::fully_self_decode(reader)?.as_str() {
+        match String::decode(reader)?.as_str() {
             "eq" => Ok({
                 i32::partial_decode(reader)?;
                 P::Eq(Box::new(decode(reader)?))
@@ -547,9 +546,9 @@ impl Decode for P {
         }
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
-        let mut len = String::consumed_bytes(bytes)?;
-        len += Vec::<GraphBinary>::partial_count_bytes(&bytes[len..])?;
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError> {
+        let mut len = String::get_len(bytes)?;
+        len += Vec::<GraphBinary>::get_partial_len(&bytes[len..])?;
         Ok(len)
     }
 }
@@ -664,8 +663,8 @@ fn combine_text_value<W: std::io::Write>(
     value: &[GraphBinary],
     writer: &mut W,
 ) -> Result<(), crate::error::EncodeError> {
-    name.write_patial_bytes(writer)?;
-    value.write_patial_bytes(writer)
+    name.partial_encode(writer)?;
+    value.partial_encode(writer)
 }
 
 impl Encode for TextP {
@@ -673,7 +672,7 @@ impl Encode for TextP {
         CoreType::TextP.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(
+    fn partial_encode<W: std::io::Write>(
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
@@ -696,8 +695,7 @@ impl serde::Serialize for TextP {
         S: serde::Serializer,
     {
         let mut buf = Vec::with_capacity(32);
-        self.write_full_qualified_bytes(&mut buf)
-            .expect("error during write of TextP");
+        self.encode(&mut buf).expect("error during write of TextP");
         serializer.serialize_bytes(&buf[..])
     }
 }
@@ -711,7 +709,7 @@ impl Decode for TextP {
     where
         Self: std::marker::Sized,
     {
-        match String::fully_self_decode(reader)?.as_str() {
+        match String::decode(reader)?.as_str() {
             "startingWith" => Ok(TextP::StartingWith(Vec::partial_decode(reader)?)),
             "endingWith" => Ok(TextP::EndingWith(Vec::partial_decode(reader)?)),
             "containing" => Ok(TextP::Containing(Vec::partial_decode(reader)?)),
@@ -726,9 +724,9 @@ impl Decode for TextP {
             ))),
         }
     }
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
-        let mut len = String::consumed_bytes(bytes)?;
-        len += Vec::<GraphBinary>::partial_count_bytes(&bytes[len..])?;
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError> {
+        let mut len = String::get_len(bytes)?;
+        len += Vec::<GraphBinary>::get_partial_len(&bytes[len..])?;
         Ok(len)
     }
 }
@@ -786,7 +784,7 @@ macro_rules! enum_deserialize {
                 where
                     E: serde::de::Error,
                 {
-                    match $t::fully_self_decode(&mut v) {
+                    match $t::decode(&mut v) {
                         Ok(val) => Ok(val),
                         Err(_) => Err(E::custom(concat!(stringify!($t)," Visitor Decode Error"))),
                     }
@@ -806,8 +804,8 @@ macro_rules! de_serialize_impls {
                 CoreType::$t.into()
             }
 
-            fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-                self.to_str().write_full_qualified_bytes(writer)
+            fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
+                self.to_str().encode(writer)
             }
         }
 
@@ -821,11 +819,11 @@ macro_rules! de_serialize_impls {
             where
                 Self: std::marker::Sized,
             {
-                $t::try_from(String::fully_self_decode(reader)?.as_str())
+                $t::try_from(String::decode(reader)?.as_str())
             }
 
-            fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
-                String::consumed_bytes(bytes)
+            fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError> {
+                String::get_len(bytes)
             }
         }
 
@@ -835,7 +833,7 @@ macro_rules! de_serialize_impls {
                 S: serde::Serializer,
             {
                 let mut buf = Vec::with_capacity(16);
-                self.write_full_qualified_bytes(&mut buf)
+                self.encode(&mut buf)
                     .expect(concat!("error during write of ", stringify!($t)));
                 serializer.serialize_bytes(&buf[..])
             }
@@ -910,7 +908,7 @@ fn text_p_fq_decode_test() {
         b's', b't',
     ];
 
-    let p = TextP::fully_self_decode(&mut &reader[..]);
+    let p = TextP::decode(&mut &reader[..]);
 
     assert_eq!(TextP::StartingWith(vec!["test".into()]), p.unwrap());
 }
@@ -923,7 +921,7 @@ fn text_p_consumed_bytes() {
         b's', b't',
     ];
 
-    let p = TextP::consumed_bytes(&reader);
+    let p = TextP::get_len(&reader);
 
     assert_eq!(reader.len(), p.unwrap());
 }

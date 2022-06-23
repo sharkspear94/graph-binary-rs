@@ -11,15 +11,15 @@ impl Encode for BulkSet {
         CoreType::BulkSet.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(
+    fn partial_encode<W: std::io::Write>(
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
         let vec_len = self.0.len() as i32;
-        vec_len.write_patial_bytes(writer)?;
+        vec_len.partial_encode(writer)?;
         for (gb, bulk) in &self.0 {
-            gb.write_full_qualified_bytes(writer)?;
-            bulk.write_patial_bytes(writer)?;
+            gb.encode(writer)?;
+            bulk.partial_encode(writer)?;
         }
         Ok(())
     }
@@ -38,20 +38,20 @@ impl Decode for BulkSet {
         let len = usize::try_from(len)?;
         let mut items = Vec::with_capacity(len);
         for _ in 0..len {
-            let gb = GraphBinary::fully_self_decode(reader)?;
+            let gb = GraphBinary::decode(reader)?;
             let bulk = i64::partial_decode(reader)?;
             items.push((gb, bulk));
         }
         Ok(BulkSet(items))
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
         let t: [u8; 4] = bytes[0..4].try_into()?;
         let bulkset_len = i32::from_be_bytes(t);
         let mut len = 4;
         for _ in 0..bulkset_len {
-            len += GraphBinary::consumed_bytes(&bytes[len..])?;
-            len += i64::partial_count_bytes(&bytes[len..])?;
+            len += GraphBinary::get_len(&bytes[len..])?;
+            len += i64::get_partial_len(&bytes[len..])?;
         }
         Ok(len)
     }

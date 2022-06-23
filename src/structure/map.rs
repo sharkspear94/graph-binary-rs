@@ -14,13 +14,13 @@ where
         CoreType::Map.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         let len = self.len() as i32;
-        len.write_patial_bytes(writer)?;
+        len.partial_encode(writer)?;
 
         for (key, value) in self.iter() {
-            key.write_full_qualified_bytes(writer)?;
-            value.write_full_qualified_bytes(writer)?;
+            key.encode(writer)?;
+            value.encode(writer)?;
         }
         Ok(())
     }
@@ -43,8 +43,8 @@ where
         let len = i32::partial_decode(reader)? as usize;
         let mut hash_map = HashMap::with_capacity_and_hasher(len, Default::default());
         for _ in 0..len {
-            let key = K::fully_self_decode(reader)?;
-            let value = V::fully_self_decode(reader)?;
+            let key = K::decode(reader)?;
+            let value = V::decode(reader)?;
 
             hash_map.insert(key, value); // TODO what happens if key is double present Error?
         }
@@ -52,13 +52,13 @@ where
         Ok(hash_map)
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
         let t: [u8; 4] = bytes[0..4].try_into()?;
         let size = i32::from_be_bytes(t) as usize;
         let mut len = 4;
         for _ in 0..size {
-            len += K::consumed_bytes(&bytes[len..])?;
-            len += V::consumed_bytes(&bytes[len..])?;
+            len += K::get_len(&bytes[len..])?;
+            len += V::get_len(&bytes[len..])?;
         }
         Ok(len)
     }
@@ -80,7 +80,7 @@ fn testing_map() {
     map.insert(MapKeys::Int(1), GraphBinary::String("test".to_owned()));
 
     let mut buf: Vec<u8> = vec![];
-    map.write_full_qualified_bytes(&mut buf).unwrap();
+    map.encode(&mut buf).unwrap();
 
     let msg = [
         0x0a, 0x0, 0x0, 0x0, 0x0, 0x1, 0x01, 0x0, 0x0, 0x0, 0x0, 0x1, 0x3, 0x0, 0x0, 0x0, 0x0, 0x4,
@@ -99,7 +99,7 @@ fn testing_nestet_map() {
     map.insert(MapKeys::Int(1), GraphBinary::Map(inner_map));
 
     let mut buf: Vec<u8> = vec![];
-    map.write_full_qualified_bytes(&mut buf).unwrap();
+    map.encode(&mut buf).unwrap();
 
     let msg = [
         0x0a, 0x0, 0x0, 0x0, 0x0, 0x1, 0x01, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0a, 0x0, 0x0, 0x0, 0x0,
@@ -115,7 +115,7 @@ fn testing_encode_hash_map() {
     map.insert(1, "test".to_owned());
 
     let mut buf: Vec<u8> = vec![];
-    map.write_full_qualified_bytes(&mut buf).unwrap();
+    map.encode(&mut buf).unwrap();
 
     let msg = [
         0x0a, 0x0, 0x0, 0x0, 0x0, 0x1, 0x01, 0x0, 0x0, 0x0, 0x0, 0x1, 0x3, 0x0, 0x0, 0x0, 0x0, 0x4,
@@ -134,8 +134,5 @@ fn testing_decode_hash_map() {
         0x0a, 0x0, 0x0, 0x0, 0x0, 0x1, 0x01, 0x0, 0x0, 0x0, 0x0, 0x1, 0x3, 0x0, 0x0, 0x0, 0x0, 0x4,
         0x74, 0x65, 0x73, 0x74,
     ];
-    assert_eq!(
-        map,
-        HashMap::<i32, String>::fully_self_decode(&mut &msg[..]).unwrap()
-    );
+    assert_eq!(map, HashMap::<i32, String>::decode(&mut &msg[..]).unwrap());
 }

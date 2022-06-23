@@ -29,13 +29,13 @@ impl Encode for Lambda {
         CoreType::Lambda.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(
+    fn partial_encode<W: std::io::Write>(
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
-        self.language.write_patial_bytes(writer)?;
-        self.script.write_patial_bytes(writer)?;
-        self.arguments_length.write_patial_bytes(writer)
+        self.language.partial_encode(writer)?;
+        self.script.partial_encode(writer)?;
+        self.arguments_length.partial_encode(writer)
     }
 }
 
@@ -59,10 +59,10 @@ impl Decode for Lambda {
         })
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = String::partial_count_bytes(bytes)?;
-        len += String::partial_count_bytes(&bytes[len..])?;
-        len += i32::partial_count_bytes(&bytes[len..])?;
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
+        let mut len = String::get_partial_len(bytes)?;
+        len += String::get_partial_len(&bytes[len..])?;
+        len += i32::get_partial_len(&bytes[len..])?;
         Ok(len)
     }
 }

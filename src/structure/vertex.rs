@@ -29,13 +29,13 @@ impl Encode for Vertex {
         specs::CoreType::Vertex.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(
+    fn partial_encode<W: std::io::Write>(
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
-        self.id.write_full_qualified_bytes(writer)?;
-        self.label.write_patial_bytes(writer)?;
-        self.properties.write_full_qualified_bytes(writer)
+        self.id.encode(writer)?;
+        self.label.partial_encode(writer)?;
+        self.properties.encode(writer)
     }
 }
 
@@ -48,9 +48,9 @@ impl Decode for Vertex {
     where
         Self: std::marker::Sized,
     {
-        let id = Box::new(GraphBinary::fully_self_decode(reader)?);
+        let id = Box::new(GraphBinary::decode(reader)?);
         let label = String::partial_decode(reader)?;
-        let properties = Option::<Vec<VertexProperty>>::fully_self_decode(reader)?;
+        let properties = Option::<Vec<VertexProperty>>::decode(reader)?;
 
         Ok(Vertex {
             id,
@@ -59,10 +59,10 @@ impl Decode for Vertex {
         })
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
-        let mut len = GraphBinary::consumed_bytes(bytes)?;
-        len += String::partial_count_bytes(&bytes[len..])?;
-        len += GraphBinary::consumed_bytes(&bytes[len..])?;
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError> {
+        let mut len = GraphBinary::get_len(bytes)?;
+        len += String::get_partial_len(&bytes[len..])?;
+        len += GraphBinary::get_len(&bytes[len..])?;
         Ok(len)
     }
 }
@@ -81,7 +81,7 @@ fn test_vertex_none_encode() {
         properties: None,
     };
     let mut buf = Vec::new();
-    let v = v.write_full_qualified_bytes(&mut buf);
+    let v = v.encode(&mut buf);
     assert!(v.is_ok());
     assert_eq!(expected, buf[..])
 }
@@ -93,7 +93,7 @@ fn test_vertex_decode_none() {
         0x65, 0x72, 0x73, 0x6f, 0x6e, 0xfe, 0x1,
     ];
 
-    let v = Vertex::fully_self_decode(&mut &reader[..]);
+    let v = Vertex::decode(&mut &reader[..]);
     assert!(v.is_ok());
 
     let expected = Vertex {
@@ -112,7 +112,7 @@ fn test_vertex_consume() {
         0x65, 0x72, 0x73, 0x6f, 0x6e, 0xfe, 0x01,
     ];
 
-    let size = Vertex::consumed_bytes(&reader).unwrap();
+    let size = Vertex::get_len(&reader).unwrap();
 
     assert_eq!(reader.len(), size)
 }

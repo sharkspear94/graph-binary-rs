@@ -20,15 +20,15 @@ impl Encode for VertexProperty {
         specs::CoreType::VertexProperty.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(
+    fn partial_encode<W: std::io::Write>(
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
-        self.id.write_full_qualified_bytes(writer)?;
-        self.label.write_patial_bytes(writer)?;
-        self.value.write_full_qualified_bytes(writer)?;
-        self.parent.write_full_qualified_bytes(writer)?;
-        self.properties.write_full_qualified_bytes(writer)?;
+        self.id.encode(writer)?;
+        self.label.partial_encode(writer)?;
+        self.value.encode(writer)?;
+        self.parent.encode(writer)?;
+        self.properties.encode(writer)?;
         Ok(())
     }
 }
@@ -42,11 +42,11 @@ impl Decode for VertexProperty {
     where
         Self: std::marker::Sized,
     {
-        let id = GraphBinary::fully_self_decode(reader)?;
+        let id = GraphBinary::decode(reader)?;
         let label = String::partial_decode(reader)?;
-        let value = GraphBinary::fully_self_decode(reader)?;
-        let parent = Option::<Vertex>::fully_self_decode(reader)?;
-        let properties = Option::<Vec<Property>>::fully_self_decode(reader)?;
+        let value = GraphBinary::decode(reader)?;
+        let parent = Option::<Vertex>::decode(reader)?;
+        let properties = Option::<Vec<Property>>::decode(reader)?;
 
         Ok(VertexProperty {
             id: Box::new(id),
@@ -57,12 +57,12 @@ impl Decode for VertexProperty {
         })
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = GraphBinary::consumed_bytes(bytes)?;
-        len += String::partial_count_bytes(&bytes[len..])?;
-        len += GraphBinary::consumed_bytes(&bytes[len..])?;
-        len += Option::<Vertex>::consumed_bytes(&bytes[len..])?;
-        len += Option::<Vec<Property>>::consumed_bytes(&bytes[len..])?;
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
+        let mut len = GraphBinary::get_len(bytes)?;
+        len += String::get_partial_len(&bytes[len..])?;
+        len += GraphBinary::get_len(&bytes[len..])?;
+        len += Option::<Vertex>::get_len(&bytes[len..])?;
+        len += Option::<Vec<Property>>::get_len(&bytes[len..])?;
 
         Ok(len)
     }

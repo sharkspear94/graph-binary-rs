@@ -15,12 +15,12 @@ impl Encode for Binding {
         CoreType::Binding.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(
+    fn partial_encode<W: std::io::Write>(
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
-        self.key.write_patial_bytes(writer)?;
-        self.value.write_full_qualified_bytes(writer)
+        self.key.partial_encode(writer)?;
+        self.value.encode(writer)
     }
 }
 
@@ -34,14 +34,14 @@ impl Decode for Binding {
         Self: std::marker::Sized,
     {
         let key = String::partial_decode(reader)?;
-        let value = Box::new(GraphBinary::fully_self_decode(reader)?);
+        let value = Box::new(GraphBinary::decode(reader)?);
 
         Ok(Binding { key, value })
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = String::partial_count_bytes(bytes)?;
-        len += GraphBinary::consumed_bytes(&bytes[len..])?;
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
+        let mut len = String::get_partial_len(bytes)?;
+        len += GraphBinary::get_len(&bytes[len..])?;
         Ok(len)
     }
 }
@@ -58,7 +58,7 @@ fn test_binding_encode() {
         key: "test".to_string(),
         value: Box::new(1_i32.into()),
     };
-    b.write_full_qualified_bytes(&mut buf).unwrap();
+    b.encode(&mut buf).unwrap();
     assert_eq!(expected, &*buf)
 }
 
@@ -72,7 +72,7 @@ fn test_binding_decode() {
         key: "test".to_string(),
         value: Box::new(1_i32.into()),
     };
-    let b = Binding::fully_self_decode(&mut &buf[..]).unwrap();
+    let b = Binding::decode(&mut &buf[..]).unwrap();
     assert_eq!(expected, b)
 }
 
@@ -82,6 +82,6 @@ fn test_binding_count_bytes() {
         0x14_u8, 0x0, 0x0, 0x00, 0x00, 0x04, 0x74, 0x65, 0x73, 0x74, 0x01, 0x00, 0x00, 0x0, 0x0,
         0x01,
     ];
-    let count = Binding::consumed_bytes(&expected).unwrap();
+    let count = Binding::get_len(&expected).unwrap();
     assert_eq!(count, expected.len())
 }
