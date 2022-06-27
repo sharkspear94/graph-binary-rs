@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 
 use crate::{
+    conversions,
     graph_binary::{Decode, Encode, GraphBinary},
     specs::CoreType,
     struct_de_serialize,
 };
-
-use super::graph;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Traverser {
@@ -36,6 +35,36 @@ impl<'a> Iterator for TraverserIter<'a> {
             Some(self.val)
         } else {
             None
+        }
+    }
+}
+
+pub struct IntoTraverserIter {
+    bulk: usize,
+    val: GraphBinary,
+}
+
+impl Iterator for IntoTraverserIter {
+    type Item = GraphBinary;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.bulk > 0 {
+            self.bulk -= 1;
+            Some(self.val.clone())
+        } else {
+            None
+        }
+    }
+}
+
+impl IntoIterator for Traverser {
+    type Item = GraphBinary;
+
+    type IntoIter = IntoTraverserIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoTraverserIter {
+            bulk: self.bulk as usize,
+            val: *self.value,
         }
     }
 }
@@ -137,6 +166,10 @@ impl Decode for TraversalStrategy {
 struct_de_serialize!(
     (Traverser, TraverserVisitor, 32),
     (TraversalStrategy, TraversalStrategyVisitor, 32)
+);
+conversions!(
+    (Traverser, Traverser),
+    (TraversalStrategy, TraversalStrategy)
 );
 
 #[test]

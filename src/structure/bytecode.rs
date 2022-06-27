@@ -1,4 +1,5 @@
 use crate::{
+    conversions,
     graph_binary::{Decode, Encode, GraphBinary},
     specs::CoreType,
     struct_de_serialize,
@@ -129,3 +130,4 @@ impl Decode for ByteCode {
 }
 
 struct_de_serialize!((ByteCode, ByteCodeVisitor, 32));
+conversions!((ByteCode, ByteCode));

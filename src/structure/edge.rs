@@ -1,4 +1,5 @@
 use crate::{
+    conversions,
     graph_binary::{Decode, Encode, GraphBinary},
     specs::{self, CoreType},
     struct_de_serialize,
@@ -82,6 +83,7 @@ impl Decode for Edge {
 }
 
 struct_de_serialize!((Edge, EdgeVisitor, 64));
+conversions!((Edge, Edge));
 
 #[test]
 fn edge_none_encode_test() {

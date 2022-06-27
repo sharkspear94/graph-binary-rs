@@ -1,10 +1,12 @@
+use crate::conversions;
 use crate::error::DecodeError;
+use crate::macros::{TryBorrowFrom, TryMutBorrowFrom};
 use crate::specs::CoreType;
 use crate::{error::EncodeError, graph_binary::Encode};
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::graph_binary::{build_fq_null_bytes, Decode, GraphBinary};
+use crate::graph_binary::{encode_null_object, Decode, GraphBinary};
 
 use std::io::Read;
 use std::slice;
@@ -60,9 +62,21 @@ impl Decode for String {
     }
 }
 
-impl From<String> for GraphBinary {
-    fn from(s: String) -> Self {
-        GraphBinary::String(s)
+impl TryBorrowFrom for str {
+    fn try_borrow_from(graph_binary: &GraphBinary) -> Option<&Self> {
+        match graph_binary {
+            GraphBinary::String(s) => Some(s),
+            _ => None,
+        }
+    }
+}
+
+impl TryMutBorrowFrom for str {
+    fn try_mut_borrow_from(graph_binary: &mut GraphBinary) -> Option<&mut Self> {
+        match graph_binary {
+            GraphBinary::String(s) => Some(s),
+            _ => None,
+        }
     }
 }
 
@@ -163,38 +177,6 @@ impl Decode for char {
     }
 }
 
-#[test]
-fn test3() {
-    let reader = [0x80_u8, 0x0, 0xe2, 0x99, 0xa5];
-    let c = char::decode(&mut &reader[..]).unwrap();
-
-    assert_eq!('♥', c)
-}
-
-#[test]
-fn test1() {
-    let reader = [0x80_u8, 0x0, 65];
-    let c = char::decode(&mut &reader[..]).unwrap();
-
-    assert_eq!('A', c)
-}
-
-#[test]
-fn test2() {
-    let reader = [0x80_u8, 0x0, 0xc3, 0x9f];
-    let c = char::decode(&mut &reader[..]).unwrap();
-
-    assert_eq!('ß', c)
-}
-
-#[test]
-fn test4() {
-    let reader = [0x80_u8, 0x0, 0xf0, 0x9f, 0xa6, 0x80];
-    let c = char::decode(&mut &reader[..]).unwrap();
-
-    assert_eq!('🦀', c)
-}
-
 impl Encode for u8 {
     fn type_code() -> u8 {
         CoreType::Byte.into()
@@ -220,12 +202,6 @@ impl Decode for u8 {
 
     fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
         Ok(1)
-    }
-}
-
-impl From<u8> for GraphBinary {
-    fn from(v: u8) -> Self {
-        GraphBinary::Byte(v)
     }
 }
 
@@ -258,12 +234,6 @@ impl Decode for i16 {
     }
 }
 
-impl From<i16> for GraphBinary {
-    fn from(v: i16) -> Self {
-        GraphBinary::Short(v)
-    }
-}
-
 impl Encode for i32 {
     fn type_code() -> u8 {
         CoreType::Int32.into()
@@ -292,12 +262,6 @@ impl Decode for i32 {
     }
 }
 
-impl From<i32> for GraphBinary {
-    fn from(v: i32) -> Self {
-        GraphBinary::Int(v)
-    }
-}
-
 impl Encode for i64 {
     fn type_code() -> u8 {
         CoreType::Long.into()
@@ -323,12 +287,6 @@ impl Decode for i64 {
 
     fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
         Ok(8)
-    }
-}
-
-impl From<i64> for GraphBinary {
-    fn from(v: i64) -> Self {
-        GraphBinary::Long(v)
     }
 }
 
@@ -361,12 +319,6 @@ impl Decode for f32 {
     }
 }
 
-impl From<f32> for GraphBinary {
-    fn from(v: f32) -> Self {
-        GraphBinary::Float(v)
-    }
-}
-
 impl Encode for f64 {
     fn type_code() -> u8 {
         CoreType::Double.into()
@@ -393,12 +345,6 @@ impl Decode for f64 {
 
     fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
         Ok(8)
-    }
-}
-
-impl From<f64> for GraphBinary {
-    fn from(v: f64) -> Self {
-        GraphBinary::Double(v)
     }
 }
 
@@ -504,12 +450,6 @@ impl Decode for u128 {
     }
 }
 
-impl From<Uuid> for GraphBinary {
-    fn from(v: Uuid) -> Self {
-        GraphBinary::Uuid(v)
-    }
-}
-
 impl Encode for bool {
     fn type_code() -> u8 {
         CoreType::Boolean.into()
@@ -548,12 +488,6 @@ impl Decode for bool {
     }
 }
 
-impl From<bool> for GraphBinary {
-    fn from(v: bool) -> Self {
-        GraphBinary::Boolean(v)
-    }
-}
-
 impl<T: Encode> Encode for Option<T> {
     fn type_code() -> u8 {
         T::type_code()
@@ -562,14 +496,14 @@ impl<T: Encode> Encode for Option<T> {
     fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         match self {
             Some(i) => i.partial_encode(writer),
-            None => build_fq_null_bytes(writer),
+            None => encode_null_object(writer),
         }
     }
 
     fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         match self {
             Some(i) => i.encode(writer),
-            None => build_fq_null_bytes(writer),
+            None => encode_null_object(writer),
         }
     }
 
@@ -662,25 +596,18 @@ impl<T: Encode> Encode for &[T] {
     }
 }
 
-macro_rules! tuple_impls {
-    ( $( $name:ident )+ ) => {
-        impl<$($name: Encode),+> Encode for ($($name,)+)
-        {
-            fn type_code() -> u8 {
-                CoreType::List.into()
-            }
-
-            fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
-                let len = self.len() as i32;
-                len.gb_bytes(writer)?;
-
-                    item.fq_gb_bytes(writer)?;
-
-                Ok(())
-            }
-        }
-    };
-}
+conversions!(
+    (String, String),
+    (u8, Byte),
+    (i16, Short),
+    (i32, Int),
+    (i64, Long),
+    (f32, Float),
+    (f64, Double),
+    (bool, Boolean),
+    (Uuid, Uuid),
+    (char, Char)
+);
 
 #[test]
 fn encode_string_test() {
@@ -823,4 +750,36 @@ fn option_should_fail_decode_test() {
     let option: Result<Option<String>, _> = Option::decode(&mut &reader[..]);
 
     assert!(option.is_err())
+}
+
+#[test]
+fn test3() {
+    let reader = [0x80_u8, 0x0, 0xe2, 0x99, 0xa5];
+    let c = char::decode(&mut &reader[..]).unwrap();
+
+    assert_eq!('♥', c)
+}
+
+#[test]
+fn test1() {
+    let reader = [0x80_u8, 0x0, 65];
+    let c = char::decode(&mut &reader[..]).unwrap();
+
+    assert_eq!('A', c)
+}
+
+#[test]
+fn test2() {
+    let reader = [0x80_u8, 0x0, 0xc3, 0x9f];
+    let c = char::decode(&mut &reader[..]).unwrap();
+
+    assert_eq!('ß', c)
+}
+
+#[test]
+fn test4() {
+    let reader = [0x80_u8, 0x0, 0xf0, 0x9f, 0xa6, 0x80];
+    let c = char::decode(&mut &reader[..]).unwrap();
+
+    assert_eq!('🦀', c)
 }

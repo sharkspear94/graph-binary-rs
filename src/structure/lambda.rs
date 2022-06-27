@@ -1,8 +1,6 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
+    conversions,
     graph_binary::{Decode, Encode, GraphBinary},
-    ser::to_bytes,
     specs::CoreType,
     struct_de_serialize,
 };
@@ -68,9 +66,12 @@ impl Decode for Lambda {
 }
 
 struct_de_serialize!((Lambda, LambdaVisitor, 254));
+conversions!((Lambda, Lambda));
 
 #[test]
 fn test() {
+    use crate::ser::to_bytes;
+
     let l = Lambda {
         language: "java".to_string(),
         script: "asd".to_string(),

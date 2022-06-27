@@ -345,7 +345,7 @@ impl Display for Response {
                 let v = self.status_attribute.get(&"exceptions".into()).unwrap();
                 writeln!(f, "exceptions: {}", &v.exceptions().unwrap_or_default())?;
                 let v = self.status_attribute.get(&"stackTrace".into()).unwrap();
-                writeln!(f, "stackTrace : {}", v.string().unwrap_or_default())
+                writeln!(f, "stackTrace : {}", v.get::<String>().unwrap_or_default())
             }
             _ => todo!(),
         }

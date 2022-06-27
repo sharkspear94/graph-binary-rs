@@ -1,4 +1,5 @@
 use crate::{
+    conversions,
     graph_binary::{Decode, Encode, GraphBinary},
     specs::CoreType,
     struct_de_serialize,
@@ -66,7 +67,7 @@ impl Decode for Path {
 }
 
 struct_de_serialize!((Path, PathVisitor, 64));
-
+conversions!((Path, Path));
 #[test]
 fn test_encode() {
     use crate::ser::to_bytes;

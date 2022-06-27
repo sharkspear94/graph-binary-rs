@@ -1,4 +1,5 @@
 use crate::{
+    conversions,
     error::DecodeError,
     graph_binary::{Decode, Encode, GraphBinary},
     specs::{self, CoreType},
@@ -68,6 +69,7 @@ impl Decode for Vertex {
 }
 
 struct_de_serialize!((Vertex, VertexVisitor, 32));
+conversions!((Vertex, Vertex));
 
 #[test]
 fn test_vertex_none_encode() {

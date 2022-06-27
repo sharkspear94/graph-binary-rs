@@ -3,6 +3,7 @@ use std::fmt::write;
 use std::io::{Read, Write};
 
 use crate::error::{DecodeError, EncodeError};
+use crate::macros::{TryBorrowFrom, TryMutBorrowFrom};
 use crate::structure::binding::Binding;
 use crate::structure::bulkset::BulkSet;
 use crate::structure::bytecode::ByteCode;
@@ -23,6 +24,7 @@ use serde::de::Visitor;
 use serde::Deserialize;
 use uuid::Uuid;
 
+/// All possible Values supported in the [GraphBinary serialization format](https://tinkerpop.apache.org/docs/current/dev/io/#graphbinary)
 #[derive(Debug, PartialEq, Clone)]
 pub enum GraphBinary {
     Int(i32),
@@ -76,23 +78,45 @@ pub enum GraphBinary {
     Char(char),
 }
 
-pub fn build_fq_null_bytes<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
-    writer.write_all(&[CoreType::UnspecifiedNullObject.into(), 0x01])?;
+pub fn encode_null_object<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
+    writer.write_all(&[
+        CoreType::UnspecifiedNullObject.into(),
+        ValueFlag::Null.into(),
+    ])?;
     Ok(())
 }
 
 impl GraphBinary {
-    pub fn string(&self) -> Option<String> {
-        match self {
-            GraphBinary::String(s) => Some(s.clone()),
-            _ => None,
-        }
+    /// Returns Some owned value if the Type was the GraphBinary variant.
+    /// Returns None if GraphBinary enum holds another Type
+    ///
+    /// ```
+    /// # use graph_binary_rs::graph_binary::GraphBinary;
+    ///
+    /// let gb = GraphBinary::Boolean(true);
+    ///
+    /// assert_eq!(Some(true),gb.get());
+    /// assert_eq!(None, gb.get::<String>());
+    ///
+    /// ```
+    ///
+    pub fn get<T: TryFrom<GraphBinary>>(&self) -> Option<T> {
+        T::try_from(self.clone()).ok()
     }
 
-    pub fn exceptions(&self) -> Option<String> {
-        match self {
-            GraphBinary::List(l) => l.iter().map(|s| s.string().unwrap_or_default()).next(),
-            _ => None,
+    pub fn get_ref<T: TryBorrowFrom + ?Sized>(&self) -> Option<&T> {
+        T::try_borrow_from(self)
+    }
+
+    pub fn get_mut_ref<T: TryMutBorrowFrom + ?Sized>(&mut self) -> Option<&mut T> {
+        T::try_mut_borrow_from(self)
+    }
+
+    pub fn exceptions(&self) -> Option<&str> {
+        if let Some(l) = self.get_ref::<Vec<_>>() {
+            l.iter().filter_map(|s| s.get_ref()).next()
+        } else {
+            None
         }
     }
 
@@ -148,7 +172,7 @@ impl GraphBinary {
             GraphBinary::Metrics(val) => val.encode(writer),
             GraphBinary::TraversalMetrics(val) => val.encode(writer),
             GraphBinary::Merge(val) => val.encode(writer),
-            GraphBinary::UnspecifiedNullObject => build_fq_null_bytes(writer),
+            GraphBinary::UnspecifiedNullObject => encode_null_object(writer),
             GraphBinary::Char(val) => val.encode(writer),
             // GraphBinary::Custom => todo!(),
             // _ =>  Bytes::new()
@@ -221,7 +245,7 @@ impl Decode for GraphBinary {
     }
 
     fn expected_type_code() -> u8 {
-        unimplemented!()
+        unimplemented!("expected type code is not supported for GraphBinary")
     }
 
     fn decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
@@ -273,8 +297,8 @@ impl Decode for GraphBinary {
             CoreType::Short => i16::get_len(bytes),
             CoreType::Boolean => bool::get_len(bytes),
             CoreType::TextP => TextP::get_len(bytes),
-            CoreType::TraversalStrategy => todo!(), // TraversalStrategy::consumed_bytes(bytes),
-            CoreType::Tree => todo!(),              //Tree::consumed_bytes(bytes),
+            CoreType::TraversalStrategy => TraversalStrategy::get_len(bytes),
+            CoreType::Tree => todo!(), //Tree::consumed_bytes(bytes),
             CoreType::Metrics => Metrics::get_len(bytes),
             CoreType::TraversalMetrics => TraversalMetrics::get_len(bytes),
             CoreType::BulkSet => todo!(),
@@ -410,7 +434,7 @@ impl Encode for MapKeys {
 
 impl Decode for MapKeys {
     fn expected_type_code() -> u8 {
-        unimplemented!()
+        unimplemented!("MapKeys is a collection of different GrapBinary Keys")
     }
 
     fn partial_decode<R: Read>(_reader: &mut R) -> Result<Self, DecodeError>

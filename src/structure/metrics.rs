@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
-use serde::Serialize;
-
 use crate::{
+    conversions,
     graph_binary::{Decode, Encode, GraphBinary},
     specs::CoreType,
     struct_de_serialize,
@@ -119,6 +118,8 @@ struct_de_serialize!(
     (TraversalMetrics, TraversalMetricsVisitor, 128),
     (Metrics, MetricsVisitor, 64)
 );
+
+conversions!((TraversalMetrics, TraversalMetrics), (Metrics, Metrics));
 
 #[test]
 fn metric_encode_test() {

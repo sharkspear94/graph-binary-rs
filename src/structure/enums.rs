@@ -25,7 +25,7 @@ impl TryFrom<&str> for Barrier {
 }
 
 impl Barrier {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Barrier::NormSack => "normSack",
         }
@@ -53,7 +53,7 @@ impl TryFrom<&str> for Cardinality {
 }
 
 impl Cardinality {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Cardinality::List => "list",
             Cardinality::Set => "set",
@@ -69,7 +69,7 @@ pub enum Column {
 }
 
 impl Column {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Column::Keys => "keys",
             Column::Values => "values",
@@ -110,7 +110,7 @@ impl TryFrom<&str> for Direction {
 }
 
 impl Direction {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Direction::Both => "BOTH",
             Direction::In => "IN",
@@ -142,7 +142,7 @@ pub enum Operator {
 }
 
 impl Operator {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Operator::AddAll => "addAll",
             Operator::And => "and",
@@ -201,7 +201,7 @@ impl TryFrom<&str> for Order {
 }
 
 impl Order {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Order::Shuffle => "shuffle",
             Order::Asc => "asc",
@@ -229,7 +229,7 @@ impl TryFrom<&str> for Pick {
 }
 
 impl Pick {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Pick::Any => "any",
             Pick::None => "none",
@@ -260,7 +260,7 @@ impl TryFrom<&str> for Pop {
 }
 
 impl Pop {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Pop::All => "all",
             Pop::First => "first",
@@ -464,7 +464,7 @@ fn write_name_value<W: std::io::Write>(
 ) -> Result<(), crate::error::EncodeError> {
     name.partial_encode(writer)?;
     1_i32.partial_encode(writer)?; // value length
-    value.build_fq_bytes(writer)
+    value.encode(writer)
 }
 
 impl Encode for P {
@@ -560,7 +560,7 @@ pub enum Scope {
 }
 
 impl Scope {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Scope::Local => "local",
             Scope::Global => "global",
@@ -589,7 +589,7 @@ pub enum T {
 }
 
 impl T {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             T::Id => "id",
             T::Key => "key",
@@ -738,7 +738,7 @@ pub enum Merge {
 }
 
 impl Merge {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Merge::OnCreate => "onCreate",
             Merge::OnMatch => "onMatch",
@@ -805,7 +805,7 @@ macro_rules! de_serialize_impls {
             }
 
             fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-                self.to_str().encode(writer)
+                self.as_str().encode(writer)
             }
         }
 
@@ -842,6 +842,37 @@ macro_rules! de_serialize_impls {
         impl From<$t> for GraphBinary {
             fn from(val: $t) -> Self {
                 GraphBinary::$t(val)
+            }
+        }
+
+        impl TryFrom<GraphBinary> for $t {
+            type Error = crate::error::DecodeError;
+
+            fn try_from(value: GraphBinary) -> Result<Self, Self::Error> {
+                match value {
+                    GraphBinary::$t(val) => Ok(val),
+                    _ => Err(crate::error::DecodeError::ConvertError(
+                        format!("cannot convert GraphBinary to {}",stringify!($t))
+                    )),
+                }
+            }
+        }
+
+        impl crate::macros::TryBorrowFrom for $t {
+            fn try_borrow_from(graph_binary: &GraphBinary) -> Option<&Self> {
+                match graph_binary {
+                    GraphBinary::$t(val) => Some(val),
+                    _ => None
+                }
+            }
+        }
+
+        impl crate::macros::TryMutBorrowFrom for $t {
+            fn try_mut_borrow_from(graph_binary: &mut GraphBinary) -> Option<&mut Self> {
+                match graph_binary {
+                    GraphBinary::$t(val) => Some(val),
+                    _ => None
+                }
             }
         }
 

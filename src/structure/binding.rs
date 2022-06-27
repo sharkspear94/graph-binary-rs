@@ -1,4 +1,5 @@
 use crate::{
+    conversions,
     graph_binary::{Decode, Encode, GraphBinary},
     specs::CoreType,
     struct_de_serialize,
@@ -46,6 +47,7 @@ impl Decode for Binding {
     }
 }
 struct_de_serialize!((Binding, BindingVisitor, 16));
+conversions!((Binding, Binding));
 
 #[test]
 fn test_binding_encode() {

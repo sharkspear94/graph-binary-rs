@@ -7,7 +7,7 @@ use serde::{
 
 use crate::{
     error::EncodeError,
-    graph_binary::{Encode, GraphBinary, MapKeys},
+    graph_binary::{encode_null_object, Encode, GraphBinary, MapKeys},
     specs::CoreType,
     structure::enums::T,
     // structure::{enums::T, list::List},
@@ -96,7 +96,7 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        v.encode(&mut self.writer)
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
@@ -109,7 +109,7 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-        GraphBinary::UnspecifiedNullObject.build_fq_bytes(&mut self.writer)
+        encode_null_object(&mut self.writer)
     }
 
     fn serialize_some<T: ?Sized>(self, value: &T) -> Result<Self::Ok, Self::Error>
@@ -120,11 +120,11 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
-        GraphBinary::UnspecifiedNullObject.build_fq_bytes(&mut self.writer)
+        encode_null_object(&mut self.writer)
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
-        GraphBinary::UnspecifiedNullObject.build_fq_bytes(&mut self.writer) // not sure if correct
+        encode_null_object(&mut self.writer) // not sure if correct
     }
 
     fn serialize_unit_variant(

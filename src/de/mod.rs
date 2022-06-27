@@ -623,6 +623,7 @@ impl<'de> serde::de::Deserializer<'de> for GraphBinaryDeserializer {
             GraphBinary::Set(v) => visitor.visit_seq(SeqDeser {
                 iter: v.into_iter(),
             }),
+            // GraphBinary::Vertex(v) => visitor.visit_map(map),
             GraphBinary::Byte(v) => visitor.visit_u8(v),
             GraphBinary::Short(v) => visitor.visit_i16(v),
             GraphBinary::Boolean(v) => visitor.visit_bool(v),

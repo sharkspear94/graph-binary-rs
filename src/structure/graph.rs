@@ -1,4 +1,5 @@
 use crate::{
+    conversions,
     graph_binary::{Decode, Encode, GraphBinary},
     specs::{self, CoreType},
     struct_de_serialize,
@@ -199,6 +200,7 @@ impl Decode for Graph {
 }
 
 struct_de_serialize!((Graph, GraphVisitor, 254));
+conversions!((Graph, Graph));
 
 #[test]
 fn encode_graph_test() {

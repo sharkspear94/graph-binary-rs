@@ -1,4 +1,5 @@
 use crate::{
+    conversions,
     graph_binary::{Decode, Encode, GraphBinary},
     specs::{self, CoreType},
     struct_de_serialize,
@@ -51,3 +52,4 @@ impl Decode for Property {
 }
 
 struct_de_serialize!((Property, PropertyVisitor, 32));
+conversions!((Property, Property));

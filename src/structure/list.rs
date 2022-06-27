@@ -1,6 +1,7 @@
 use crate::{
     error::DecodeError,
     graph_binary::{Decode, Encode},
+    macros::{TryBorrowFrom, TryMutBorrowFrom},
     specs::CoreType,
 };
 
@@ -23,6 +24,38 @@ impl<T: Encode> Encode for Vec<T> {
         }
 
         Ok(())
+    }
+}
+
+impl<T: TryFrom<GraphBinary>> TryFrom<GraphBinary> for Vec<T> {
+    type Error = DecodeError;
+
+    fn try_from(value: GraphBinary) -> Result<Self, Self::Error> {
+        match value {
+            GraphBinary::List(list) => Ok(list
+                .into_iter()
+                .filter_map(|gb| gb.try_into().ok())
+                .collect()),
+            _ => Err(DecodeError::DecodeError("".to_string())),
+        }
+    }
+}
+
+impl TryBorrowFrom for Vec<GraphBinary> {
+    fn try_borrow_from(graph_binary: &GraphBinary) -> Option<&Self> {
+        match graph_binary {
+            GraphBinary::List(list) => Some(list),
+            _ => None,
+        }
+    }
+}
+
+impl TryMutBorrowFrom for Vec<GraphBinary> {
+    fn try_mut_borrow_from(graph_binary: &mut GraphBinary) -> Option<&mut Self> {
+        match graph_binary {
+            GraphBinary::List(val) => Some(val),
+            _ => None,
+        }
     }
 }
 
