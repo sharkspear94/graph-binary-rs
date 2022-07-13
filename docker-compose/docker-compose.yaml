@@ -1,0 +1,15 @@
+version: "3"
+services:
+  tinkergraph-server:
+    build:
+      context: DockerFiles
+      dockerfile: tinkerGraph.Dockerfile
+    command : ["conf/gremlin-server-graph-binary.yaml"]
+    ports:
+      - "8182:8182"
+  janusgraph-server:
+    build:
+      context: DockerFiles
+      dockerfile: janusGraph.Dockerfile
+    ports:
+      - "8183:8182"

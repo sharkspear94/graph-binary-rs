@@ -324,7 +324,7 @@ impl<'de, E, T: Deserialize<'de>> GraphTraversal<E, T> {
     }
 
     pub fn tree(mut self, side_effect_key: impl SingleStringParam) -> Self {
-        //Tree TODO
+        //TODO
         side_effect_key.bytecode("tree", &mut self.bytecode);
         self
     }
@@ -353,8 +353,9 @@ impl<'de, E, T: Deserialize<'de>> GraphTraversal<E, T> {
         self
     }
 
-    pub fn math(mut self, expression: &str) -> GraphTraversal<f64, f64> {
-        self.bytecode.add_step("math", vec![expression.into()]);
+    pub fn math(mut self, expression: impl AsRef<str>) -> GraphTraversal<f64, f64> {
+        self.bytecode
+            .add_step("math", vec![expression.as_ref().into()]);
         GraphTraversal::new(self.bytecode)
     }
 
@@ -403,8 +404,9 @@ impl<'de, E, T: Deserialize<'de>> GraphTraversal<E, T> {
         self
     }
 
-    pub fn has_not(mut self, property_key: &str) -> Self {
-        self.bytecode.add_step("hasNot", vec![property_key.into()]);
+    pub fn has_not(mut self, property_key: impl AsRef<str>) -> Self {
+        self.bytecode
+            .add_step("hasNot", vec![property_key.as_ref().into()]);
         self
     }
     pub fn has_label(mut self, label: impl HasStringsParams) -> Self {
@@ -504,23 +506,24 @@ impl<'de, E, T: Deserialize<'de>> GraphTraversal<E, T> {
 
     pub fn cap(
         mut self,
-        side_effect_key: &str,
+        side_effect_key: impl AsRef<str>,
         side_effect_keys: impl MultiStringParams,
     ) -> GraphTraversal<GraphBinary, GraphBinary> {
-        self.bytecode.add_step("cap", vec![side_effect_key.into()]);
+        self.bytecode
+            .add_step("cap", vec![side_effect_key.as_ref().into()]);
         side_effect_keys.extend_step(&mut self.bytecode);
         GraphTraversal::new(self.bytecode)
     }
 
-    pub fn subgraph(mut self, side_effect_key: &str) -> Self {
+    pub fn subgraph(mut self, side_effect_key: impl AsRef<str>) -> Self {
         self.bytecode
-            .add_step("subgraph", vec![side_effect_key.into()]);
+            .add_step("subgraph", vec![side_effect_key.as_ref().into()]);
         self
     }
 
-    pub fn aggregate(mut self, scope: impl ScopeParams, side_effect_key: &str) -> Self {
+    pub fn aggregate(mut self, scope: impl ScopeParams, side_effect_key: impl AsRef<str>) -> Self {
         scope.bytecode("aggregate", &mut self.bytecode);
-        self.bytecode.add_to_last_step(side_effect_key);
+        self.bytecode.add_to_last_step(side_effect_key.as_ref());
         self
     }
 
@@ -616,8 +619,9 @@ impl<'de, E, T: Deserialize<'de>> GraphTraversal<E, T> {
 
     pub fn programm(mut self) {}
 
-    pub fn as_(mut self, step_label: &str, step_labels: impl MultiStringParams) -> Self {
-        self.bytecode.add_step("as", vec![step_label.into()]);
+    pub fn as_(mut self, step_label: impl AsRef<str>, step_labels: impl MultiStringParams) -> Self {
+        self.bytecode
+            .add_step("as", vec![step_label.as_ref().into()]);
         step_labels.extend_step(&mut self.bytecode);
         self
     }
@@ -629,8 +633,8 @@ impl<'de, E, T: Deserialize<'de>> GraphTraversal<E, T> {
         self
     }
 
-    pub fn with(mut self, key: &str, object: impl ObjectParam) -> Self {
-        self.bytecode.add_step("with", vec![key.into()]);
+    pub fn with(mut self, key: impl AsRef<str>, object: impl ObjectParam) -> Self {
+        self.bytecode.add_step("with", vec![key.as_ref().into()]);
         object.extend_step(&mut self.bytecode);
         self
     }
@@ -894,11 +898,11 @@ impl AnonymousTraversal {
 
     pub fn project(
         &self,
-        property_key: &str,
+        property_key: impl AsRef<str>,
         other_property_keys: impl MultiStringParams,
     ) -> BytecodeTraversal {
         let mut bc = ByteCode::default();
-        bc.add_step("project", vec![property_key.into()]);
+        bc.add_step("project", vec![property_key.as_ref().into()]);
         other_property_keys.extend_step(&mut bc);
         BytecodeTraversal::new(bc)
     }
@@ -1016,9 +1020,9 @@ impl AnonymousTraversal {
         BytecodeTraversal::new(bc)
     }
 
-    pub fn math(&self, expression: &str) -> BytecodeTraversal {
+    pub fn math(&self, expression: impl AsRef<str>) -> BytecodeTraversal {
         let mut bc = ByteCode::default();
-        bc.add_step("math", vec![expression.into()]);
+        bc.add_step("math", vec![expression.as_ref().into()]);
         BytecodeTraversal::new(bc)
     }
 
@@ -1071,9 +1075,9 @@ impl AnonymousTraversal {
         BytecodeTraversal::new(bc)
     }
 
-    pub fn has_not(&self, property_key: &str) -> BytecodeTraversal {
+    pub fn has_not(&self, property_key: impl AsRef<str>) -> BytecodeTraversal {
         let mut bc = ByteCode::default();
-        bc.add_step("hasNot", vec![property_key.into()]);
+        bc.add_step("hasNot", vec![property_key.as_ref().into()]);
         BytecodeTraversal::new(bc)
     }
     pub fn has_label(&self, label: impl HasStringsParams) -> BytecodeTraversal {
@@ -1189,25 +1193,29 @@ impl AnonymousTraversal {
 
     pub fn cap(
         &self,
-        side_effect_key: &str,
+        side_effect_key: impl AsRef<str>,
         side_effect_keys: impl MultiStringParams,
     ) -> BytecodeTraversal {
         let mut bc = ByteCode::default();
-        bc.add_step("cap", vec![side_effect_key.into()]);
+        bc.add_step("cap", vec![side_effect_key.as_ref().into()]);
         side_effect_keys.extend_step(&mut bc);
         BytecodeTraversal::new(bc)
     }
 
-    pub fn subgraph(&self, side_effect_key: &str) -> BytecodeTraversal {
+    pub fn subgraph(&self, side_effect_key: impl AsRef<str>) -> BytecodeTraversal {
         let mut bc = ByteCode::default();
-        bc.add_step("subgraph", vec![side_effect_key.into()]);
+        bc.add_step("subgraph", vec![side_effect_key.as_ref().into()]);
         BytecodeTraversal::new(bc)
     }
 
-    pub fn aggregate(&self, scope: impl ScopeParams, side_effect_key: &str) -> BytecodeTraversal {
+    pub fn aggregate(
+        &self,
+        scope: impl ScopeParams,
+        side_effect_key: impl AsRef<str>,
+    ) -> BytecodeTraversal {
         let mut bc = ByteCode::default();
         scope.bytecode("aggregate", &mut bc);
-        bc.add_to_last_step(side_effect_key);
+        bc.add_to_last_step(side_effect_key.as_ref());
         BytecodeTraversal::new(bc)
     }
 
@@ -1304,9 +1312,13 @@ impl AnonymousTraversal {
 
     pub fn programm(&self) {}
 
-    pub fn as_(&self, step_label: &str, step_labels: impl MultiStringParams) -> BytecodeTraversal {
+    pub fn as_(
+        &self,
+        step_label: impl AsRef<str>,
+        step_labels: impl MultiStringParams,
+    ) -> BytecodeTraversal {
         let mut bc = ByteCode::default();
-        bc.add_step("as", vec![step_label.into()]);
+        bc.add_step("as", vec![step_label.as_ref().into()]);
         step_labels.extend_step(&mut bc);
         BytecodeTraversal::new(bc)
     }
@@ -1319,9 +1331,9 @@ impl AnonymousTraversal {
         BytecodeTraversal::new(bc)
     }
 
-    pub fn with(&self, key: &str, object: impl ObjectParam) -> BytecodeTraversal {
+    pub fn with(&self, key: impl AsRef<str>, object: impl ObjectParam) -> BytecodeTraversal {
         let mut bc = ByteCode::default();
-        bc.add_step("with", vec![key.into()]);
+        bc.add_step("with", vec![key.as_ref().into()]);
         object.extend_step(&mut bc);
         BytecodeTraversal::new(bc)
     }
@@ -1396,7 +1408,7 @@ fn test1() {
         .by(__.v().id())
         .by(__.v().values("age")); // TODO project params are stupid
     let t = g.v(()).project(["id", "s"]).by(__.v().id()).by(__.v());
-
+    let t = g.v(()).out(["ste", "test"]);
     // let t = g.v(()).as_("v", ()).select("v");
     println!("{:?}", t.bytecode)
 }

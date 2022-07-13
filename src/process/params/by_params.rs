@@ -1,5 +1,5 @@
 use crate::{
-    process::{bytecode_traversal::BytecodeTraversal, traversal::GraphTraversal},
+    process::{bytecode_traversal::BytecodeTraversal},
     structure::{
         bytecode::ByteCode,
         enums::{Order, T},

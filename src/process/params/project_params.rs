@@ -1,5 +1,3 @@
-use std::slice::Iter;
-
 use crate::structure::bytecode::ByteCode;
 
 pub trait ProjectParams {
