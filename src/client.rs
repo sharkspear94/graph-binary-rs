@@ -18,3 +18,8 @@ fn test() {
     // let bin = Message::binary([1, 3, 51_u8, 12, 3].as_slice());
     // client.send_message(&msg);
 }
+
+
+struct State{
+    
+}

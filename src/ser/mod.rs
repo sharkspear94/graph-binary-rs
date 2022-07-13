@@ -51,6 +51,10 @@ impl ser::Serializer for &mut Serializer {
 
     type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
 
+    fn is_human_readable(&self) -> bool {
+        false
+    }
+
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
         v.encode(&mut self.writer)
     }

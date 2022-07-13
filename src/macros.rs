@@ -9,7 +9,7 @@ macro_rules! struct_de_serialize {
                 where
                     D: serde::Deserializer<'de>,
                 {
-                    deserializer.deserialize_bytes($visitor)
+                    deserializer.deserialize_any($visitor)
                 }
             }
 
@@ -43,14 +43,8 @@ macro_rules! struct_de_serialize {
                             "serilization Error of {}: reason: {}",stringify!($t),e
                         ))),
                 }
-    }
+                }
             }
-
-            // impl From<$t> for GraphBinary {
-            //     fn from(g: $t) -> Self {
-            //         GraphBinary::$t(g)
-            //     }
-            // }
          )*
     };
 }

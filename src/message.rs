@@ -12,6 +12,7 @@ use crate::graph_binary::{Decode, Encode, GraphBinary, MapKeys};
 use crate::structure::bytecode::{ByteCode, Step};
 use crate::structure::enums::T;
 use crate::structure::lambda::Lambda;
+use crate::structure::traverser::Traverser;
 
 #[derive(Debug, PartialEq)]
 pub struct Request {
@@ -267,12 +268,8 @@ impl Response {
         match &self.result_data {
             GraphBinary::List(l) => Ok(l
                 .iter()
-                .filter_map(|g| match g {
-                    GraphBinary::Traverser(t) => Some(t),
-                    _ => None,
-                })
+                .filter_map(|g| g.get_ref::<Traverser>())
                 .flat_map(|f| f.iter())
-                // .cloned()
                 .collect()),
             _ => Err(DecodeError::DecodeError(
                 "expected list in unwinding result data".to_string(),
@@ -345,7 +342,7 @@ impl Display for Response {
                 let v = self.status_attribute.get(&"exceptions".into()).unwrap();
                 writeln!(f, "exceptions: {}", &v.exceptions().unwrap_or_default())?;
                 let v = self.status_attribute.get(&"stackTrace".into()).unwrap();
-                writeln!(f, "stackTrace : {}", v.get::<String>().unwrap_or_default())
+                writeln!(f, "stackTrace : {}", v.get_ref::<str>().unwrap_or_default())
             }
             _ => todo!(),
         }

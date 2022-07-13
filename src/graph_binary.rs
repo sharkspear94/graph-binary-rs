@@ -1,9 +1,11 @@
 use std::collections::{BTreeSet, HashMap};
-use std::fmt::write;
+use std::fmt::{write, Display};
 use std::io::{Read, Write};
+use std::vec;
 
 use crate::error::{DecodeError, EncodeError};
 use crate::macros::{TryBorrowFrom, TryMutBorrowFrom};
+use crate::specs;
 use crate::structure::binding::Binding;
 use crate::structure::bulkset::BulkSet;
 use crate::structure::bytecode::ByteCode;
@@ -79,35 +81,69 @@ pub enum GraphBinary {
 }
 
 pub fn encode_null_object<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
-    writer.write_all(&[
-        CoreType::UnspecifiedNullObject.into(),
-        ValueFlag::Null.into(),
-    ])?;
+    const BUF: [u8; 2] = [specs::CORE_TYPE_UNSPECIFIED_NULL, specs::VALUE_FLAG_NULL];
+    writer.write_all(&BUF)?;
+    Ok(())
+}
+
+fn encode_byte_buffer<W: Write>(writer: &mut W, buf: &[u8]) -> Result<(), EncodeError> {
+    writer.write_all(&[CoreType::ByteBuffer.into(), ValueFlag::Null.into()])?;
+    let len = (buf.len() as i32).to_be_bytes();
+    writer.write_all(&len)?;
+    writer.write_all(buf)?;
     Ok(())
 }
 
 impl GraphBinary {
-    /// Returns Some owned value if the Type was the GraphBinary variant.
+    /// Returns an Option of an owned value if the Type was the GraphBinary variant.
     /// Returns None if GraphBinary enum holds another Type
     ///
     /// ```
     /// # use graph_binary_rs::graph_binary::GraphBinary;
     ///
-    /// let gb = GraphBinary::Boolean(true);
+    /// let gb1 = GraphBinary::Boolean(true);
+    /// assert_eq!(Some(true),gb1.get());
     ///
-    /// assert_eq!(Some(true),gb.get());
-    /// assert_eq!(None, gb.get::<String>());
+    /// let gb2 = GraphBinary::Boolean(true);
+    /// assert_eq!(None, gb2.get::<String>());
     ///
     /// ```
-    ///
-    pub fn get<T: TryFrom<GraphBinary>>(&self) -> Option<T> {
-        T::try_from(self.clone()).ok()
+    pub fn get<T: TryFrom<GraphBinary>>(self) -> Option<T> {
+        T::try_from(self).ok()
     }
 
+    /// Returns an Option of the borrowed value if the Type was the GraphBinary variant.
+    /// Returns None if GraphBinary enum holds another Type
+    ///
+    /// ```
+    /// # use graph_binary_rs::graph_binary::GraphBinary;
+    ///
+    /// let gb = GraphBinary::String("Janus".to_string());
+    ///
+    /// assert_eq!(Some("Janus"),gb.get_ref());
+    /// assert_eq!(Some(&String::from("Janus")),gb.get_ref());
+    /// assert_eq!(None, gb.get_ref::<bool>());
+    ///
+    /// ```
     pub fn get_ref<T: TryBorrowFrom + ?Sized>(&self) -> Option<&T> {
         T::try_borrow_from(self)
     }
 
+    /// Returns an Option of the mutable borrowed value if the Type was the GraphBinary variant.
+    /// Returns None if GraphBinary enum holds another Type
+    ///
+    /// ```
+    /// # use graph_binary_rs::graph_binary::GraphBinary;
+    ///
+    /// let mut gb = GraphBinary::String("Janus".to_string());
+    ///
+    /// let s = gb.get_mut_ref::<String>().unwrap();
+    /// s.push_str("Graph");
+    ///
+    /// assert_eq!(Some(&String::from("JanusGraph")),gb.get_ref());
+    /// assert_eq!(None, gb.get_ref::<bool>());
+    ///
+    /// ```
     pub fn get_mut_ref<T: TryMutBorrowFrom + ?Sized>(&mut self) -> Option<&mut T> {
         T::try_mut_borrow_from(self)
     }
@@ -162,7 +198,7 @@ impl GraphBinary {
             // GraphBinary::BigDecimal(_) => todo!(),
             // GraphBinary::BigInteger(_) => todo!(),
             GraphBinary::Byte(val) => val.encode(writer),
-            GraphBinary::ByteBuffer(buf) => todo!(),
+            GraphBinary::ByteBuffer(buf) => encode_byte_buffer(writer, buf),
             GraphBinary::Short(val) => val.encode(writer),
             GraphBinary::Boolean(val) => val.encode(writer),
             GraphBinary::TextP(val) => val.encode(writer),
@@ -588,7 +624,7 @@ pub fn decode<R: Read>(reader: &mut R) -> Result<GraphBinary, DecodeError> {
         (CoreType::Lambda, _) => Ok(GraphBinary::Lambda(Lambda::partial_decode(reader)?)),
         (CoreType::Traverser, _) => Ok(GraphBinary::Traverser(Traverser::partial_decode(reader)?)),
         (CoreType::Byte, _) => Ok(GraphBinary::Byte(u8::partial_decode(reader)?)),
-        (CoreType::ByteBuffer, _) => todo!(),
+        (CoreType::ByteBuffer, _) => partial_decode_byte_buffer(reader),
         (CoreType::TextP, _) => Ok(GraphBinary::TextP(TextP::partial_decode(reader)?)),
         (CoreType::TraversalStrategy, _) => Ok(GraphBinary::TraversalStrategy(
             TraversalStrategy::partial_decode(reader)?,
@@ -606,6 +642,13 @@ pub fn decode<R: Read>(reader: &mut R) -> Result<GraphBinary, DecodeError> {
         )),
         (CoreType::Char, _) => Ok(GraphBinary::Char(char::partial_decode(reader)?)),
     }
+}
+
+fn partial_decode_byte_buffer<R: Read>(reader: &mut R) -> Result<GraphBinary, DecodeError> {
+    let len = i32::partial_decode(reader)?;
+    let mut buf = vec![0; len as usize];
+    reader.read_exact(&mut buf)?;
+    Ok(GraphBinary::ByteBuffer(buf))
 }
 
 #[repr(u8)]
@@ -750,4 +793,33 @@ fn testing() {
     buf.clear();
     15_i32.encode(&mut buf).unwrap();
     assert_eq!([0x01, 0x00, 0x00, 0x00, 0x00, 0x0F], buf.as_slice());
+}
+
+#[test]
+fn test_byte_buffer_decode() {
+    let buf = [
+        CoreType::ByteBuffer.into(),
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x6,
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+    ];
+
+    let gb = GraphBinary::decode(&mut &buf[..]);
+    assert_eq!(
+        GraphBinary::ByteBuffer(vec![100, 101, 102, 103, 104, 105]),
+        gb.unwrap()
+    );
+
+    let buf_0 = [CoreType::ByteBuffer.into(), 0x0, 0x0, 0x0, 0x0, 0x0];
+
+    let gb = GraphBinary::decode(&mut &buf_0[..]);
+    assert_eq!(GraphBinary::ByteBuffer(vec![]), gb.unwrap())
 }
