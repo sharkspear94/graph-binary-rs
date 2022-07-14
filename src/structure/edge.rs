@@ -1,4 +1,5 @@
 use crate::{
+    conversions,
     graph_binary::{Decode, Encode, GraphBinary},
     specs::{self, CoreType},
     struct_de_serialize,
@@ -23,18 +24,18 @@ impl Encode for Edge {
         specs::CoreType::Edge.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(
+    fn partial_encode<W: std::io::Write>(
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
-        self.id.write_full_qualified_bytes(writer)?;
-        self.label.write_patial_bytes(writer)?;
-        self.in_v_id.write_full_qualified_bytes(writer)?;
-        self.in_v_label.write_patial_bytes(writer)?;
-        self.out_v_id.write_full_qualified_bytes(writer)?;
-        self.out_v_label.write_patial_bytes(writer)?;
-        self.parent.write_full_qualified_bytes(writer)?;
-        self.properties.write_full_qualified_bytes(writer)
+        self.id.encode(writer)?;
+        self.label.partial_encode(writer)?;
+        self.in_v_id.encode(writer)?;
+        self.in_v_label.partial_encode(writer)?;
+        self.out_v_id.encode(writer)?;
+        self.out_v_label.partial_encode(writer)?;
+        self.parent.encode(writer)?;
+        self.properties.encode(writer)
     }
 }
 
@@ -47,14 +48,14 @@ impl Decode for Edge {
     where
         Self: std::marker::Sized,
     {
-        let id = GraphBinary::fully_self_decode(reader)?;
+        let id = GraphBinary::decode(reader)?;
         let label = String::partial_decode(reader)?;
-        let in_v_id = GraphBinary::fully_self_decode(reader)?;
+        let in_v_id = GraphBinary::decode(reader)?;
         let in_v_label = String::partial_decode(reader)?;
-        let out_v_id = GraphBinary::fully_self_decode(reader)?;
+        let out_v_id = GraphBinary::decode(reader)?;
         let out_v_label = String::partial_decode(reader)?;
-        let parent = Option::<Vertex>::fully_self_decode(reader)?;
-        let properties = Option::<Vec<GraphBinary>>::fully_self_decode(reader)?;
+        let parent = Option::<Vertex>::decode(reader)?;
+        let properties = Option::<Vec<GraphBinary>>::decode(reader)?;
 
         Ok(Edge {
             id: Box::new(id),
@@ -68,20 +69,21 @@ impl Decode for Edge {
         })
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = GraphBinary::consumed_bytes(bytes)?;
-        len += String::partial_count_bytes(&bytes[len..])?;
-        len += GraphBinary::consumed_bytes(&bytes[len..])?;
-        len += String::partial_count_bytes(&bytes[len..])?;
-        len += GraphBinary::consumed_bytes(&bytes[len..])?;
-        len += String::partial_count_bytes(&bytes[len..])?;
-        len += Option::<Vertex>::consumed_bytes(&bytes[len..])?;
-        len += Option::<Vec<GraphBinary>>::consumed_bytes(&bytes[len..])?;
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
+        let mut len = GraphBinary::get_len(bytes)?;
+        len += String::get_partial_len(&bytes[len..])?;
+        len += GraphBinary::get_len(&bytes[len..])?;
+        len += String::get_partial_len(&bytes[len..])?;
+        len += GraphBinary::get_len(&bytes[len..])?;
+        len += String::get_partial_len(&bytes[len..])?;
+        len += Option::<Vertex>::get_len(&bytes[len..])?;
+        len += Option::<Vec<GraphBinary>>::get_len(&bytes[len..])?;
         Ok(len)
     }
 }
 
 struct_de_serialize!((Edge, EdgeVisitor, 64));
+conversions!((Edge, Edge));
 
 #[test]
 fn edge_none_encode_test() {
@@ -104,7 +106,7 @@ fn edge_none_encode_test() {
     };
 
     let mut buf = Vec::new();
-    let e = e.write_full_qualified_bytes(&mut buf);
+    let e = e.encode(&mut buf);
     assert!(e.is_ok());
     assert_eq!(expected, buf[..])
 }
@@ -155,7 +157,7 @@ fn edge_decode_test() {
         0x0, 0x0, 0x0, 0x6, 0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e, 0xfe, 0x1, 0xfe, 0x1,
     ];
 
-    let p = Edge::fully_self_decode(&mut &reader[..]);
+    let p = Edge::decode(&mut &reader[..]);
 
     // assert!(p.is_ok());
     let expected = Edge {

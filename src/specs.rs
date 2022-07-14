@@ -63,6 +63,9 @@ pub const EXTENDED_TYPE_YEAR_MONTH: u8 = 0x8c;
 pub const EXTENDED_TYPE_ZONED_DATETIME: u8 = 0x8d;
 pub const EXTENDED_TYPE_ZONED_OFFSET: u8 = 0x8f;
 
+pub const VALUE_FLAG_SET: u8 = 0x00;
+pub const VALUE_FLAG_NULL: u8 = 0x01;
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum CoreType {
     Int32,

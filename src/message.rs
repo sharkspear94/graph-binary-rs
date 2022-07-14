@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::vec;
 
 use serde::de::{IntoDeserializer, Visitor};
@@ -6,10 +7,12 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::de::from_slice;
-use crate::error::EncodeError;
+use crate::error::{DecodeError, EncodeError};
 use crate::graph_binary::{Decode, Encode, GraphBinary, MapKeys};
 use crate::structure::bytecode::{ByteCode, Step};
 use crate::structure::enums::T;
+use crate::structure::lambda::Lambda;
+use crate::structure::traverser::Traverser;
 
 #[derive(Debug, PartialEq)]
 pub struct Request {
@@ -21,14 +24,14 @@ pub struct Request {
 }
 
 impl Request {
-    pub fn write_gb_respons_bytes<W: std::io::Write>(
+    pub fn write_gb_bytes<W: std::io::Write>(
         &self,
         writer: &mut W,
         mime_type: &str,
     ) -> Result<(), EncodeError> {
         writer.write_all(&[mime_type.len() as u8])?;
         writer.write_all(mime_type.as_bytes())?;
-        self.write_full_qualified_bytes(writer)
+        self.encode(writer)
     }
 }
 
@@ -49,21 +52,18 @@ impl Encode for Request {
         unimplemented!("not supported for Request")
     }
 
-    fn write_patial_bytes<W: std::io::Write>(
+    fn partial_encode<W: std::io::Write>(
         &self,
         _writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
         unimplemented!("")
     }
-    fn write_full_qualified_bytes<W: std::io::Write>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), crate::error::EncodeError> {
-        self.version.write_patial_bytes(writer)?;
-        self.request_id.write_patial_bytes(writer)?;
-        self.op.write_patial_bytes(writer)?;
-        self.processor.write_patial_bytes(writer)?;
-        self.args.write_patial_bytes(writer)
+    fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
+        self.version.partial_encode(writer)?;
+        self.request_id.partial_encode(writer)?;
+        self.op.partial_encode(writer)?;
+        self.processor.partial_encode(writer)?;
+        self.args.partial_encode(writer)
     }
 }
 impl Request {
@@ -216,55 +216,6 @@ impl AuthRequestBuilder {
     }
 }
 
-#[test]
-fn test() {
-    let req = Request::builder()
-        .session("aklshdJBASFKABFHuh1KJBJKlkjA")
-        .request_id(Uuid::from_bytes([
-            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
-            0xee, 0xff,
-        ]))
-        .eval()
-        .alias("g", "social")
-        .alias("t", "test")
-        .gremlin("social.V(x).values('age')")
-        .bindings(HashMap::from([("x".into(), 1_i32.into())]))
-        .build();
-
-    let mut args: HashMap<MapKeys, GraphBinary> = HashMap::<MapKeys, GraphBinary>::from([
-        ("session".into(), "aklshdJBASFKABFHuh1KJBJKlkjA".into()),
-        ("language".into(), "gremlin-groovy".to_string().into()),
-        ("gremlin".into(), "social.V(x).values('age')".into()),
-    ]);
-
-    args.insert(
-        "bindings".into(),
-        HashMap::<String, GraphBinary>::from([("x".into(), 1_i32.into())]).into(),
-    );
-    args.insert(
-        "aliases".into(),
-        HashMap::<String, GraphBinary>::from([
-            ("g".into(), "social".into()),
-            ("t".into(), "test".into()),
-        ])
-        .into(),
-    );
-
-    assert_eq!(
-        Request {
-            version: 0x81,
-            request_id: Uuid::from_bytes([
-                0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
-                0xee, 0xff
-            ]),
-            op: "eval".to_string(),
-            processor: "session".to_string(),
-            args
-        },
-        req
-    )
-}
-
 #[derive(Debug, PartialEq)]
 pub struct Response {
     version: u8,
@@ -309,8 +260,21 @@ impl Response {
         }
     }
 
-    fn result_data(&self) -> &GraphBinary {
+    pub fn result_data(&self) -> &GraphBinary {
         &self.result_data
+    }
+
+    pub fn unwind_traverser(&self) -> Result<Vec<&GraphBinary>, DecodeError> {
+        match &self.result_data {
+            GraphBinary::List(l) => Ok(l
+                .iter()
+                .filter_map(|g| g.get_ref::<Traverser>())
+                .flat_map(|f| f.iter())
+                .collect()),
+            _ => Err(DecodeError::DecodeError(
+                "expected list in unwinding result data".to_string(),
+            )),
+        }
     }
 }
 
@@ -363,6 +327,28 @@ impl ResponseBuilder {
     }
 }
 
+impl Display for Response {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.status_code {
+            200 => todo!(),
+            500 => {
+                writeln!(f, "status Code: 500")?;
+                writeln!(f, "request Id: {}", self.request_id.unwrap_or_default())?;
+                writeln!(
+                    f,
+                    "status_message: {}",
+                    self.status_message.clone().unwrap_or_default()
+                )?;
+                let v = self.status_attribute.get(&"exceptions".into()).unwrap();
+                writeln!(f, "exceptions: {}", &v.exceptions().unwrap_or_default())?;
+                let v = self.status_attribute.get(&"stackTrace".into()).unwrap();
+                writeln!(f, "stackTrace : {}", v.get_ref::<str>().unwrap_or_default())
+            }
+            _ => todo!(),
+        }
+    }
+}
+
 impl<'de> Deserialize<'de> for Response {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -385,7 +371,7 @@ impl<'de> Visitor<'de> for ResponseVisitor {
     where
         E: serde::de::Error,
     {
-        Response::fully_self_decode(&mut v)
+        Response::decode(&mut v)
             .map_err(|err| E::custom(format!("response Visitor Error with Error: {}", err)))
     }
 }
@@ -402,19 +388,17 @@ impl Decode for Response {
         unimplemented!("Response can only be decoded with fully_self_decode")
     }
 
-    fn fully_self_decode<R: std::io::Read>(
-        reader: &mut R,
-    ) -> Result<Self, crate::error::DecodeError>
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
     {
         let version = u8::partial_decode(reader)?;
-        let uuid = Uuid::partial_nullable_decode(reader)?;
+        let uuid = Uuid::nullable_decode(reader)?;
         let status_code = i32::partial_decode(reader)?;
-        let status_message = String::partial_nullable_decode(reader)?;
+        let status_message = String::nullable_decode(reader)?;
         let status_attributes = HashMap::<MapKeys, GraphBinary>::partial_decode(reader)?;
         let result_meta = HashMap::<MapKeys, GraphBinary>::partial_decode(reader)?;
-        let result_data = GraphBinary::fully_self_decode(reader)?;
+        let result_data = GraphBinary::decode(reader)?;
 
         Ok(Response::builder()
             .version(version)
@@ -427,7 +411,7 @@ impl Decode for Response {
             .build())
     }
 
-    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
+    fn get_partial_len(_bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
         todo!()
     }
 }
@@ -477,7 +461,7 @@ fn request_message_test() {
 
     let mut buf: Vec<u8> = vec![];
 
-    req.write_full_qualified_bytes(&mut buf).unwrap();
+    req.encode(&mut buf).unwrap();
     assert_eq!(msg.len(), buf.len())
 }
 
@@ -528,7 +512,7 @@ fn request_message_with_mimetype_test() {
 
     let mut buf: Vec<u8> = vec![];
 
-    req.write_gb_respons_bytes(&mut buf, "application/vnd.graphbinary-v1.0")
+    req.write_gb_bytes(&mut buf, "application/vnd.graphbinary-v1.0")
         .unwrap();
     assert_eq!(msg.len(), buf.len())
 }
@@ -543,7 +527,7 @@ fn test_respose() {
         0x0, 0x0, 0x0, 0x9, 0x0, 0x0, 0x0, 0x0, 0x1, 0x1, 0x0, 0x0, 0x0, 0x0, 0x1d,
     ];
 
-    let resp = Response::fully_self_decode(&mut &*bytes).unwrap();
+    let resp = Response::decode(&mut &*bytes).unwrap();
 
     let expected = Response::builder()
         .version(0x81)
@@ -682,7 +666,7 @@ fn print_msg() {
     };
 
     let mut buf: Vec<u8> = vec![];
-    req.write_gb_respons_bytes(&mut buf, "application/vnd.graphbinary-v1.0")
+    req.write_gb_bytes(&mut buf, "application/vnd.graphbinary-v1.0")
         .unwrap();
     println!("printing: {:?}", buf);
 }
@@ -696,12 +680,20 @@ fn print_msg1() {
         GraphBinary::ByteCode(ByteCode {
             steps: vec![
                 Step {
-                    name: "V".to_string(),
-                    values: vec![],
+                    name: "inject".to_string(),
+                    values: vec![1.into(), 2.into(), 3.into(), 4.into(), 5.into()],
                 },
                 Step {
-                    name: "hasLabel".to_string(),
-                    values: vec!["person".into()],
+                    name: "fold".to_string(),
+                    values: vec![
+                        0.into(),
+                        Lambda {
+                            language: "groovy".to_string(),
+                            script: "{ a,b -> a+b }".to_string(),
+                            arguments_length: 2,
+                        }
+                        .into(),
+                    ],
                 },
             ],
             sources: vec![],
@@ -740,7 +732,7 @@ fn print_msg1() {
     };
 
     let mut buf: Vec<u8> = vec![];
-    req.write_gb_respons_bytes(&mut buf, "application/vnd.graphbinary-v1.0")
+    req.write_gb_bytes(&mut buf, "application/vnd.graphbinary-v1.0")
         .unwrap();
     println!("printing: {:?}", buf);
 }
@@ -781,4 +773,53 @@ fn test_respose_from_slice1() {
 
     print!("{:?}", resp);
     // assert_eq!(expected, resp)
+}
+
+#[test]
+fn test() {
+    let req = Request::builder()
+        .session("aklshdJBASFKABFHuh1KJBJKlkjA")
+        .request_id(Uuid::from_bytes([
+            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
+            0xee, 0xff,
+        ]))
+        .eval()
+        .alias("g", "social")
+        .alias("t", "test")
+        .gremlin("social.V(x).values('age')")
+        .bindings(HashMap::from([("x".into(), 1_i32.into())]))
+        .build();
+
+    let mut args: HashMap<MapKeys, GraphBinary> = HashMap::<MapKeys, GraphBinary>::from([
+        ("session".into(), "aklshdJBASFKABFHuh1KJBJKlkjA".into()),
+        ("language".into(), "gremlin-groovy".to_string().into()),
+        ("gremlin".into(), "social.V(x).values('age')".into()),
+    ]);
+
+    args.insert(
+        "bindings".into(),
+        HashMap::<String, GraphBinary>::from([("x".into(), 1_i32.into())]).into(),
+    );
+    args.insert(
+        "aliases".into(),
+        HashMap::<String, GraphBinary>::from([
+            ("g".into(), "social".into()),
+            ("t".into(), "test".into()),
+        ])
+        .into(),
+    );
+
+    assert_eq!(
+        Request {
+            version: 0x81,
+            request_id: Uuid::from_bytes([
+                0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
+                0xee, 0xff
+            ]),
+            op: "eval".to_string(),
+            processor: "session".to_string(),
+            args
+        },
+        req
+    )
 }

@@ -1,10 +1,12 @@
+use crate::conversions;
 use crate::error::DecodeError;
+use crate::macros::{TryBorrowFrom, TryMutBorrowFrom};
 use crate::specs::CoreType;
 use crate::{error::EncodeError, graph_binary::Encode};
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::graph_binary::{build_fq_null_bytes, Decode, GraphBinary};
+use crate::graph_binary::{encode_null_object, Decode, GraphBinary};
 
 use std::io::Read;
 use std::slice;
@@ -14,7 +16,7 @@ impl Encode for String {
         CoreType::String.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         let len = self.len() as i32;
         writer.write_all(&len.to_be_bytes())?;
         writer.write_all(self.as_bytes())?;
@@ -52,7 +54,7 @@ impl Decode for String {
         }
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError> {
         let t: [u8; 4] = bytes[0..4].try_into()?;
         let mut len = i32::from_be_bytes(t);
         len += 4;
@@ -60,9 +62,21 @@ impl Decode for String {
     }
 }
 
-impl From<String> for GraphBinary {
-    fn from(s: String) -> Self {
-        GraphBinary::String(s)
+impl TryBorrowFrom for str {
+    fn try_borrow_from(graph_binary: &GraphBinary) -> Option<&Self> {
+        match graph_binary {
+            GraphBinary::String(s) => Some(s),
+            _ => None,
+        }
+    }
+}
+
+impl TryMutBorrowFrom for str {
+    fn try_mut_borrow_from(graph_binary: &mut GraphBinary) -> Option<&mut Self> {
+        match graph_binary {
+            GraphBinary::String(s) => Some(s),
+            _ => None,
+        }
     }
 }
 
@@ -71,7 +85,7 @@ impl Encode for &str {
         CoreType::String.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         let len = self.len() as i32;
         writer.write_all(&len.to_be_bytes())?;
         writer.write_all(self.as_bytes())?;
@@ -90,7 +104,7 @@ impl Encode for char {
         CoreType::Char.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         let mut buf = [0; 4];
         let slice = self.encode_utf8(&mut buf);
         writer.write_all(slice.as_bytes())?;
@@ -149,7 +163,7 @@ impl Decode for char {
         }
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError> {
         match bytes[0] {
             one if one < 0b1000_0000 => Ok(1),
             two if (0b1100_0000..0b1110_0000).contains(&two) => Ok(2),
@@ -163,44 +177,12 @@ impl Decode for char {
     }
 }
 
-#[test]
-fn test3() {
-    let reader = [0x80_u8, 0x0, 0xe2, 0x99, 0xa5];
-    let c = char::fully_self_decode(&mut &reader[..]).unwrap();
-
-    assert_eq!('♥', c)
-}
-
-#[test]
-fn test1() {
-    let reader = [0x80_u8, 0x0, 65];
-    let c = char::fully_self_decode(&mut &reader[..]).unwrap();
-
-    assert_eq!('A', c)
-}
-
-#[test]
-fn test2() {
-    let reader = [0x80_u8, 0x0, 0xc3, 0x9f];
-    let c = char::fully_self_decode(&mut &reader[..]).unwrap();
-
-    assert_eq!('ß', c)
-}
-
-#[test]
-fn test4() {
-    let reader = [0x80_u8, 0x0, 0xf0, 0x9f, 0xa6, 0x80];
-    let c = char::fully_self_decode(&mut &reader[..]).unwrap();
-
-    assert_eq!('🦀', c)
-}
-
 impl Encode for u8 {
     fn type_code() -> u8 {
         CoreType::Byte.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         writer.write_all(&self.to_be_bytes())?;
         Ok(())
     }
@@ -218,14 +200,8 @@ impl Decode for u8 {
         Ok(u8::from_be_bytes(int))
     }
 
-    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
         Ok(1)
-    }
-}
-
-impl From<u8> for GraphBinary {
-    fn from(v: u8) -> Self {
-        GraphBinary::Byte(v)
     }
 }
 
@@ -234,7 +210,7 @@ impl Encode for i16 {
         CoreType::Short.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         writer.write_all(&self.to_be_bytes())?;
 
         Ok(())
@@ -253,14 +229,8 @@ impl Decode for i16 {
         Ok(i16::from_be_bytes(int))
     }
 
-    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
         Ok(2)
-    }
-}
-
-impl From<i16> for GraphBinary {
-    fn from(v: i16) -> Self {
-        GraphBinary::Short(v)
     }
 }
 
@@ -269,7 +239,7 @@ impl Encode for i32 {
         CoreType::Int32.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         writer.write_all(&self.to_be_bytes())?;
         Ok(())
     }
@@ -287,14 +257,8 @@ impl Decode for i32 {
         Ok(i32::from_be_bytes(int))
     }
 
-    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
         Ok(4)
-    }
-}
-
-impl From<i32> for GraphBinary {
-    fn from(v: i32) -> Self {
-        GraphBinary::Int(v)
     }
 }
 
@@ -303,7 +267,7 @@ impl Encode for i64 {
         CoreType::Long.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         writer.write_all(&self.to_be_bytes())?;
         Ok(())
     }
@@ -321,14 +285,8 @@ impl Decode for i64 {
         Ok(i64::from_be_bytes(int))
     }
 
-    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
         Ok(8)
-    }
-}
-
-impl From<i64> for GraphBinary {
-    fn from(v: i64) -> Self {
-        GraphBinary::Long(v)
     }
 }
 
@@ -337,7 +295,7 @@ impl Encode for f32 {
         CoreType::Float.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         writer.write_all(&self.to_be_bytes())?;
 
         Ok(())
@@ -356,14 +314,8 @@ impl Decode for f32 {
         Ok(f32::from_be_bytes(int))
     }
 
-    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
         Ok(4)
-    }
-}
-
-impl From<f32> for GraphBinary {
-    fn from(v: f32) -> Self {
-        GraphBinary::Float(v)
     }
 }
 
@@ -372,7 +324,7 @@ impl Encode for f64 {
         CoreType::Double.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         writer.write_all(&self.to_be_bytes())?;
 
         Ok(())
@@ -391,14 +343,8 @@ impl Decode for f64 {
         Ok(f64::from_be_bytes(int))
     }
 
-    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
         Ok(8)
-    }
-}
-
-impl From<f64> for GraphBinary {
-    fn from(v: f64) -> Self {
-        GraphBinary::Double(v)
     }
 }
 
@@ -407,7 +353,7 @@ impl Encode for Uuid {
         CoreType::Uuid.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         writer.write_all(self.as_bytes())?;
 
         Ok(())
@@ -446,7 +392,7 @@ impl<'de> serde::de::Visitor<'de> for UuidDefVisitor {
     where
         E: serde::de::Error,
     {
-        match UuidDef::fully_self_decode(&mut v) {
+        match UuidDef::decode(&mut v) {
             Ok(val) => Ok(val),
             Err(_) => Err(E::custom(concat!(stringify!($t), " Visitor Decode Error"))),
         }
@@ -465,7 +411,7 @@ impl Decode for UuidDef {
         Ok(UuidDef(buf))
     }
 
-    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
         Ok(16)
     }
 }
@@ -482,7 +428,7 @@ impl Decode for Uuid {
         Ok(Uuid::from_bytes(buf))
     }
 
-    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
         Ok(16)
     }
 }
@@ -499,14 +445,8 @@ impl Decode for u128 {
         Ok(val)
     }
 
-    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
         Ok(16)
-    }
-}
-
-impl From<Uuid> for GraphBinary {
-    fn from(v: Uuid) -> Self {
-        GraphBinary::Uuid(v)
     }
 }
 
@@ -515,7 +455,7 @@ impl Encode for bool {
         CoreType::Boolean.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         let b = match self {
             true => 0x00_u8,
             false => 0x01_u8,
@@ -543,14 +483,8 @@ impl Decode for bool {
         }
     }
 
-    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
         Ok(1)
-    }
-}
-
-impl From<bool> for GraphBinary {
-    fn from(v: bool) -> Self {
-        GraphBinary::Boolean(v)
     }
 }
 
@@ -559,20 +493,17 @@ impl<T: Encode> Encode for Option<T> {
         T::type_code()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         match self {
-            Some(i) => i.write_patial_bytes(writer),
-            None => build_fq_null_bytes(writer),
+            Some(i) => i.partial_encode(writer),
+            None => encode_null_object(writer),
         }
     }
 
-    fn write_full_qualified_bytes<W: std::io::Write>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), EncodeError> {
+    fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         match self {
-            Some(i) => i.write_full_qualified_bytes(writer),
-            None => build_fq_null_bytes(writer),
+            Some(i) => i.encode(writer),
+            None => encode_null_object(writer),
         }
     }
 
@@ -583,7 +514,7 @@ impl<T: Encode> Encode for Option<T> {
         match self {
             Some(val) => {
                 writer.write_all(&[0])?;
-                val.write_patial_bytes(writer)
+                val.partial_encode(writer)
             }
             None => Ok(writer.write_all(&[1])?),
         }
@@ -602,7 +533,7 @@ impl<T: Decode> Decode for Option<T> {
         Ok(Some(T::partial_decode(reader)?))
     }
 
-    fn fully_self_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    fn decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -628,18 +559,18 @@ impl<T: Decode> Decode for Option<T> {
         }
     }
 
-    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
         unimplemented!(
             "partial_count_bytes not supported for Option<T> use consumed_bytes or Graphbinray"
         )
     }
-    fn consumed_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
+    fn get_len(bytes: &[u8]) -> Result<usize, DecodeError> {
         let value = bytes
             .get(1)
             .ok_or_else(|| DecodeError::DecodeError("".to_string()))?;
         match value {
             1 => Ok(2),
-            0 => T::partial_count_bytes(&bytes[2..]),
+            0 => T::get_partial_len(&bytes[2..]),
             rest => Err(DecodeError::DecodeError(format!(
                 "ValueFlag in Option<T> consumed bytes not a valid value found: {}",
                 rest
@@ -653,44 +584,37 @@ impl<T: Encode> Encode for &[T] {
         CoreType::List.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         let len = self.len() as i32;
-        len.write_patial_bytes(writer)?;
+        len.partial_encode(writer)?;
 
         for item in *self {
-            item.write_full_qualified_bytes(writer)?;
+            item.encode(writer)?;
         }
 
         Ok(())
     }
 }
 
-macro_rules! tuple_impls {
-    ( $( $name:ident )+ ) => {
-        impl<$($name: Encode),+> Encode for ($($name,)+)
-        {
-            fn type_code() -> u8 {
-                CoreType::List.into()
-            }
-
-            fn gb_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
-                let len = self.len() as i32;
-                len.gb_bytes(writer)?;
-
-                    item.fq_gb_bytes(writer)?;
-
-                Ok(())
-            }
-        }
-    };
-}
+conversions!(
+    (String, String),
+    (u8, Byte),
+    (i16, Short),
+    (i32, Int),
+    (i64, Long),
+    (f32, Float),
+    (f64, Double),
+    (bool, Boolean),
+    (Uuid, Uuid),
+    (char, Char)
+);
 
 #[test]
 fn encode_string_test() {
     let s = String::from("test");
 
     let mut buf: Vec<u8> = vec![];
-    s.write_full_qualified_bytes(&mut buf).unwrap();
+    s.encode(&mut buf).unwrap();
     assert_eq!(
         &[0x03, 0x00, 0x00, 0x00, 0x00, 0x04, 0x74, 0x65, 0x73, 0x74][..],
         &buf
@@ -702,7 +626,7 @@ fn encode_empty_string_test() {
     let s = String::new();
 
     let mut buf: Vec<u8> = vec![];
-    s.write_full_qualified_bytes(&mut buf).unwrap();
+    s.encode(&mut buf).unwrap();
 
     assert_eq!(&[0x03, 0x00, 0x00, 0x00, 0x00, 0x00][..], &buf);
 }
@@ -711,7 +635,7 @@ fn encode_empty_string_test() {
 fn decode_fq_empty_string_test() {
     let buf: Vec<u8> = vec![0x03, 0x00, 0x00, 0x00, 0x00, 0x00];
 
-    let s = String::fully_self_decode(&mut &buf[..]);
+    let s = String::decode(&mut &buf[..]);
 
     assert_eq!(String::new(), s.unwrap());
 }
@@ -731,14 +655,14 @@ fn decode_string_test() {
 fn test_string_consume() {
     assert_eq!(
         10,
-        String::consumed_bytes(&[0x3, 0x0, 0x0, 0x0, 0x0, 0x4, 0x1, 0x03, 0x1, 0x4]).unwrap()
+        String::get_len(&[0x3, 0x0, 0x0, 0x0, 0x0, 0x4, 0x1, 0x03, 0x1, 0x4]).unwrap()
     )
 }
 #[test]
 fn test_string_utf8() {
     let reader = vec![0x3_u8, 0x0, 0x0, 0x0, 0x0, 0x4, 240, 159, 146, 150];
 
-    let s = String::fully_self_decode(&mut &*reader).unwrap();
+    let s = String::decode(&mut &*reader).unwrap();
     assert_eq!("💖", s);
 }
 
@@ -754,12 +678,12 @@ fn decode_string_fail_test() {
 #[test]
 fn encode_int32_test() {
     let mut buf: Vec<u8> = vec![];
-    i32::MAX.write_full_qualified_bytes(&mut buf).unwrap();
+    i32::MAX.encode(&mut buf).unwrap();
 
     assert_eq!(&[0x01, 0x00, 0x7F, 0xFF, 0xFF, 0xFF][..], buf);
 
     buf.clear();
-    i32::MIN.write_full_qualified_bytes(&mut buf).unwrap();
+    i32::MIN.encode(&mut buf).unwrap();
 
     assert_eq!(&[0x01, 0x00, 0x80, 0x00, 0x00, 0x00][..], buf);
 }
@@ -772,7 +696,7 @@ fn encode_uuid_test() {
         0xff,
     ]);
 
-    uuid.write_full_qualified_bytes(&mut buf).unwrap();
+    uuid.encode(&mut buf).unwrap();
 
     assert_eq!(
         [
@@ -787,7 +711,7 @@ fn encode_uuid_test() {
 fn option_decode_test() {
     let reader: Vec<u8> = vec![0x03, 0x0, 0x0, 0x0, 0x0, 0x04, b'h', b'o', b's', b't'];
 
-    let option: Option<String> = Option::fully_self_decode(&mut &reader[..]).unwrap();
+    let option: Option<String> = Option::decode(&mut &reader[..]).unwrap();
 
     assert_eq!(option.unwrap(), String::from("host"))
 }
@@ -796,13 +720,13 @@ fn option_decode_test() {
 fn option_none_decode_test() {
     let reader: Vec<u8> = vec![0x03, 0x1];
 
-    let option: Option<String> = Option::fully_self_decode(&mut &reader[..]).unwrap();
+    let option: Option<String> = Option::decode(&mut &reader[..]).unwrap();
 
     assert!(option.is_none());
 
     let reader: Vec<u8> = vec![0xfe, 0x1];
 
-    let option: Option<String> = Option::fully_self_decode(&mut &reader[..]).unwrap();
+    let option: Option<String> = Option::decode(&mut &reader[..]).unwrap();
 
     assert!(option.is_none())
 }
@@ -811,19 +735,51 @@ fn option_none_decode_test() {
 fn option_should_fail_decode_test() {
     let reader: Vec<u8> = vec![0x04, 0x1];
 
-    let option: Result<Option<String>, _> = Option::fully_self_decode(&mut &reader[..]);
+    let option: Result<Option<String>, _> = Option::decode(&mut &reader[..]);
 
     assert!(option.is_err());
 
     let reader: Vec<u8> = vec![0xfe, 0x0];
 
-    let option: Result<Option<String>, _> = Option::fully_self_decode(&mut &reader[..]);
+    let option: Result<Option<String>, _> = Option::decode(&mut &reader[..]);
 
     assert!(option.is_err());
 
     let reader: Vec<u8> = vec![0xfe, 0x2];
 
-    let option: Result<Option<String>, _> = Option::fully_self_decode(&mut &reader[..]);
+    let option: Result<Option<String>, _> = Option::decode(&mut &reader[..]);
 
     assert!(option.is_err())
+}
+
+#[test]
+fn test3() {
+    let reader = [0x80_u8, 0x0, 0xe2, 0x99, 0xa5];
+    let c = char::decode(&mut &reader[..]).unwrap();
+
+    assert_eq!('♥', c)
+}
+
+#[test]
+fn test1() {
+    let reader = [0x80_u8, 0x0, 65];
+    let c = char::decode(&mut &reader[..]).unwrap();
+
+    assert_eq!('A', c)
+}
+
+#[test]
+fn test2() {
+    let reader = [0x80_u8, 0x0, 0xc3, 0x9f];
+    let c = char::decode(&mut &reader[..]).unwrap();
+
+    assert_eq!('ß', c)
+}
+
+#[test]
+fn test4() {
+    let reader = [0x80_u8, 0x0, 0xf0, 0x9f, 0xa6, 0x80];
+    let c = char::decode(&mut &reader[..]).unwrap();
+
+    assert_eq!('🦀', c)
 }

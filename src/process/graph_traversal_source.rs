@@ -1,31 +1,31 @@
 use std::marker::PhantomData;
 
+use serde::Deserialize;
+
 use crate::{
     graph_binary::GraphBinary,
     structure::{bytecode::ByteCode, edge::Edge, vertex::Vertex},
 };
 
 use super::{
-    params::add_element_params::AddElementParams,
+    params::{add_element_params::AddElementParams, sack_params::WithSackParam},
     traversal::{GraphTraversal, Ids},
 };
 
-pub struct GraphTraversalSource<S, E> {
-    pub start: PhantomData<S>,
+pub struct GraphTraversalSource<E> {
     pub bc: Option<ByteCode>,
     pub end: PhantomData<E>,
 }
 
-impl<S, E> GraphTraversalSource<S, E> {
+impl<'de, E> GraphTraversalSource<E> {
     pub fn new() -> Self {
         GraphTraversalSource {
-            start: PhantomData,
             bc: None,
             end: PhantomData,
         }
     }
 
-    pub fn v<I>(&mut self, ids: I) -> GraphTraversal<S, Vertex, Vertex>
+    pub fn v<I>(&mut self, ids: I) -> GraphTraversal<Vertex, Vertex>
     where
         I: Into<Ids>,
     {
@@ -41,7 +41,7 @@ impl<S, E> GraphTraversalSource<S, E> {
     pub fn add_v<L>(
         &mut self,
         vertex_label: impl AddElementParams,
-    ) -> GraphTraversal<S, Vertex, Vertex> {
+    ) -> GraphTraversal<Vertex, Vertex> {
         if let Some(mut bc) = self.bc.take() {
             vertex_label.bytecode("addV", &mut bc);
             GraphTraversal::new(bc)
@@ -52,10 +52,7 @@ impl<S, E> GraphTraversalSource<S, E> {
         }
     }
 
-    pub fn add_e<L>(
-        &mut self,
-        vertex_label: impl AddElementParams,
-    ) -> GraphTraversal<S, Edge, Edge> {
+    pub fn add_e<L>(&mut self, vertex_label: impl AddElementParams) -> GraphTraversal<Edge, Edge> {
         if let Some(mut bc) = self.bc.take() {
             vertex_label.bytecode("addE", &mut bc);
             GraphTraversal::new(bc)
@@ -66,7 +63,7 @@ impl<S, E> GraphTraversalSource<S, E> {
         }
     }
 
-    pub fn e<I: Into<Ids>>(&mut self, ids: I) -> GraphTraversal<S, Edge, Edge> {
+    pub fn e<I: Into<Ids>>(&mut self, ids: I) -> GraphTraversal<Edge, Edge> {
         if let Some(mut bc) = self.bc.take() {
             bc.add_step("E", ids.into().into());
             GraphTraversal::new(bc)
@@ -77,18 +74,42 @@ impl<S, E> GraphTraversalSource<S, E> {
         }
     }
 
-    pub fn with_computer(&mut self) -> &mut Self {
-        if let Some(ref mut bc) = self.bc {
-            bc.add_source("withComputer", vec![])
-        } else {
-            let mut bc = ByteCode::default();
-            bc.add_source("withComputer", vec![]);
-            self.bc = Some(bc)
-        }
+    pub fn with_sack(&mut self, params: impl WithSackParam) -> &mut Self {
+        let bc = self.bc.get_or_insert(ByteCode::default());
+        params.bytecode("withSack", bc);
         self
     }
 
-    pub fn inject<I: Into<GraphBinary>>(&mut self, items: I) -> GraphTraversal<S, I, I> {
+    pub fn with_computer(&mut self) -> &mut Self {
+        let bc = self.bc.get_or_insert(ByteCode::default());
+        bc.add_source("withComputer", vec![]);
+        self
+    }
+
+    pub fn with_path(&mut self) -> &mut Self {
+        let bc = self.bc.get_or_insert(ByteCode::default());
+        bc.add_source("withPath", vec![]);
+        self
+    }
+
+    pub fn with_side_effect(&mut self) -> &mut Self {
+        //TODO
+        let bc = self.bc.get_or_insert(ByteCode::default());
+        bc.add_source("withSideEffect", vec![]);
+        self
+    }
+
+    pub fn with_strategies(&mut self) -> &mut Self {
+        //TODO
+        let bc = self.bc.get_or_insert(ByteCode::default());
+        bc.add_source("withStrategies", vec![]);
+        self
+    }
+
+    pub fn inject<I: Into<GraphBinary> + Deserialize<'de>>(
+        &mut self,
+        items: I,
+    ) -> GraphTraversal<I, I> {
         if let Some(mut bc) = self.bc.take() {
             bc.add_step("V", vec![items.into()]);
             GraphTraversal::new(bc)

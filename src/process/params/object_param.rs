@@ -48,12 +48,12 @@ impl MultiObjectParam for () {
     fn extend_step(&self, _bc: &mut ByteCode) {}
 }
 
-impl<T: Into<GraphBinary> + Clone, const N: usize> MultiObjectParam for [T; N] {
-    fn bytecode(&self, step: &str, bc: &mut ByteCode) {
-        bc.add_step(step, self.iter().map(Into::into).collect())
-    }
+// impl<T, const N: usize> MultiObjectParam for [T; N] {
+//     fn bytecode(&self, step: &str, bc: &mut ByteCode) {
+//         bc.add_step(step, self.iter().map(Into::into).collect())
+//     }
 
-    fn extend_step(&self, bc: &mut ByteCode) {
-        bc.extend_last_step(self.iter())
-    }
-}
+//     fn extend_step(&self, bc: &mut ByteCode) {
+//         bc.extend_last_step(self.iter())
+//     }
+// }

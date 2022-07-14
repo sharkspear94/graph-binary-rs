@@ -1,5 +1,5 @@
 use crate::{
-    process::traversal::GraphTraversal,
+    process::bytecode_traversal::BytecodeTraversal,
     structure::{bytecode::ByteCode, vertex::Vertex},
 };
 
@@ -19,9 +19,9 @@ impl FromStepParams for &Vertex {
     }
 }
 
-impl<S> FromStepParams for GraphTraversal<S, Vertex, Vertex> {
+impl FromStepParams for BytecodeTraversal {
     fn bytecode(self, name: &str, bc: &mut ByteCode) {
-        bc.add_step(name, vec![self.bytecode.into()])
+        bc.add_step(name, vec![self.into()])
     }
 }
 

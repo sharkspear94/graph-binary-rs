@@ -1,7 +1,11 @@
 use std::collections::{BTreeSet, HashMap};
+use std::fmt::{write, Display};
 use std::io::{Read, Write};
+use std::vec;
 
 use crate::error::{DecodeError, EncodeError};
+use crate::macros::{TryBorrowFrom, TryMutBorrowFrom};
+use crate::specs;
 use crate::structure::binding::Binding;
 use crate::structure::bulkset::BulkSet;
 use crate::structure::bytecode::ByteCode;
@@ -22,6 +26,7 @@ use serde::de::Visitor;
 use serde::Deserialize;
 use uuid::Uuid;
 
+/// All possible Values supported in the [GraphBinary serialization format](https://tinkerpop.apache.org/docs/current/dev/io/#graphbinary)
 #[derive(Debug, PartialEq, Clone)]
 pub enum GraphBinary {
     Int(i32),
@@ -75,69 +80,136 @@ pub enum GraphBinary {
     Char(char),
 }
 
-pub fn build_fq_null_bytes<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
-    writer.write_all(&[CoreType::UnspecifiedNullObject.into(), 0x01])?;
+pub fn encode_null_object<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
+    const BUF: [u8; 2] = [specs::CORE_TYPE_UNSPECIFIED_NULL, specs::VALUE_FLAG_NULL];
+    writer.write_all(&BUF)?;
+    Ok(())
+}
+
+fn encode_byte_buffer<W: Write>(writer: &mut W, buf: &[u8]) -> Result<(), EncodeError> {
+    writer.write_all(&[CoreType::ByteBuffer.into(), ValueFlag::Null.into()])?;
+    let len = (buf.len() as i32).to_be_bytes();
+    writer.write_all(&len)?;
+    writer.write_all(buf)?;
     Ok(())
 }
 
 impl GraphBinary {
-    pub fn string(&self) -> Option<String> {
-        match self {
-            GraphBinary::String(s) => Some(s.clone()),
-            _ => None,
+    /// Returns an Option of an owned value if the Type was the GraphBinary variant.
+    /// Returns None if GraphBinary enum holds another Type
+    ///
+    /// ```
+    /// # use graph_binary_rs::graph_binary::GraphBinary;
+    ///
+    /// let gb1 = GraphBinary::Boolean(true);
+    /// assert_eq!(Some(true),gb1.get());
+    ///
+    /// let gb2 = GraphBinary::Boolean(true);
+    /// assert_eq!(None, gb2.get::<String>());
+    ///
+    /// ```
+    pub fn get<T: TryFrom<GraphBinary>>(self) -> Option<T> {
+        T::try_from(self).ok()
+    }
+
+    /// Returns an Option of the borrowed value if the Type was the GraphBinary variant.
+    /// Returns None if GraphBinary enum holds another Type
+    ///
+    /// ```
+    /// # use graph_binary_rs::graph_binary::GraphBinary;
+    ///
+    /// let gb = GraphBinary::String("Janus".to_string());
+    ///
+    /// assert_eq!(Some("Janus"),gb.get_ref());
+    /// assert_eq!(Some(&String::from("Janus")),gb.get_ref());
+    /// assert_eq!(None, gb.get_ref::<bool>());
+    ///
+    /// ```
+    pub fn get_ref<T: TryBorrowFrom + ?Sized>(&self) -> Option<&T> {
+        T::try_borrow_from(self)
+    }
+
+    /// Returns an Option of the mutable borrowed value if the Type was the GraphBinary variant.
+    /// Returns None if GraphBinary enum holds another Type
+    ///
+    /// ```
+    /// # use graph_binary_rs::graph_binary::GraphBinary;
+    ///
+    /// let mut gb = GraphBinary::String("Janus".to_string());
+    ///
+    /// let s = gb.get_mut_ref::<String>().unwrap();
+    /// s.push_str("Graph");
+    ///
+    /// assert_eq!(Some(&String::from("JanusGraph")),gb.get_ref());
+    /// assert_eq!(None, gb.get_ref::<bool>());
+    ///
+    /// ```
+    pub fn get_mut_ref<T: TryMutBorrowFrom + ?Sized>(&mut self) -> Option<&mut T> {
+        T::try_mut_borrow_from(self)
+    }
+
+    pub fn exceptions(&self) -> Option<&str> {
+        if let Some(l) = self.get_ref::<Vec<_>>() {
+            l.iter().filter_map(|s| s.get_ref()).next()
+        } else {
+            None
         }
+    }
+
+    pub fn display_results(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Results: ")
     }
 
     pub fn build_fq_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         match self {
-            GraphBinary::Int(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Long(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::String(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Int(val) => val.encode(writer),
+            GraphBinary::Long(val) => val.encode(writer),
+            GraphBinary::String(val) => val.encode(writer),
             // CoreType::Date(_) => todo!(),
             // CoreType::Timestamp(_) => todo!(),
-            GraphBinary::Class(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Double(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Float(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::List(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Set(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Map(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Uuid(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Edge(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Path(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Property(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Graph(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Vertex(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::VertexProperty(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Barrier(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Binding(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::ByteCode(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Cardinality(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Column(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Direction(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Operator(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Order(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Pick(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Pop(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Lambda(val) => todo!(),
-            GraphBinary::P(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Scope(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::T(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Traverser(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Class(val) => val.encode(writer),
+            GraphBinary::Double(val) => val.encode(writer),
+            GraphBinary::Float(val) => val.encode(writer),
+            GraphBinary::List(val) => val.encode(writer),
+            GraphBinary::Set(val) => val.encode(writer),
+            GraphBinary::Map(val) => val.encode(writer),
+            GraphBinary::Uuid(val) => val.encode(writer),
+            GraphBinary::Edge(val) => val.encode(writer),
+            GraphBinary::Path(val) => val.encode(writer),
+            GraphBinary::Property(val) => val.encode(writer),
+            GraphBinary::Graph(val) => val.encode(writer),
+            GraphBinary::Vertex(val) => val.encode(writer),
+            GraphBinary::VertexProperty(val) => val.encode(writer),
+            GraphBinary::Barrier(val) => val.encode(writer),
+            GraphBinary::Binding(val) => val.encode(writer),
+            GraphBinary::ByteCode(val) => val.encode(writer),
+            GraphBinary::Cardinality(val) => val.encode(writer),
+            GraphBinary::Column(val) => val.encode(writer),
+            GraphBinary::Direction(val) => val.encode(writer),
+            GraphBinary::Operator(val) => val.encode(writer),
+            GraphBinary::Order(val) => val.encode(writer),
+            GraphBinary::Pick(val) => val.encode(writer),
+            GraphBinary::Pop(val) => val.encode(writer),
+            GraphBinary::Lambda(val) => val.encode(writer),
+            GraphBinary::P(val) => val.encode(writer),
+            GraphBinary::Scope(val) => val.encode(writer),
+            GraphBinary::T(val) => val.encode(writer),
+            GraphBinary::Traverser(val) => val.encode(writer),
             // GraphBinary::BigDecimal(_) => todo!(),
             // GraphBinary::BigInteger(_) => todo!(),
-            GraphBinary::Byte(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::ByteBuffer(buf) => todo!(),
-            GraphBinary::Short(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Boolean(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::TextP(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::TraversalStrategy(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Byte(val) => val.encode(writer),
+            GraphBinary::ByteBuffer(buf) => encode_byte_buffer(writer, buf),
+            GraphBinary::Short(val) => val.encode(writer),
+            GraphBinary::Boolean(val) => val.encode(writer),
+            GraphBinary::TextP(val) => val.encode(writer),
+            GraphBinary::TraversalStrategy(val) => val.encode(writer),
             GraphBinary::BulkSet(_) => todo!(),
             GraphBinary::Tree(_) => todo!(),
-            GraphBinary::Metrics(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::TraversalMetrics(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::Merge(val) => val.write_full_qualified_bytes(writer),
-            GraphBinary::UnspecifiedNullObject => build_fq_null_bytes(writer),
-            GraphBinary::Char(val) => val.write_full_qualified_bytes(writer),
+            GraphBinary::Metrics(val) => val.encode(writer),
+            GraphBinary::TraversalMetrics(val) => val.encode(writer),
+            GraphBinary::Merge(val) => val.encode(writer),
+            GraphBinary::UnspecifiedNullObject => encode_null_object(writer),
+            GraphBinary::Char(val) => val.encode(writer),
             // GraphBinary::Custom => todo!(),
             // _ =>  Bytes::new()
         }
@@ -209,66 +281,66 @@ impl Decode for GraphBinary {
     }
 
     fn expected_type_code() -> u8 {
-        unimplemented!()
+        unimplemented!("expected type code is not supported for GraphBinary")
     }
 
-    fn fully_self_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    fn decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
         decode(reader)
     }
 
-    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
         unimplemented!("partial_count_bytes is not supported for GraphBinary")
     }
 
-    fn consumed_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
+    fn get_len(bytes: &[u8]) -> Result<usize, DecodeError> {
         match CoreType::try_from(bytes[0])? {
-            CoreType::Int32 => i32::consumed_bytes(bytes),
-            CoreType::Long => i64::consumed_bytes(bytes),
-            CoreType::String => String::consumed_bytes(bytes),
-            CoreType::Class => String::consumed_bytes(bytes),
-            CoreType::Double => f64::consumed_bytes(bytes),
-            CoreType::Float => f32::consumed_bytes(bytes),
-            CoreType::List => Vec::<GraphBinary>::consumed_bytes(bytes),
-            CoreType::Set => Vec::<GraphBinary>::consumed_bytes(bytes),
-            CoreType::Map => HashMap::<MapKeys, GraphBinary>::consumed_bytes(bytes),
-            CoreType::Uuid => Uuid::consumed_bytes(bytes),
-            CoreType::Edge => Edge::consumed_bytes(bytes),
-            CoreType::Path => Path::consumed_bytes(bytes),
-            CoreType::Property => Property::consumed_bytes(bytes),
-            CoreType::Graph => Graph::consumed_bytes(bytes),
-            CoreType::Vertex => Vertex::consumed_bytes(bytes),
-            CoreType::VertexProperty => VertexProperty::consumed_bytes(bytes),
-            CoreType::Barrier => Barrier::consumed_bytes(bytes),
-            CoreType::Binding => Binding::consumed_bytes(bytes),
-            CoreType::ByteCode => ByteCode::consumed_bytes(bytes),
-            CoreType::Cardinality => Cardinality::consumed_bytes(bytes),
-            CoreType::Column => Column::consumed_bytes(bytes),
-            CoreType::Direction => Direction::consumed_bytes(bytes),
-            CoreType::Operator => Operator::consumed_bytes(bytes),
-            CoreType::Order => Order::consumed_bytes(bytes),
-            CoreType::Pick => Pick::consumed_bytes(bytes),
-            CoreType::Pop => Pop::consumed_bytes(bytes),
+            CoreType::Int32 => i32::get_len(bytes),
+            CoreType::Long => i64::get_len(bytes),
+            CoreType::String => String::get_len(bytes),
+            CoreType::Class => String::get_len(bytes),
+            CoreType::Double => f64::get_len(bytes),
+            CoreType::Float => f32::get_len(bytes),
+            CoreType::List => Vec::<GraphBinary>::get_len(bytes),
+            CoreType::Set => Vec::<GraphBinary>::get_len(bytes),
+            CoreType::Map => HashMap::<MapKeys, GraphBinary>::get_len(bytes),
+            CoreType::Uuid => Uuid::get_len(bytes),
+            CoreType::Edge => Edge::get_len(bytes),
+            CoreType::Path => Path::get_len(bytes),
+            CoreType::Property => Property::get_len(bytes),
+            CoreType::Graph => Graph::get_len(bytes),
+            CoreType::Vertex => Vertex::get_len(bytes),
+            CoreType::VertexProperty => VertexProperty::get_len(bytes),
+            CoreType::Barrier => Barrier::get_len(bytes),
+            CoreType::Binding => Binding::get_len(bytes),
+            CoreType::ByteCode => ByteCode::get_len(bytes),
+            CoreType::Cardinality => Cardinality::get_len(bytes),
+            CoreType::Column => Column::get_len(bytes),
+            CoreType::Direction => Direction::get_len(bytes),
+            CoreType::Operator => Operator::get_len(bytes),
+            CoreType::Order => Order::get_len(bytes),
+            CoreType::Pick => Pick::get_len(bytes),
+            CoreType::Pop => Pop::get_len(bytes),
             CoreType::Lambda => todo!(),
-            CoreType::P => P::consumed_bytes(bytes),
-            CoreType::Scope => Scope::consumed_bytes(bytes),
-            CoreType::T => T::consumed_bytes(bytes),
-            CoreType::Traverser => Traverser::consumed_bytes(bytes),
-            CoreType::Byte => u8::consumed_bytes(bytes),
+            CoreType::P => P::get_len(bytes),
+            CoreType::Scope => Scope::get_len(bytes),
+            CoreType::T => T::get_len(bytes),
+            CoreType::Traverser => Traverser::get_len(bytes),
+            CoreType::Byte => u8::get_len(bytes),
             CoreType::ByteBuffer => todo!(),
-            CoreType::Short => i16::consumed_bytes(bytes),
-            CoreType::Boolean => bool::consumed_bytes(bytes),
-            CoreType::TextP => TextP::consumed_bytes(bytes),
-            CoreType::TraversalStrategy => todo!(), // TraversalStrategy::consumed_bytes(bytes),
-            CoreType::Tree => todo!(),              //Tree::consumed_bytes(bytes),
-            CoreType::Metrics => Metrics::consumed_bytes(bytes),
-            CoreType::TraversalMetrics => TraversalMetrics::consumed_bytes(bytes),
+            CoreType::Short => i16::get_len(bytes),
+            CoreType::Boolean => bool::get_len(bytes),
+            CoreType::TextP => TextP::get_len(bytes),
+            CoreType::TraversalStrategy => TraversalStrategy::get_len(bytes),
+            CoreType::Tree => todo!(), //Tree::consumed_bytes(bytes),
+            CoreType::Metrics => Metrics::get_len(bytes),
+            CoreType::TraversalMetrics => TraversalMetrics::get_len(bytes),
             CoreType::BulkSet => todo!(),
-            CoreType::Merge => Merge::consumed_bytes(bytes),
+            CoreType::Merge => Merge::get_len(bytes),
             CoreType::UnspecifiedNullObject => Ok(2),
-            CoreType::Char => char::consumed_bytes(bytes),
+            CoreType::Char => char::get_len(bytes),
         }
     }
 }
@@ -278,11 +350,11 @@ impl Encode for GraphBinary {
         todo!()
     }
 
-    fn write_patial_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn partial_encode<W: Write>(&self, _writer: &mut W) -> Result<(), EncodeError> {
         todo!()
     }
 
-    fn write_full_qualified_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn encode<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         self.build_fq_bytes(writer)
     }
 }
@@ -317,6 +389,12 @@ impl From<MapKeys> for GraphBinary {
 impl<T: Into<GraphBinary> + Clone> From<&T> for GraphBinary {
     fn from(t: &T) -> Self {
         t.clone().into()
+    }
+}
+
+impl<T: Into<GraphBinary>, const N: usize> From<[T; N]> for GraphBinary {
+    fn from(array: [T; N]) -> Self {
+        GraphBinary::List(array.into_iter().map(Into::into).collect())
     }
 }
 
@@ -374,25 +452,25 @@ impl Encode for MapKeys {
         unimplemented!()
     }
 
-    fn write_patial_bytes<W: Write>(&self, _writer: &mut W) -> Result<(), EncodeError> {
+    fn partial_encode<W: Write>(&self, _writer: &mut W) -> Result<(), EncodeError> {
         todo!()
     }
 
-    fn write_full_qualified_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+    fn encode<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         match self {
-            MapKeys::Int(val) => val.write_full_qualified_bytes(writer),
-            MapKeys::String(val) => val.write_full_qualified_bytes(writer),
-            MapKeys::Long(val) => val.write_full_qualified_bytes(writer),
-            MapKeys::Uuid(val) => val.write_full_qualified_bytes(writer),
-            MapKeys::T(val) => val.write_full_qualified_bytes(writer),
-            MapKeys::Direction(val) => val.write_full_qualified_bytes(writer),
+            MapKeys::Int(val) => val.encode(writer),
+            MapKeys::String(val) => val.encode(writer),
+            MapKeys::Long(val) => val.encode(writer),
+            MapKeys::Uuid(val) => val.encode(writer),
+            MapKeys::T(val) => val.encode(writer),
+            MapKeys::Direction(val) => val.encode(writer),
         }
     }
 }
 
 impl Decode for MapKeys {
     fn expected_type_code() -> u8 {
-        unimplemented!()
+        unimplemented!("MapKeys is a collection of different GrapBinary Keys")
     }
 
     fn partial_decode<R: Read>(_reader: &mut R) -> Result<Self, DecodeError>
@@ -402,20 +480,20 @@ impl Decode for MapKeys {
         unimplemented!()
     }
 
-    fn fully_self_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    fn decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
-        let key = GraphBinary::fully_self_decode(reader)?;
+        let key = GraphBinary::decode(reader)?;
         MapKeys::try_from(key)
     }
 
-    fn partial_count_bytes(_bytes: &[u8]) -> Result<usize, DecodeError> {
+    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
         unimplemented!("use consume_bytes insted")
     }
 
-    fn consumed_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
-        GraphBinary::consumed_bytes(bytes)
+    fn get_len(bytes: &[u8]) -> Result<usize, DecodeError> {
+        GraphBinary::get_len(bytes)
     }
 }
 
@@ -486,7 +564,7 @@ impl serde::ser::Serialize for MapKeys {
         S: serde::Serializer,
     {
         let mut buf: Vec<u8> = Vec::with_capacity(64);
-        match self.write_full_qualified_bytes(&mut buf) {
+        match self.encode(&mut buf) {
             Ok(_) => serializer.serialize_bytes(&buf),
             Err(e) => Err(serde::ser::Error::custom(format!(
                 "serilization Error of MapKeys: reason: {}",
@@ -546,7 +624,7 @@ pub fn decode<R: Read>(reader: &mut R) -> Result<GraphBinary, DecodeError> {
         (CoreType::Lambda, _) => Ok(GraphBinary::Lambda(Lambda::partial_decode(reader)?)),
         (CoreType::Traverser, _) => Ok(GraphBinary::Traverser(Traverser::partial_decode(reader)?)),
         (CoreType::Byte, _) => Ok(GraphBinary::Byte(u8::partial_decode(reader)?)),
-        (CoreType::ByteBuffer, _) => todo!(),
+        (CoreType::ByteBuffer, _) => partial_decode_byte_buffer(reader),
         (CoreType::TextP, _) => Ok(GraphBinary::TextP(TextP::partial_decode(reader)?)),
         (CoreType::TraversalStrategy, _) => Ok(GraphBinary::TraversalStrategy(
             TraversalStrategy::partial_decode(reader)?,
@@ -564,6 +642,13 @@ pub fn decode<R: Read>(reader: &mut R) -> Result<GraphBinary, DecodeError> {
         )),
         (CoreType::Char, _) => Ok(GraphBinary::Char(char::partial_decode(reader)?)),
     }
+}
+
+fn partial_decode_byte_buffer<R: Read>(reader: &mut R) -> Result<GraphBinary, DecodeError> {
+    let len = i32::partial_decode(reader)?;
+    let mut buf = vec![0; len as usize];
+    reader.read_exact(&mut buf)?;
+    Ok(GraphBinary::ByteBuffer(buf))
 }
 
 #[repr(u8)]
@@ -634,7 +719,7 @@ pub trait Decode {
     where
         Self: std::marker::Sized;
 
-    fn fully_self_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    fn decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -651,14 +736,14 @@ pub trait Decode {
         }
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError>;
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError>;
 
-    fn consumed_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
-        let partial_bytes = Self::partial_count_bytes(&bytes[2..])?;
+    fn get_len(bytes: &[u8]) -> Result<usize, DecodeError> {
+        let partial_bytes = Self::get_partial_len(&bytes[2..])?;
         Ok(partial_bytes + 2)
     }
 
-    fn partial_nullable_decode<R: Read>(reader: &mut R) -> Result<Option<Self>, DecodeError>
+    fn nullable_decode<R: Read>(reader: &mut R) -> Result<Option<Self>, DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -678,21 +763,21 @@ pub trait Decode {
 pub trait Encode {
     fn type_code() -> u8;
 
-    fn write_patial_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError>;
+    fn partial_encode<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError>;
 
-    fn write_full_qualified_null_bytes<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
-        writer.write_all(&[Self::type_code(), 0x01])?;
+    fn null_encode<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
+        writer.write_all(&[Self::type_code(), ValueFlag::Null.into()])?;
         Ok(())
     }
 
-    fn write_full_qualified_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
-        writer.write_all(&[Self::type_code(), 0x00])?;
-        self.write_patial_bytes(writer)
+    fn encode<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+        writer.write_all(&[Self::type_code(), ValueFlag::Set.into()])?;
+        self.partial_encode(writer)
     }
 
-    fn write_nullable_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
-        writer.write_all(&[0x00])?;
-        self.write_patial_bytes(writer)
+    fn nullable_encode<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+        writer.write_all(&[ValueFlag::Set.into()])?;
+        self.partial_encode(writer)
     }
     fn write_partial_nullable_bytes<W: Write>(&self, _writer: &mut W) -> Result<(), EncodeError> {
         unimplemented!("this Method should only be called from Option<T>")
@@ -702,10 +787,39 @@ pub trait Encode {
 #[test]
 fn testing() {
     let mut buf: Vec<u8> = vec![];
-    15_i32.write_patial_bytes(&mut buf).unwrap();
+    15_i32.partial_encode(&mut buf).unwrap();
     assert_eq!([0x00, 0x00, 0x00, 0x0F], buf.as_slice());
 
     buf.clear();
-    15_i32.write_full_qualified_bytes(&mut buf).unwrap();
+    15_i32.encode(&mut buf).unwrap();
     assert_eq!([0x01, 0x00, 0x00, 0x00, 0x00, 0x0F], buf.as_slice());
+}
+
+#[test]
+fn test_byte_buffer_decode() {
+    let buf = [
+        CoreType::ByteBuffer.into(),
+        0x0,
+        0x0,
+        0x0,
+        0x0,
+        0x6,
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+    ];
+
+    let gb = GraphBinary::decode(&mut &buf[..]);
+    assert_eq!(
+        GraphBinary::ByteBuffer(vec![100, 101, 102, 103, 104, 105]),
+        gb.unwrap()
+    );
+
+    let buf_0 = [CoreType::ByteBuffer.into(), 0x0, 0x0, 0x0, 0x0, 0x0];
+
+    let gb = GraphBinary::decode(&mut &buf_0[..]);
+    assert_eq!(GraphBinary::ByteBuffer(vec![]), gb.unwrap())
 }

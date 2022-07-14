@@ -1,4 +1,5 @@
 use crate::{
+    conversions,
     graph_binary::{Decode, Encode, GraphBinary},
     specs::CoreType,
     struct_de_serialize,
@@ -61,21 +62,21 @@ impl Encode for ByteCode {
         CoreType::ByteCode.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(
+    fn partial_encode<W: std::io::Write>(
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
         let len = self.steps.len() as i32;
-        len.write_patial_bytes(writer)?;
+        len.partial_encode(writer)?;
         for step in &self.steps {
-            step.name.write_patial_bytes(writer)?;
-            step.values.write_patial_bytes(writer)?;
+            step.name.partial_encode(writer)?;
+            step.values.partial_encode(writer)?;
         }
         let len = self.sources.len() as i32;
-        len.write_patial_bytes(writer)?;
+        len.partial_encode(writer)?;
         for source in &self.sources {
-            source.name.write_patial_bytes(writer)?;
-            source.values.write_patial_bytes(writer)?;
+            source.name.partial_encode(writer)?;
+            source.values.partial_encode(writer)?;
         }
         Ok(())
     }
@@ -109,23 +110,24 @@ impl Decode for ByteCode {
         Ok(ByteCode { steps, sources })
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
         let t: [u8; 4] = bytes[0..4].try_into()?;
         let steps_len = i32::from_be_bytes(t);
         let mut len = 4;
         for _ in 0..steps_len {
-            len += String::partial_count_bytes(&bytes[len..])?;
-            len += Vec::<GraphBinary>::partial_count_bytes(&bytes[len..])?;
+            len += String::get_partial_len(&bytes[len..])?;
+            len += Vec::<GraphBinary>::get_partial_len(&bytes[len..])?;
         }
         let t: [u8; 4] = bytes[len..len + 4].try_into()?;
         let sources_len = i32::from_be_bytes(t);
         len += 4;
         for _ in 0..sources_len {
-            len += String::partial_count_bytes(&bytes[len..])?;
-            len += Vec::<GraphBinary>::partial_count_bytes(&bytes[len..])?;
+            len += String::get_partial_len(&bytes[len..])?;
+            len += Vec::<GraphBinary>::get_partial_len(&bytes[len..])?;
         }
         Ok(len)
     }
 }
 
 struct_de_serialize!((ByteCode, ByteCodeVisitor, 32));
+conversions!((ByteCode, ByteCode));

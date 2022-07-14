@@ -1,3 +1,5 @@
 /target
 Cargo.lock
-gremlin_types/target
+test.sh
+/gremlin_types/target
+/gremlin_types/Cargo.lock

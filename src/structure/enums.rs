@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use serde::Deserialize;
 
 use crate::{
@@ -23,7 +25,7 @@ impl TryFrom<&str> for Barrier {
 }
 
 impl Barrier {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Barrier::NormSack => "normSack",
         }
@@ -51,7 +53,7 @@ impl TryFrom<&str> for Cardinality {
 }
 
 impl Cardinality {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Cardinality::List => "list",
             Cardinality::Set => "set",
@@ -67,7 +69,7 @@ pub enum Column {
 }
 
 impl Column {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Column::Keys => "keys",
             Column::Values => "values",
@@ -108,7 +110,7 @@ impl TryFrom<&str> for Direction {
 }
 
 impl Direction {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Direction::Both => "BOTH",
             Direction::In => "IN",
@@ -140,7 +142,7 @@ pub enum Operator {
 }
 
 impl Operator {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Operator::AddAll => "addAll",
             Operator::And => "and",
@@ -199,7 +201,7 @@ impl TryFrom<&str> for Order {
 }
 
 impl Order {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Order::Shuffle => "shuffle",
             Order::Asc => "asc",
@@ -227,7 +229,7 @@ impl TryFrom<&str> for Pick {
 }
 
 impl Pick {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Pick::Any => "any",
             Pick::None => "none",
@@ -258,7 +260,7 @@ impl TryFrom<&str> for Pop {
 }
 
 impl Pop {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Pop::All => "all",
             Pop::First => "first",
@@ -282,6 +284,89 @@ pub enum P {
     Within(Vec<GraphBinary>),
     Without(Vec<GraphBinary>),
 }
+pub struct PublicP<T: Into<GraphBinary> + Clone> {
+    p: P,
+    marker: PhantomData<T>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum PublicP2<V: Into<GraphBinary>> {
+    Eq(T),
+    Neq(T),
+    Lt(T),
+    Lte(T),
+    Gt(T),
+    Gte(T),
+    Inside((V, V)),
+    Outside((V, V)),
+    Between((V, V)),
+    Within(Vec<V>),
+    Without(Vec<V>),
+}
+
+impl<V: Into<GraphBinary>> PublicP2<V> {
+    pub fn into_p(self) -> P {
+        match self {
+            PublicP2::Eq(val) => P::Eq(Box::new(val.into())),
+            PublicP2::Neq(val) => P::Neq(Box::new(val.into())),
+            PublicP2::Lt(val) => P::Lt(Box::new(val.into())),
+            PublicP2::Lte(val) => P::Lte(Box::new(val.into())),
+            PublicP2::Gt(val) => P::Gt(Box::new(val.into())),
+            PublicP2::Gte(val) => P::Gte(Box::new(val.into())),
+            PublicP2::Inside(val) => P::Inside(Box::new((val.0.into(), val.1.into()))),
+            PublicP2::Outside(val) => P::Outside(Box::new((val.0.into(), val.1.into()))),
+            PublicP2::Between(val) => P::Between(Box::new((val.0.into(), val.1.into()))),
+            PublicP2::Within(val) => P::Within(val.into_iter().map(Into::into).collect()),
+            PublicP2::Without(val) => P::Without(val.into_iter().map(Into::into).collect()),
+        }
+    }
+}
+
+impl<T: Into<GraphBinary> + Clone> PublicP<T> {
+    pub fn eq(val: T) -> P {
+        P::Eq(Box::new(val.into()))
+    }
+    pub fn neq(val: T) -> P {
+        P::Neq(Box::new(val.into()))
+    }
+
+    pub fn lt(val: T) -> P {
+        P::Lt(Box::new(val.into()))
+    }
+
+    pub fn lte(val: T) -> P {
+        P::Lte(Box::new(val.into()))
+    }
+
+    pub fn gt(val: T) -> P {
+        P::Gt(Box::new(val.into()))
+    }
+
+    pub fn gte(val: T) -> P {
+        P::Gte(Box::new(val.into()))
+    }
+
+    pub fn between(lower: T, upper: T) -> P {
+        P::Between(Box::new((lower.into(), upper.into())))
+    }
+
+    pub fn inside(lower: T, upper: T) -> P {
+        P::Inside(Box::new((lower.into(), upper.into())))
+    }
+
+    pub fn outside(lower: T, upper: T) -> P {
+        P::Outside(Box::new((lower.into(), upper.into())))
+    }
+
+    pub fn within(val: &[T]) -> P {
+        P::Within(val.iter().map(Into::into).collect())
+    }
+
+    pub fn without(val: &[T]) -> P {
+        P::Without(val.iter().map(Into::into).collect())
+    }
+}
+
 impl From<P> for GraphBinary {
     fn from(p: P) -> Self {
         GraphBinary::P(p)
@@ -343,30 +428,30 @@ impl P {
             P::Gt(v) => write_name_value("gt", v, writer),
             P::Gte(v) => write_name_value("gte", v, writer),
             P::Inside(v) => {
-                "inside".write_full_qualified_bytes(writer)?;
-                2_i32.write_patial_bytes(writer)?; // len of tuple only len = 2 will be used
-                v.0.write_full_qualified_bytes(writer)?;
-                v.1.write_full_qualified_bytes(writer)
+                "inside".encode(writer)?;
+                2_i32.partial_encode(writer)?; // len of tuple only len = 2 will be used
+                v.0.encode(writer)?;
+                v.1.encode(writer)
             }
             P::Outside(v) => {
-                "outside".write_full_qualified_bytes(writer)?;
-                2_i32.write_patial_bytes(writer)?; // len of tuple only len = 2 will be used
-                v.0.write_full_qualified_bytes(writer)?;
-                v.1.write_full_qualified_bytes(writer)
+                "outside".encode(writer)?;
+                2_i32.partial_encode(writer)?; // len of tuple only len = 2 will be used
+                v.0.encode(writer)?;
+                v.1.encode(writer)
             }
             P::Between(v) => {
-                "between".write_full_qualified_bytes(writer)?;
-                2_i32.write_patial_bytes(writer)?; // len of tuple only len = 2 will be used
-                v.0.write_full_qualified_bytes(writer)?;
-                v.1.write_full_qualified_bytes(writer)
+                "between".encode(writer)?;
+                2_i32.partial_encode(writer)?; // len of tuple only len = 2 will be used
+                v.0.encode(writer)?;
+                v.1.encode(writer)
             }
             P::Within(v) => {
-                "within".write_full_qualified_bytes(writer)?;
-                v.write_patial_bytes(writer)
+                "within".encode(writer)?;
+                v.partial_encode(writer)
             }
             P::Without(v) => {
-                "without".write_full_qualified_bytes(writer)?;
-                v.write_patial_bytes(writer)
+                "without".encode(writer)?;
+                v.partial_encode(writer)
             }
         }
     }
@@ -377,9 +462,9 @@ fn write_name_value<W: std::io::Write>(
     value: &GraphBinary,
     writer: &mut W,
 ) -> Result<(), crate::error::EncodeError> {
-    name.write_patial_bytes(writer)?;
-    1_i32.write_patial_bytes(writer)?; // value length
-    value.build_fq_bytes(writer)
+    name.partial_encode(writer)?;
+    1_i32.partial_encode(writer)?; // value length
+    value.encode(writer)
 }
 
 impl Encode for P {
@@ -387,7 +472,7 @@ impl Encode for P {
         CoreType::P.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(
+    fn partial_encode<W: std::io::Write>(
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
@@ -401,8 +486,7 @@ impl serde::Serialize for P {
         S: serde::Serializer,
     {
         let mut buf = Vec::with_capacity(32);
-        self.write_full_qualified_bytes(&mut buf)
-            .expect("error during write of P");
+        self.encode(&mut buf).expect("error during write of P");
         serializer.serialize_bytes(&buf[..])
     }
 }
@@ -416,7 +500,7 @@ impl Decode for P {
     where
         Self: std::marker::Sized,
     {
-        match String::fully_self_decode(reader)?.as_str() {
+        match String::decode(reader)?.as_str() {
             "eq" => Ok({
                 i32::partial_decode(reader)?;
                 P::Eq(Box::new(decode(reader)?))
@@ -462,9 +546,9 @@ impl Decode for P {
         }
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
-        let mut len = String::consumed_bytes(bytes)?;
-        len += Vec::<GraphBinary>::partial_count_bytes(&bytes[len..])?;
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError> {
+        let mut len = String::get_len(bytes)?;
+        len += Vec::<GraphBinary>::get_partial_len(&bytes[len..])?;
         Ok(len)
     }
 }
@@ -476,7 +560,7 @@ pub enum Scope {
 }
 
 impl Scope {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Scope::Local => "local",
             Scope::Global => "global",
@@ -505,7 +589,7 @@ pub enum T {
 }
 
 impl T {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             T::Id => "id",
             T::Key => "key",
@@ -579,8 +663,8 @@ fn combine_text_value<W: std::io::Write>(
     value: &[GraphBinary],
     writer: &mut W,
 ) -> Result<(), crate::error::EncodeError> {
-    name.write_patial_bytes(writer)?;
-    value.write_patial_bytes(writer)
+    name.partial_encode(writer)?;
+    value.partial_encode(writer)
 }
 
 impl Encode for TextP {
@@ -588,7 +672,7 @@ impl Encode for TextP {
         CoreType::TextP.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(
+    fn partial_encode<W: std::io::Write>(
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
@@ -611,8 +695,7 @@ impl serde::Serialize for TextP {
         S: serde::Serializer,
     {
         let mut buf = Vec::with_capacity(32);
-        self.write_full_qualified_bytes(&mut buf)
-            .expect("error during write of TextP");
+        self.encode(&mut buf).expect("error during write of TextP");
         serializer.serialize_bytes(&buf[..])
     }
 }
@@ -626,7 +709,7 @@ impl Decode for TextP {
     where
         Self: std::marker::Sized,
     {
-        match String::fully_self_decode(reader)?.as_str() {
+        match String::decode(reader)?.as_str() {
             "startingWith" => Ok(TextP::StartingWith(Vec::partial_decode(reader)?)),
             "endingWith" => Ok(TextP::EndingWith(Vec::partial_decode(reader)?)),
             "containing" => Ok(TextP::Containing(Vec::partial_decode(reader)?)),
@@ -641,9 +724,9 @@ impl Decode for TextP {
             ))),
         }
     }
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
-        let mut len = String::consumed_bytes(bytes)?;
-        len += Vec::<GraphBinary>::partial_count_bytes(&bytes[len..])?;
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError> {
+        let mut len = String::get_len(bytes)?;
+        len += Vec::<GraphBinary>::get_partial_len(&bytes[len..])?;
         Ok(len)
     }
 }
@@ -655,7 +738,7 @@ pub enum Merge {
 }
 
 impl Merge {
-    fn to_str(&self) -> &str {
+    fn as_str(&self) -> &str {
         match self {
             Merge::OnCreate => "onCreate",
             Merge::OnMatch => "onMatch",
@@ -701,7 +784,7 @@ macro_rules! enum_deserialize {
                 where
                     E: serde::de::Error,
                 {
-                    match $t::fully_self_decode(&mut v) {
+                    match $t::decode(&mut v) {
                         Ok(val) => Ok(val),
                         Err(_) => Err(E::custom(concat!(stringify!($t)," Visitor Decode Error"))),
                     }
@@ -721,8 +804,8 @@ macro_rules! de_serialize_impls {
                 CoreType::$t.into()
             }
 
-            fn write_patial_bytes<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
-                self.to_str().write_full_qualified_bytes(writer)
+            fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), crate::error::EncodeError> {
+                self.as_str().encode(writer)
             }
         }
 
@@ -736,11 +819,11 @@ macro_rules! de_serialize_impls {
             where
                 Self: std::marker::Sized,
             {
-                $t::try_from(String::fully_self_decode(reader)?.as_str())
+                $t::try_from(String::decode(reader)?.as_str())
             }
 
-            fn partial_count_bytes(bytes: &[u8]) -> Result<usize, DecodeError> {
-                String::consumed_bytes(bytes)
+            fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError> {
+                String::get_len(bytes)
             }
         }
 
@@ -750,7 +833,7 @@ macro_rules! de_serialize_impls {
                 S: serde::Serializer,
             {
                 let mut buf = Vec::with_capacity(16);
-                self.write_full_qualified_bytes(&mut buf)
+                self.encode(&mut buf)
                     .expect(concat!("error during write of ", stringify!($t)));
                 serializer.serialize_bytes(&buf[..])
             }
@@ -759,6 +842,37 @@ macro_rules! de_serialize_impls {
         impl From<$t> for GraphBinary {
             fn from(val: $t) -> Self {
                 GraphBinary::$t(val)
+            }
+        }
+
+        impl TryFrom<GraphBinary> for $t {
+            type Error = crate::error::DecodeError;
+
+            fn try_from(value: GraphBinary) -> Result<Self, Self::Error> {
+                match value {
+                    GraphBinary::$t(val) => Ok(val),
+                    _ => Err(crate::error::DecodeError::ConvertError(
+                        format!("cannot convert GraphBinary to {}",stringify!($t))
+                    )),
+                }
+            }
+        }
+
+        impl crate::macros::TryBorrowFrom for $t {
+            fn try_borrow_from(graph_binary: &GraphBinary) -> Option<&Self> {
+                match graph_binary {
+                    GraphBinary::$t(val) => Some(val),
+                    _ => None
+                }
+            }
+        }
+
+        impl crate::macros::TryMutBorrowFrom for $t {
+            fn try_mut_borrow_from(graph_binary: &mut GraphBinary) -> Option<&mut Self> {
+                match graph_binary {
+                    GraphBinary::$t(val) => Some(val),
+                    _ => None
+                }
             }
         }
 
@@ -825,7 +939,7 @@ fn text_p_fq_decode_test() {
         b's', b't',
     ];
 
-    let p = TextP::fully_self_decode(&mut &reader[..]);
+    let p = TextP::decode(&mut &reader[..]);
 
     assert_eq!(TextP::StartingWith(vec!["test".into()]), p.unwrap());
 }
@@ -838,7 +952,7 @@ fn text_p_consumed_bytes() {
         b's', b't',
     ];
 
-    let p = TextP::consumed_bytes(&reader);
+    let p = TextP::get_len(&reader);
 
     assert_eq!(reader.len(), p.unwrap());
 }

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
+    conversions,
     graph_binary::{Decode, Encode, GraphBinary},
     specs::CoreType,
     struct_de_serialize,
@@ -21,16 +22,16 @@ impl Encode for Metrics {
         CoreType::Metrics.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(
+    fn partial_encode<W: std::io::Write>(
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
-        self.id.write_patial_bytes(writer)?;
-        self.name.write_patial_bytes(writer)?;
-        self.duration.write_patial_bytes(writer)?;
-        self.counts.write_patial_bytes(writer)?;
-        self.annotation.write_patial_bytes(writer)?;
-        self.nested_metrics.write_patial_bytes(writer)
+        self.id.partial_encode(writer)?;
+        self.name.partial_encode(writer)?;
+        self.duration.partial_encode(writer)?;
+        self.counts.partial_encode(writer)?;
+        self.annotation.partial_encode(writer)?;
+        self.nested_metrics.partial_encode(writer)
     }
 }
 
@@ -60,13 +61,13 @@ impl Decode for Metrics {
         })
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = String::partial_count_bytes(bytes)?;
-        len += String::partial_count_bytes(&bytes[len..])?;
-        len += i64::partial_count_bytes(&bytes[len..])?;
-        len += HashMap::<String, i64>::partial_count_bytes(&bytes[len..])?;
-        len += HashMap::<String, GraphBinary>::partial_count_bytes(&bytes[len..])?;
-        len += Vec::<Metrics>::partial_count_bytes(&bytes[len..])?;
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
+        let mut len = String::get_partial_len(bytes)?;
+        len += String::get_partial_len(&bytes[len..])?;
+        len += i64::get_partial_len(&bytes[len..])?;
+        len += HashMap::<String, i64>::get_partial_len(&bytes[len..])?;
+        len += HashMap::<String, GraphBinary>::get_partial_len(&bytes[len..])?;
+        len += Vec::<Metrics>::get_partial_len(&bytes[len..])?;
         Ok(len)
     }
 }
@@ -82,12 +83,12 @@ impl Encode for TraversalMetrics {
         CoreType::TraversalMetrics.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(
+    fn partial_encode<W: std::io::Write>(
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
-        self.duration.write_patial_bytes(writer)?;
-        self.metrics.write_patial_bytes(writer)
+        self.duration.partial_encode(writer)?;
+        self.metrics.partial_encode(writer)
     }
 }
 
@@ -106,9 +107,9 @@ impl Decode for TraversalMetrics {
         Ok(TraversalMetrics { duration, metrics })
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = i64::partial_count_bytes(bytes)?;
-        len += Vec::<Metrics>::partial_count_bytes(&bytes[len..])?;
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
+        let mut len = i64::get_partial_len(bytes)?;
+        len += Vec::<Metrics>::get_partial_len(&bytes[len..])?;
         Ok(len)
     }
 }
@@ -117,6 +118,8 @@ struct_de_serialize!(
     (TraversalMetrics, TraversalMetricsVisitor, 128),
     (Metrics, MetricsVisitor, 64)
 );
+
+conversions!((TraversalMetrics, TraversalMetrics), (Metrics, Metrics));
 
 #[test]
 fn metric_encode_test() {
@@ -132,7 +135,7 @@ fn metric_encode_test() {
         nested_metrics: Vec::new(),
     };
     let mut buf = vec![];
-    metric.write_full_qualified_bytes(&mut buf).unwrap();
+    metric.encode(&mut buf).unwrap();
 
     let msg = [
         0x2c, 0x0, 0x0, 0x0, 0x0, 0x7, 0x34, 0x2e, 0x30, 0x2e, 0x30, 0x28, 0x29, 0x0, 0x0, 0x0,
@@ -146,6 +149,24 @@ fn metric_encode_test() {
     ];
 
     assert_eq!(&msg[..], &buf)
+}
+#[test]
+fn metric_json() {
+    let expected = Metrics {
+        id: "4.0.0()".to_string(),
+        name: "TinkerGraphStep(vertex,[1])".to_string(),
+        duration: 1,
+        counts: HashMap::from([
+            // ("traverserCount".to_string(), 1),
+            ("elementCount".to_string(), 1),
+        ]),
+        annotation: HashMap::from([("percentDur".to_string(), 0_f64.into())]),
+        nested_metrics: Vec::new(),
+    };
+
+    let json = serde_json::to_string_pretty(&expected).unwrap();
+
+    print!("{json}")
 }
 
 #[test]
@@ -173,7 +194,7 @@ fn metric_decode_test() {
         0x00, 0x00, 0x00, 0x0, 0x0, 0x0, 0x0,
     ];
 
-    let p = Metrics::fully_self_decode(&mut &msg[..]);
+    let p = Metrics::decode(&mut &msg[..]);
 
     assert_eq!(expected, p.unwrap());
 }
@@ -194,9 +215,7 @@ fn traversal_metric_encode_test() {
         metrics: vec![metric],
     };
     let mut buf = vec![];
-    traversal_metric
-        .write_full_qualified_bytes(&mut buf)
-        .unwrap();
+    traversal_metric.encode(&mut buf).unwrap();
 
     let msg = [
         0x2d, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x3, 0x46, 0xa4, 0x0, 0x0, 0x0, 0x1, 0x2c, 0x0, 0x0,
@@ -277,7 +296,7 @@ fn traversal_metric_decode_test() {
         0x0,
     ];
 
-    let p = TraversalMetrics::fully_self_decode(&mut &msg[..]);
+    let p = TraversalMetrics::decode(&mut &msg[..]);
 
     assert_eq!(expected, p.unwrap());
 }

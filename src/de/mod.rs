@@ -26,7 +26,7 @@ use crate::structure::property::Property;
 use crate::structure::traverser::{TraversalStrategy, Traverser};
 use crate::structure::vertex::Vertex;
 use crate::structure::vertex_property::VertexProperty;
-use crate::structure::{primitivs, vertex};
+
 use crate::{
     error::EncodeError,
     graph_binary::{Decode, GraphBinary, MapKeys},
@@ -104,7 +104,7 @@ impl<'de> Deserializer<'de> {
         visitor: V,
         core_type: CoreType,
     ) -> Result<V::Value, DecodeError> {
-        let size = T::consumed_bytes(self.bytes)?;
+        let size = T::get_len(self.bytes)?;
         visitor.visit_map(VertexMapDeser::new(self.pop_front_at(size), core_type))
     }
 }
@@ -202,16 +202,12 @@ impl<'de> serde::Deserializer<'de> for &mut Deserializer<'de> {
                 // self.pop_identifier_tuple()?;
                 visitor.visit_none()
             }
-            (CoreType::Int32, _) => visitor.visit_i32(i32::fully_self_decode(&mut self.bytes)?),
-            (CoreType::Long, _) => visitor.visit_i64(i64::fully_self_decode(&mut self.bytes)?),
-            (CoreType::String, _) => {
-                visitor.visit_string(String::fully_self_decode(&mut self.bytes)?)
-            }
-            (CoreType::Class, _) => {
-                visitor.visit_string(String::fully_self_decode(&mut self.bytes)?)
-            }
-            (CoreType::Double, _) => visitor.visit_f64(f64::fully_self_decode(&mut self.bytes)?),
-            (CoreType::Float, _) => visitor.visit_f32(f32::fully_self_decode(&mut self.bytes)?),
+            (CoreType::Int32, _) => visitor.visit_i32(i32::decode(&mut self.bytes)?),
+            (CoreType::Long, _) => visitor.visit_i64(i64::decode(&mut self.bytes)?),
+            (CoreType::String, _) => visitor.visit_string(String::decode(&mut self.bytes)?),
+            (CoreType::Class, _) => visitor.visit_string(String::decode(&mut self.bytes)?),
+            (CoreType::Double, _) => visitor.visit_f64(f64::decode(&mut self.bytes)?),
+            (CoreType::Float, _) => visitor.visit_f32(f32::decode(&mut self.bytes)?),
             (CoreType::List, _) => self.deserialize_seq(visitor),
             (c @ CoreType::Set, _) => self.forward_to_map::<V, Vec<GraphBinary>>(visitor, c),
             (c @ CoreType::Map, _) => {
@@ -241,10 +237,10 @@ impl<'de> serde::Deserializer<'de> for &mut Deserializer<'de> {
             (c @ CoreType::Scope, _) => self.forward_to_map::<V, Scope>(visitor, c),
             (c @ CoreType::T, _) => self.forward_to_map::<V, T>(visitor, c),
             (c @ CoreType::Traverser, _) => self.forward_to_map::<V, Traverser>(visitor, c),
-            (CoreType::Byte, _) => visitor.visit_u8(u8::fully_self_decode(&mut self.bytes)?),
+            (CoreType::Byte, _) => visitor.visit_u8(u8::decode(&mut self.bytes)?),
             // (CoreType::ByteBuffer, _) => visitor.visit_u8(u8::fully_self_decode(&mut self.bytes)?),
-            (CoreType::Short, _) => visitor.visit_i16(i16::fully_self_decode(&mut self.bytes)?),
-            (CoreType::Boolean, _) => visitor.visit_bool(bool::fully_self_decode(&mut self.bytes)?),
+            (CoreType::Short, _) => visitor.visit_i16(i16::decode(&mut self.bytes)?),
+            (CoreType::Boolean, _) => visitor.visit_bool(bool::decode(&mut self.bytes)?),
             (c @ CoreType::TextP, _) => self.forward_to_map::<V, TextP>(visitor, c),
             (c @ CoreType::TraversalStrategy, _) => {
                 self.forward_to_map::<V, TraversalStrategy>(visitor, c)
@@ -268,7 +264,7 @@ impl<'de> serde::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: serde::de::Visitor<'de>,
     {
-        visitor.visit_bool(bool::fully_self_decode(&mut self.bytes)?)
+        visitor.visit_bool(bool::decode(&mut self.bytes)?)
     }
 
     fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -282,28 +278,28 @@ impl<'de> serde::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: serde::de::Visitor<'de>,
     {
-        visitor.visit_i16(i16::fully_self_decode(&mut self.bytes)?)
+        visitor.visit_i16(i16::decode(&mut self.bytes)?)
     }
 
     fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
-        visitor.visit_i32(i32::fully_self_decode(&mut self.bytes)?)
+        visitor.visit_i32(i32::decode(&mut self.bytes)?)
     }
 
     fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
-        visitor.visit_i64(i64::fully_self_decode(&mut self.bytes)?)
+        visitor.visit_i64(i64::decode(&mut self.bytes)?)
     }
 
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
-        visitor.visit_u8(u8::fully_self_decode(&mut self.bytes)?)
+        visitor.visit_u8(u8::decode(&mut self.bytes)?)
     }
 
     fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -331,35 +327,35 @@ impl<'de> serde::Deserializer<'de> for &mut Deserializer<'de> {
     where
         V: serde::de::Visitor<'de>,
     {
-        visitor.visit_f32(f32::fully_self_decode(&mut self.bytes)?)
+        visitor.visit_f32(f32::decode(&mut self.bytes)?)
     }
 
     fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
-        visitor.visit_f64(f64::fully_self_decode(&mut self.bytes)?)
+        visitor.visit_f64(f64::decode(&mut self.bytes)?)
     }
 
     fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
-        visitor.visit_char(char::fully_self_decode(&mut self.bytes)?)
+        visitor.visit_char(char::decode(&mut self.bytes)?)
     }
 
     fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
-        visitor.visit_string(String::fully_self_decode(&mut self.bytes)?)
+        visitor.visit_string(String::decode(&mut self.bytes)?)
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: serde::de::Visitor<'de>,
     {
-        visitor.visit_string(String::fully_self_decode(&mut self.bytes)?)
+        visitor.visit_string(String::decode(&mut self.bytes)?)
     }
 
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -627,6 +623,7 @@ impl<'de> serde::de::Deserializer<'de> for GraphBinaryDeserializer {
             GraphBinary::Set(v) => visitor.visit_seq(SeqDeser {
                 iter: v.into_iter(),
             }),
+            // GraphBinary::Vertex(v) => visitor.visit_map(map),
             GraphBinary::Byte(v) => visitor.visit_u8(v),
             GraphBinary::Short(v) => visitor.visit_i16(v),
             GraphBinary::Boolean(v) => visitor.visit_bool(v),

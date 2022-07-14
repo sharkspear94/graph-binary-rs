@@ -10,7 +10,7 @@ impl EmitParams for () {
     }
 }
 
-impl<S, E, T> EmitParams for GraphTraversal<S, E, T> {
+impl< E, T> EmitParams for GraphTraversal< E, T> {
     fn bytecode(self, step: &str, bc: &mut ByteCode) {
         bc.add_step(step, vec![self.into()])
     }

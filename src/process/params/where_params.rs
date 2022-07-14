@@ -1,5 +1,5 @@
 use crate::{
-    process::traversal::GraphTraversal,
+    process::bytecode_traversal::BytecodeTraversal,
     structure::{bytecode::ByteCode, enums::PublicP2},
 };
 
@@ -31,8 +31,8 @@ impl WhereParams for (String, PublicP2<String>) {
     }
 }
 
-impl<S, E, T> WhereParams for GraphTraversal<S, E, T> {
+impl WhereParams for BytecodeTraversal {
     fn bytecode(self, step: &str, bc: &mut ByteCode) {
-        bc.add_step(step, vec![self.bytecode.into()])
+        bc.add_step(step, vec![self.into()])
     }
 }

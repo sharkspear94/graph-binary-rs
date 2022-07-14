@@ -1,4 +1,5 @@
 use crate::{
+    conversions,
     graph_binary::{Decode, Encode, GraphBinary},
     specs::{self, CoreType},
     struct_de_serialize,
@@ -33,13 +34,13 @@ impl Decode for GraphEdge {
     where
         Self: std::marker::Sized,
     {
-        let id = GraphBinary::fully_self_decode(reader)?;
+        let id = GraphBinary::decode(reader)?;
         let label = String::partial_decode(reader)?;
-        let in_v_id = GraphBinary::fully_self_decode(reader)?;
-        let in_v_label = Option::<String>::fully_self_decode(reader)?;
-        let out_v_id = GraphBinary::fully_self_decode(reader)?;
-        let out_v_label = Option::<String>::fully_self_decode(reader)?;
-        let parent = Option::<Vertex>::fully_self_decode(reader)?;
+        let in_v_id = GraphBinary::decode(reader)?;
+        let in_v_label = Option::<String>::decode(reader)?;
+        let out_v_id = GraphBinary::decode(reader)?;
+        let out_v_label = Option::<String>::decode(reader)?;
+        let parent = Option::<Vertex>::decode(reader)?;
         let properties = Vec::<Property>::partial_decode(reader)?;
 
         Ok(GraphEdge {
@@ -54,15 +55,15 @@ impl Decode for GraphEdge {
         })
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = GraphBinary::consumed_bytes(bytes)?;
-        len += String::partial_count_bytes(&bytes[len..])?;
-        len += GraphBinary::consumed_bytes(&bytes[len..])?;
-        len += Option::<String>::consumed_bytes(&bytes[len..])?; //TODO not sure if correct
-        len += GraphBinary::consumed_bytes(&bytes[len..])?;
-        len += Option::<String>::consumed_bytes(&bytes[len..])?; //TODO not sure if correct
-        len += Option::<Vertex>::consumed_bytes(&bytes[len..])?;
-        len += Vec::<Property>::partial_count_bytes(&bytes[len..])?;
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
+        let mut len = GraphBinary::get_len(bytes)?;
+        len += String::get_partial_len(&bytes[len..])?;
+        len += GraphBinary::get_len(&bytes[len..])?;
+        len += Option::<String>::get_len(&bytes[len..])?; //TODO not sure if correct
+        len += GraphBinary::get_len(&bytes[len..])?;
+        len += Option::<String>::get_len(&bytes[len..])?; //TODO not sure if correct
+        len += Option::<Vertex>::get_len(&bytes[len..])?;
+        len += Vec::<Property>::get_partial_len(&bytes[len..])?;
 
         Ok(len)
     }
@@ -73,50 +74,47 @@ impl Encode for Graph {
         specs::CoreType::Graph.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(
+    fn partial_encode<W: std::io::Write>(
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
         let v_len = self.vertexes.len() as i32;
         let e_len = self.edges.len() as i32;
 
-        v_len.write_patial_bytes(writer)?;
+        v_len.partial_encode(writer)?;
         for vertex in &self.vertexes {
-            vertex.id.write_full_qualified_bytes(writer)?;
-            vertex.label.write_patial_bytes(writer)?;
+            vertex.id.encode(writer)?;
+            vertex.label.partial_encode(writer)?;
             if vertex.properties.is_some() {
                 let p_len = vertex.properties.as_ref().unwrap().len() as i32;
-                p_len.write_patial_bytes(writer)?;
+                p_len.partial_encode(writer)?;
                 for prop in vertex.properties.as_ref().unwrap() {
-                    prop.id.write_full_qualified_bytes(writer)?;
-                    prop.label.write_patial_bytes(writer)?;
-                    prop.value.write_full_qualified_bytes(writer)?;
-                    prop.parent.write_full_qualified_bytes(writer)?;
+                    prop.id.encode(writer)?;
+                    prop.label.partial_encode(writer)?;
+                    prop.value.encode(writer)?;
+                    prop.parent.encode(writer)?;
                     if prop.properties.is_some() {
-                        prop.properties
-                            .as_ref()
-                            .unwrap()
-                            .write_patial_bytes(writer)?;
+                        prop.properties.as_ref().unwrap().partial_encode(writer)?;
                     } else {
-                        prop.properties.write_full_qualified_bytes(writer)?;
+                        prop.properties.encode(writer)?;
                     }
                 }
             } else {
-                None::<i32>.write_full_qualified_bytes(writer)?;
+                None::<i32>.encode(writer)?;
             }
             // vertex.properties.write_patial_bytes(writer)?;
         }
 
-        e_len.write_patial_bytes(writer)?;
+        e_len.partial_encode(writer)?;
         for edge in &self.edges {
-            edge.id.write_full_qualified_bytes(writer)?;
-            edge.label.write_patial_bytes(writer)?;
-            edge.in_v_id.write_full_qualified_bytes(writer)?;
-            edge.in_v_label.write_full_qualified_bytes(writer)?;
-            edge.out_v_id.write_full_qualified_bytes(writer)?;
-            edge.out_v_label.write_full_qualified_bytes(writer)?;
-            edge.parent.write_full_qualified_bytes(writer)?;
-            edge.properties.write_patial_bytes(writer)?; // TODO not sure if prop identifier is needed
+            edge.id.encode(writer)?;
+            edge.label.partial_encode(writer)?;
+            edge.in_v_id.encode(writer)?;
+            edge.in_v_label.encode(writer)?;
+            edge.out_v_id.encode(writer)?;
+            edge.out_v_label.encode(writer)?;
+            edge.parent.encode(writer)?;
+            edge.properties.partial_encode(writer)?; // TODO not sure if prop identifier is needed
         }
         Ok(())
     }
@@ -134,15 +132,15 @@ impl Decode for Graph {
         let v_len = i32::partial_decode(reader)? as usize;
         let mut v_vec = Vec::with_capacity(v_len);
         for _ in 0..v_len {
-            let v_id = GraphBinary::fully_self_decode(reader)?;
+            let v_id = GraphBinary::decode(reader)?;
             let v_label = String::partial_decode(reader)?;
             let p_len = i32::partial_decode(reader)? as usize;
             let mut p_vec = Vec::with_capacity(p_len);
             for _ in 0..p_len {
-                let p_id = GraphBinary::fully_self_decode(reader)?;
+                let p_id = GraphBinary::decode(reader)?;
                 let p_label = String::partial_decode(reader)?;
-                let p_value = GraphBinary::fully_self_decode(reader)?;
-                let p_parent = Option::<Vertex>::fully_self_decode(reader)?;
+                let p_value = GraphBinary::decode(reader)?;
+                let p_parent = Option::<Vertex>::decode(reader)?;
                 let p_properties = Option::<Vec<Property>>::partial_decode(reader)?;
                 p_vec.push(VertexProperty {
                     id: Box::new(p_id),
@@ -169,24 +167,24 @@ impl Decode for Graph {
         })
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
         let t: [u8; 4] = bytes[0..4].try_into()?;
         let v_len = i32::from_be_bytes(t);
         let mut len = 4;
         for _ in 0..v_len {
-            len += GraphBinary::consumed_bytes(&bytes[len..])?;
-            len += String::partial_count_bytes(&bytes[len..])?;
+            len += GraphBinary::get_len(&bytes[len..])?;
+            len += String::get_partial_len(&bytes[len..])?;
 
             let t: [u8; 4] = bytes[len..len + 4].try_into()?;
             let p_len = i32::from_be_bytes(t);
             len += 4;
 
             for _ in 0..p_len {
-                len += GraphBinary::consumed_bytes(&bytes[len..])?;
-                len += String::partial_count_bytes(&bytes[len..])?;
-                len += GraphBinary::consumed_bytes(&bytes[len..])?;
+                len += GraphBinary::get_len(&bytes[len..])?;
+                len += String::get_partial_len(&bytes[len..])?;
+                len += GraphBinary::get_len(&bytes[len..])?;
                 len += 2; //parent is always null
-                len += Vec::<Property>::partial_count_bytes(&bytes[len..])?;
+                len += Vec::<Property>::get_partial_len(&bytes[len..])?;
             }
         }
 
@@ -195,13 +193,14 @@ impl Decode for Graph {
         len += 4;
 
         for _ in 0..e_len {
-            len += GraphEdge::partial_count_bytes(&bytes[len..])?;
+            len += GraphEdge::get_partial_len(&bytes[len..])?;
         }
         Ok(len)
     }
 }
 
 struct_de_serialize!((Graph, GraphVisitor, 254));
+conversions!((Graph, Graph));
 
 #[test]
 fn encode_graph_test() {
@@ -288,7 +287,7 @@ fn encode_graph_test() {
 
     let mut buf = Vec::new();
 
-    graph.write_full_qualified_bytes(&mut buf).unwrap();
+    graph.encode(&mut buf).unwrap();
 
     assert_eq!(expected, *buf);
 }
@@ -376,7 +375,7 @@ fn decode_graph_test() {
         edges: edge,
     };
 
-    let graph = Graph::fully_self_decode(&mut &reader[..]).unwrap();
+    let graph = Graph::decode(&mut &reader[..]).unwrap();
 
     assert_eq!(expected, graph);
 }
@@ -401,7 +400,7 @@ fn consume_graph_test() {
         0x69, 0x6e, 0x63, 0x65, 0x1, 0x0, 0x0, 0x0, 0x0, 0x7b, 0xfe, 0x1,
     ];
 
-    let len = Graph::consumed_bytes(&reader).unwrap();
+    let len = Graph::get_len(&reader).unwrap();
 
     assert_eq!(reader.len(), len);
 }

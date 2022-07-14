@@ -1,6 +1,6 @@
 use crate::{
     graph_binary::GraphBinary,
-    process::traversal::GraphTraversal,
+    process::bytecode_traversal::BytecodeTraversal,
     structure::{bytecode::ByteCode, enums::T},
 };
 
@@ -32,15 +32,15 @@ impl<V: Into<GraphBinary>> HasStepParams for (String, V) {
 //     }
 // }
 
-impl<S, M> HasStepParams for (&str, GraphTraversal<S, M, M>) {
+impl HasStepParams for (&str, BytecodeTraversal) {
     fn bytecode(self, step: &str, bc: &mut ByteCode) {
-        bc.add_step(step, vec![self.0.into(), self.1.bytecode.into()]);
+        bc.add_step(step, vec![self.0.into(), self.1.into()]);
     }
 }
 
-impl<M> HasStepParams for (T, GraphTraversal<M, M, M>) {
+impl HasStepParams for (T, BytecodeTraversal) {
     fn bytecode(self, step: &str, bc: &mut ByteCode) {
-        bc.add_step(step, vec![self.0.into(), self.1.bytecode.into()]);
+        bc.add_step(step, vec![self.0.into(), self.1.into()]);
     }
 }
 

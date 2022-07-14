@@ -7,7 +7,7 @@ use serde::{
 
 use crate::{
     error::EncodeError,
-    graph_binary::{Encode, GraphBinary, MapKeys},
+    graph_binary::{encode_null_object, Encode, GraphBinary, MapKeys},
     specs::CoreType,
     structure::enums::T,
     // structure::{enums::T, list::List},
@@ -51,8 +51,12 @@ impl ser::Serializer for &mut Serializer {
 
     type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
 
+    fn is_human_readable(&self) -> bool {
+        false
+    }
+
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
-        v.write_full_qualified_bytes(&mut self.writer)
+        v.encode(&mut self.writer)
     }
 
     fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
@@ -64,15 +68,15 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        v.write_full_qualified_bytes(&mut self.writer)
+        v.encode(&mut self.writer)
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
-        v.write_full_qualified_bytes(&mut self.writer)
+        v.encode(&mut self.writer)
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
-        v.write_full_qualified_bytes(&mut self.writer)
+        v.encode(&mut self.writer)
     }
 
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
@@ -88,19 +92,19 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
-        v.write_full_qualified_bytes(&mut self.writer)
+        v.encode(&mut self.writer)
     }
 
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
-        v.write_full_qualified_bytes(&mut self.writer)
+        v.encode(&mut self.writer)
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        v.encode(&mut self.writer)
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        v.write_full_qualified_bytes(&mut self.writer)
+        v.encode(&mut self.writer)
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
@@ -109,7 +113,7 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-        GraphBinary::UnspecifiedNullObject.build_fq_bytes(&mut self.writer)
+        encode_null_object(&mut self.writer)
     }
 
     fn serialize_some<T: ?Sized>(self, value: &T) -> Result<Self::Ok, Self::Error>
@@ -120,11 +124,11 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
-        GraphBinary::UnspecifiedNullObject.build_fq_bytes(&mut self.writer)
+        encode_null_object(&mut self.writer)
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
-        GraphBinary::UnspecifiedNullObject.build_fq_bytes(&mut self.writer) // not sure if correct
+        encode_null_object(&mut self.writer) // not sure if correct
     }
 
     fn serialize_unit_variant(
@@ -580,7 +584,7 @@ impl Serialize for GraphBinary {
             GraphBinary::Metrics(value) => value.serialize(serializer),
             GraphBinary::TraversalMetrics(value) => value.serialize(serializer),
             GraphBinary::BulkSet(value) => todo!(),
-            GraphBinary::UnspecifiedNullObject => todo!(),
+            GraphBinary::UnspecifiedNullObject => serializer.serialize_none(),
             GraphBinary::Merge(value) => value.serialize(serializer),
             GraphBinary::Char(value) => value.serialize(serializer),
         }
@@ -653,7 +657,7 @@ impl SerializeMap for GraphBinarySerializerMap {
         K: Serialize,
         V: Serialize,
     {
-        let key = MapKeys::try_from(key.serialize(GraphBinarySerializer)?)?;
+        let key = MapKeys::try_from(key.serialize(GraphBinarySerializer)?).unwrap(); // TODO tryFrom needs own Error
         self.0.insert(key, value.serialize(GraphBinarySerializer)?);
         Ok(())
     }

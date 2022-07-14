@@ -1,4 +1,5 @@
 use crate::{
+    conversions,
     graph_binary::{Decode, Encode, GraphBinary},
     specs::CoreType,
     struct_de_serialize,
@@ -15,18 +16,18 @@ impl Encode for Path {
         CoreType::Path.into()
     }
 
-    fn write_patial_bytes<W: std::io::Write>(
+    fn partial_encode<W: std::io::Write>(
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
         writer.write_all(&[CoreType::List.into(), 0x0])?;
         let len = i32::try_from(self.labels.len())?;
-        len.write_patial_bytes(writer)?;
+        len.partial_encode(writer)?;
         for set in &self.labels {
             writer.write_all(&[CoreType::Set.into(), 0x0])?;
-            set.write_patial_bytes(writer)?;
+            set.partial_encode(writer)?;
         }
-        self.objects.write_full_qualified_bytes(writer)
+        self.objects.encode(writer)
     }
 }
 
@@ -47,26 +48,26 @@ impl Decode for Path {
             let set = Vec::<String>::partial_decode(reader)?;
             labels.push(set);
         }
-        let objects = Vec::<GraphBinary>::fully_self_decode(reader)?;
+        let objects = Vec::<GraphBinary>::decode(reader)?;
 
         Ok(Path { labels, objects })
     }
 
-    fn partial_count_bytes(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
         let t: [u8; 4] = bytes[2..6].try_into()?;
         let vec_len = i32::from_be_bytes(t);
         let mut len = 6; //4 bytes from i32 vec_len and 2 bytes from List Typecode and value flag
         for _ in 0..vec_len {
-            len += Vec::<String>::consumed_bytes(&bytes[len..])?;
+            len += Vec::<String>::get_len(&bytes[len..])?;
         }
-        len += Vec::<GraphBinary>::consumed_bytes(&bytes[len..])?;
+        len += Vec::<GraphBinary>::get_len(&bytes[len..])?;
 
         Ok(len)
     }
 }
 
 struct_de_serialize!((Path, PathVisitor, 64));
-
+conversions!((Path, Path));
 #[test]
 fn test_encode() {
     use crate::ser::to_bytes;
@@ -118,7 +119,7 @@ fn test_consume_bytes() {
         0x0, 0x6, 0x72, 0x69, 0x70, 0x70, 0x6c, 0x65,
     ];
 
-    let size = Path::consumed_bytes(&buf).unwrap();
+    let size = Path::get_len(&buf).unwrap();
 
     assert_eq!(buf.len(), size)
 }

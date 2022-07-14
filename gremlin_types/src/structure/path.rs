@@ -1,0 +1,211 @@
+use std::fmt::Display;
+
+use serde_json::json;
+
+use crate::{
+    conversions,
+    graph_binary::{Decode, Encode, GremlinTypes},
+    graphson::EncodeGraphSON,
+    specs::CoreType,
+    struct_de_serialize,
+};
+
+use super::{list::Set, vertex::Vertex};
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Path {
+    labels: Vec<Set<String>>,   // List<Set<String>>
+    objects: Vec<GremlinTypes>, // List<T>
+}
+
+impl Encode for Path {
+    fn type_code() -> u8 {
+        CoreType::Path.into()
+    }
+
+    fn partial_encode<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), crate::error::EncodeError> {
+        writer.write_all(&[CoreType::List.into(), 0x0])?;
+        let len = i32::try_from(self.labels.len())?;
+        len.partial_encode(writer)?;
+        for set in &self.labels {
+            writer.write_all(&[CoreType::Set.into(), 0x0])?;
+            set.partial_encode(writer)?;
+        }
+        self.objects.encode(writer)
+    }
+}
+
+impl Decode for Path {
+    fn expected_type_code() -> u8 {
+        CoreType::Path.into()
+    }
+
+    fn partial_decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        reader.read_exact(&mut [0_u8, 0])?;
+        let len = i32::partial_decode(reader)? as usize;
+        let mut labels = Vec::with_capacity(len);
+        for _ in 0..len {
+            reader.read_exact(&mut [0_u8, 0])?;
+            let set = Set::<String>::partial_decode(reader)?;
+            labels.push(set);
+        }
+        let objects = Vec::<GremlinTypes>::decode(reader)?;
+
+        Ok(Path { labels, objects })
+    }
+
+    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
+        let t: [u8; 4] = bytes[2..6].try_into()?;
+        let vec_len = i32::from_be_bytes(t);
+        let mut len = 6; //4 bytes from i32 vec_len and 2 bytes from List Typecode and value flag
+        for _ in 0..vec_len {
+            len += Vec::<String>::get_len(&bytes[len..])?;
+        }
+        len += Vec::<GremlinTypes>::get_len(&bytes[len..])?;
+
+        Ok(len)
+    }
+}
+
+impl Display for Path {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (labels, object) in self.labels.iter().zip(&self.objects) {
+            write!(f, "labels:[")?;
+            if !labels.is_empty() {
+                for label in &labels[..labels.len() - 1] {
+                    write!(f, "{label},")?;
+                }
+                write!(f, "{}", labels.last().unwrap())?;
+            }
+            writeln!(f, "],object[{object}]")?;
+        }
+        Ok(())
+    }
+}
+
+impl EncodeGraphSON for Path {
+    fn encode_v3(&self) -> serde_json::Value {
+        json!(
+            {
+                "@type" : "g:Path",
+                "@value" : {
+                  "labels" : self.labels.encode_v3(),
+                  "objects" : self.objects.encode_v3()
+                }
+            }
+        )
+    }
+
+    fn encode_v2(&self) -> serde_json::Value {
+        json!(
+            {
+                "@type" : "g:Path",
+                "@value" : {
+                  "labels" : self.labels.encode_v2(),
+                  "objects" : self.objects.encode_v2()
+                }
+            }
+        )
+    }
+
+    fn encode_v1(&self) -> serde_json::Value {
+        json!({
+            "labels": self.labels.encode_v1(),
+            "objects" : self.objects.encode_v1(),
+        })
+    }
+}
+
+struct_de_serialize!((Path, PathVisitor, 64));
+conversions!((Path, Path));
+
+#[test]
+fn test_encode() {
+    let expected = [
+        0xe_u8, 0x0, 0x9, 0x0, 0x0, 0x0, 0x0, 0x3, 0xb, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb, 0x0, 0x0,
+        0x0, 0x0, 0x0, 0xb, 0x0, 0x0, 0x0, 0x0, 0x0, 0x9, 0x0, 0x0, 0x0, 0x0, 0x3, 0x3, 0x0, 0x0,
+        0x0, 0x0, 0x5, 0x6d, 0x61, 0x72, 0x6b, 0x6f, 0x1, 0x0, 0x0, 0x0, 0x0, 0x20, 0x3, 0x0, 0x0,
+        0x0, 0x0, 0x6, 0x72, 0x69, 0x70, 0x70, 0x6c, 0x65,
+    ];
+
+    let path = Path {
+        labels: vec![Set::new(vec![]), Set::new(vec![]), Set::new(vec![])],
+        objects: vec!["marko".into(), 32_i32.into(), "ripple".into()],
+    };
+    let mut buf = Vec::new();
+    path.encode(&mut buf).unwrap();
+
+    assert_eq!(&expected[..], &buf)
+}
+
+#[test]
+fn test_decode() {
+    let expecetd = Path {
+        labels: vec![Set::new(vec![]), Set::new(vec![]), Set::new(vec![])],
+        objects: vec!["marko".into(), 32_i32.into(), "ripple".into()],
+    };
+
+    let buf = vec![
+        0xe_u8, 0x0, 0x9, 0x0, 0x0, 0x0, 0x0, 0x3, 0xb, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb, 0x0, 0x0,
+        0x0, 0x0, 0x0, 0xb, 0x0, 0x0, 0x0, 0x0, 0x0, 0x9, 0x0, 0x0, 0x0, 0x0, 0x3, 0x3, 0x0, 0x0,
+        0x0, 0x0, 0x5, 0x6d, 0x61, 0x72, 0x6b, 0x6f, 0x1, 0x0, 0x0, 0x0, 0x0, 0x20, 0x3, 0x0, 0x0,
+        0x0, 0x0, 0x6, 0x72, 0x69, 0x70, 0x70, 0x6c, 0x65,
+    ];
+
+    let path = Path::decode(&mut &buf[..]).unwrap();
+
+    assert_eq!(expecetd, path)
+}
+
+#[test]
+fn test_consume_bytes() {
+    let buf = vec![
+        0xe, 0x0, 0x9, 0x0, 0x0, 0x0, 0x0, 0x3, 0xb, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb, 0x0, 0x0, 0x0,
+        0x0, 0x0, 0xb, 0x0, 0x0, 0x0, 0x0, 0x0, 0x9, 0x0, 0x0, 0x0, 0x0, 0x3, 0x3, 0x0, 0x0, 0x0,
+        0x0, 0x5, 0x6d, 0x61, 0x72, 0x6b, 0x6f, 0x1, 0x0, 0x0, 0x0, 0x0, 0x20, 0x3, 0x0, 0x0, 0x0,
+        0x0, 0x6, 0x72, 0x69, 0x70, 0x70, 0x6c, 0x65,
+    ];
+
+    let size = Path::get_len(&buf).unwrap();
+
+    assert_eq!(buf.len(), size)
+}
+
+#[test]
+fn encode_v3() {
+    let p = Path {
+        labels: vec![Set::new(vec![]), Set::new(vec![]), Set::new(vec![])],
+        objects: vec![
+            Vertex::new(1, "person").into(),
+            Vertex::new(10, "sofware").into(),
+            Vertex::new(11, "software").into(),
+        ],
+    };
+
+    let s = serde_json::to_string(&p.encode_v3()).unwrap();
+    let expected = r#"{"@type":"g:Path","@value":{"labels":{"@type":"g:List","@value":[{"@type":"g:Set","@value":[]},{"@type":"g:Set","@value":[]},{"@type":"g:Set","@value":[]}]},"objects":{"@type":"g:List","@value":[{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":1},"label":"person"}},{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":10},"label":"sofware"}},{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":11},"label":"software"}}]}}}"#;
+    assert_eq!(s, expected)
+}
+
+#[test]
+fn encode_v2() {
+    let p = Path {
+        labels: vec![Set::new(vec![]), Set::new(vec![]), Set::new(vec![])],
+        objects: vec![
+            Vertex::new(1, "person").into(),
+            Vertex::new(10, "sofware").into(),
+            Vertex::new(11, "software").into(),
+        ],
+    };
+
+    let s = serde_json::to_string(&p.encode_v2()).unwrap();
+    let expected = r#"{"@type":"g:Path","@value":{"labels":[[],[],[]],"objects":[{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":1},"label":"person"}},{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":10},"label":"sofware"}},{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":11},"label":"software"}}]}}"#;
+    println!("{s}");
+    assert_eq!(s, expected)
+}

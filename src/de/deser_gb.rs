@@ -253,10 +253,7 @@ fn test_p() {
 
     let gb = from_slice::<GraphBinary>(&buf).unwrap();
 
-    assert_eq!(
-        GraphBinary::P(P::between(1,10)),
-        gb
-    );
+    assert_eq!(GraphBinary::P(P::between(1, 10)), gb);
 }
 
 #[test]
