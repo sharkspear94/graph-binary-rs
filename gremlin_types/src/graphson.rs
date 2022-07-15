@@ -191,14 +191,14 @@ impl DecodeGraphSON for GremlinTypes {
                         HashMap::<MapKeys, GremlinTypes>::decode_v3(j_val)?,
                     )),
                     "g:UUID" => Ok(GremlinTypes::Uuid(Uuid::decode_v3(j_val)?)),
-                    // "g:Edge" => Ok(GremlinTypes::Edge(Edge::decode_v3(j_val)?)),
-                    // "g:Path" => Ok(GremlinTypes::Path(Path::decode_v3(j_val)?)),
-                    // "g:Property" => Ok(GremlinTypes::Property(Property::decode_v3(j_val)?)),
-                    // "g:tinker:graph" => Ok(GremlinTypes::Graph(Graph::decode_v3(j_val)?)),
-                    // "g:Vertex" => Ok(GremlinTypes::Vertex(Vertex::decode_v3(j_val)?)),
-                    // "g:VertexProperty" => Ok(GremlinTypes::VertexProperty(
-                    //     VertexProperty::decode_v3(j_val)?,
-                    // )),
+                    "g:Edge" => Ok(GremlinTypes::Edge(Edge::decode_v3(j_val)?)),
+                    "g:Path" => Ok(GremlinTypes::Path(Path::decode_v3(j_val)?)),
+                    "g:Property" => Ok(GremlinTypes::Property(Property::decode_v3(j_val)?)),
+                    "g:tinker:graph" => Ok(GremlinTypes::Graph(Graph::decode_v3(j_val)?)),
+                    "g:Vertex" => Ok(GremlinTypes::Vertex(Vertex::decode_v3(j_val)?)),
+                    "g:VertexProperty" => Ok(GremlinTypes::VertexProperty(
+                        VertexProperty::decode_v3(j_val)?,
+                    )),
                     "g:Barrier" => Ok(GremlinTypes::Barrier(Barrier::decode_v3(j_val)?)),
                     "g:Binding" => Ok(GremlinTypes::Binding(Binding::decode_v3(j_val)?)),
                     "g:Bytecode" => Ok(GremlinTypes::Bytecode(Bytecode::decode_v3(j_val)?)),
@@ -207,9 +207,9 @@ impl DecodeGraphSON for GremlinTypes {
                     }
                     "g:Column" => Ok(GremlinTypes::Column(Column::decode_v3(j_val)?)),
                     "g:Direction" => Ok(GremlinTypes::Direction(Direction::decode_v3(j_val)?)),
-                    // "g:Lambda" => Ok(GremlinTypes::Lambda(Lambda::decode_v3(j_val)?)),
+                    "g:Lambda" => Ok(GremlinTypes::Lambda(Lambda::decode_v3(j_val)?)),
                     "g:Merge" => Ok(GremlinTypes::Merge(Merge::decode_v3(j_val)?)),
-                    // "g:Metrics" => Ok(GremlinTypes::Metrics(Metrics::decode_v3(j_val)?)),
+                    "g:Metrics" => Ok(GremlinTypes::Metrics(Metrics::decode_v3(j_val)?)),
                     "g:Operator" => Ok(GremlinTypes::Operator(Operator::decode_v3(j_val)?)),
                     "g:Order" => Ok(GremlinTypes::Order(Order::decode_v3(j_val)?)),
                     // "g:P" => Ok(GremlinTypes::P(P::decode_v3(j_val)?)),
@@ -218,8 +218,10 @@ impl DecodeGraphSON for GremlinTypes {
                     "g:Scope" => Ok(GremlinTypes::Scope(Scope::decode_v3(j_val)?)),
                     "g:T" => Ok(GremlinTypes::T(T::decode_v3(j_val)?)),
                     // "g:TextP" => Ok(GremlinTypes::TextP(TextP::decode_v3(j_val)?)),
-                    // "g:TraversalMetrics" => Ok(GremlinTypes::TraversalMetrics(TraversalMetrics::decode_v3(j_val)?)),
-                    // "g:Traverser" => Ok(GremlinTypes::Traverser(Traverser::decode_v3(j_val)?)),
+                    "g:TraversalMetrics" => Ok(GremlinTypes::TraversalMetrics(
+                        TraversalMetrics::decode_v3(j_val)?,
+                    )),
+                    "g:Traverser" => Ok(GremlinTypes::Traverser(Traverser::decode_v3(j_val)?)),
                     // "gx:BigDecimal" => Ok(GremlinTypes::BigDecimal(BigDecimal::decode_v3(j_val)?)),
                     // "gx:BigInteger" => Ok(GremlinTypes::BigInteger(BigInteger::decode_v3(j_val)?)),
                     "gx:Byte" => Ok(GremlinTypes::Byte(u8::decode_v3(j_val)?)),
@@ -255,81 +257,90 @@ impl DecodeGraphSON for GremlinTypes {
             serde_json::Value::Null => Ok(GremlinTypes::UnspecifiedNullObject),
             serde_json::Value::Bool(b) => Ok(GremlinTypes::Boolean(*b)),
             serde_json::Value::String(s) => Ok(GremlinTypes::String(s.clone())),
+            serde_json::Value::Array(arr) => {
+                let mut vec = Vec::with_capacity(arr.len());
+                for item in arr {
+                    vec.push(GremlinTypes::decode_v2(item)?);
+                }
+                Ok(GremlinTypes::List(vec))
+            }
             serde_json::Value::Object(o) => {
-                match o
-                    .get("@type")
-                    .and_then(|s| s.as_str())
-                    .ok_or_else(|| DecodeError::DecodeError("".to_string()))?
-                {
-                    "g:Int32" => Ok(GremlinTypes::Int(i32::decode_v2(j_val)?)),
-                    "g:Int64" => Ok(GremlinTypes::Long(i64::decode_v2(j_val)?)),
-                    "g:Class" => Ok(GremlinTypes::Class(
-                        o.get("@value")
-                            .and_then(|c| c.as_str())
-                            .ok_or_else(|| {
-                                crate::error::DecodeError::DecodeError(
-                                    "json error Class v3 in error".to_string(),
-                                )
-                            })
-                            .map(|class| class.to_string())?,
-                    )),
-                    "g:Double" => Ok(GremlinTypes::Double(f64::decode_v2(j_val)?)),
-                    "g:Float" => Ok(GremlinTypes::Float(f32::decode_v2(j_val)?)),
-                    // "g:List" => Ok(GremlinTypes::List(Vec::<GremlinTypes>::decode_v2(j_val)?)),
-                    // "g:Map" => Ok(GremlinTypes::Map(
-                    //     HashMap::<MapKeys, GremlinTypes>::decode_v2(j_val)?,
-                    // )),
-                    "g:UUID" => Ok(GremlinTypes::Uuid(Uuid::decode_v2(j_val)?)),
-                    // "g:Edge" => Ok(GremlinTypes::Edge(Edge::decode_v2(j_val)?)),
-                    // "g:Path" => Ok(GremlinTypes::Path(Path::decode_v2(j_val)?)),
-                    // "g:Property" => Ok(GremlinTypes::Property(Property::decode_v2(j_val)?)),
-                    // "g:tinker:graph" => Ok(GremlinTypes::Graph(Graph::decode_v2(j_val)?)),
-                    // "g:Vertex" => Ok(GremlinTypes::Vertex(Vertex::decode_v2(j_val)?)),
-                    // "g:VertexProperty" => Ok(GremlinTypes::VertexProperty(
-                    //     VertexProperty::decode_v2(j_val)?,
-                    // )),
-                    "g:Barrier" => Ok(GremlinTypes::Barrier(Barrier::decode_v2(j_val)?)),
-                    "g:Binding" => Ok(GremlinTypes::Binding(Binding::decode_v2(j_val)?)),
-                    "g:Bytecode" => Ok(GremlinTypes::Bytecode(Bytecode::decode_v2(j_val)?)),
-                    "g:Cardinality" => {
-                        Ok(GremlinTypes::Cardinality(Cardinality::decode_v2(j_val)?))
+                if let Some(type_identifier) = o.get("@type").and_then(|s| s.as_str()) {
+                    match type_identifier {
+                        "g:Int32" => Ok(GremlinTypes::Int(i32::decode_v2(j_val)?)),
+                        "g:Int64" => Ok(GremlinTypes::Long(i64::decode_v2(j_val)?)),
+                        "g:Class" => Ok(GremlinTypes::Class(
+                            o.get("@value")
+                                .and_then(|c| c.as_str())
+                                .ok_or_else(|| {
+                                    crate::error::DecodeError::DecodeError(
+                                        "json error Class v3 in error".to_string(),
+                                    )
+                                })
+                                .map(|class| class.to_string())?,
+                        )),
+                        "g:Double" => Ok(GremlinTypes::Double(f64::decode_v2(j_val)?)),
+                        "g:Float" => Ok(GremlinTypes::Float(f32::decode_v2(j_val)?)),
+                        "g:List" => Ok(GremlinTypes::List(Vec::<GremlinTypes>::decode_v2(j_val)?)),
+                        "g:Map" => Ok(GremlinTypes::Map(
+                            HashMap::<MapKeys, GremlinTypes>::decode_v2(j_val)?,
+                        )),
+                        "g:UUID" => Ok(GremlinTypes::Uuid(Uuid::decode_v2(j_val)?)),
+                        "g:Edge" => Ok(GremlinTypes::Edge(Edge::decode_v2(j_val)?)),
+                        "g:Path" => Ok(GremlinTypes::Path(Path::decode_v2(j_val)?)),
+                        "g:Property" => Ok(GremlinTypes::Property(Property::decode_v2(j_val)?)),
+                        "g:tinker:graph" => Ok(GremlinTypes::Graph(Graph::decode_v2(j_val)?)),
+                        "g:Vertex" => Ok(GremlinTypes::Vertex(Vertex::decode_v2(j_val)?)),
+                        "g:VertexProperty" => Ok(GremlinTypes::VertexProperty(
+                            VertexProperty::decode_v2(j_val)?,
+                        )),
+                        "g:Barrier" => Ok(GremlinTypes::Barrier(Barrier::decode_v2(j_val)?)),
+                        "g:Binding" => Ok(GremlinTypes::Binding(Binding::decode_v2(j_val)?)),
+                        "g:Bytecode" => Ok(GremlinTypes::Bytecode(Bytecode::decode_v2(j_val)?)),
+                        "g:Cardinality" => {
+                            Ok(GremlinTypes::Cardinality(Cardinality::decode_v2(j_val)?))
+                        }
+                        "g:Column" => Ok(GremlinTypes::Column(Column::decode_v2(j_val)?)),
+                        "g:Direction" => Ok(GremlinTypes::Direction(Direction::decode_v2(j_val)?)),
+                        "g:Lambda" => Ok(GremlinTypes::Lambda(Lambda::decode_v2(j_val)?)),
+                        "g:Merge" => Ok(GremlinTypes::Merge(Merge::decode_v2(j_val)?)),
+                        "g:Metrics" => Ok(GremlinTypes::Metrics(Metrics::decode_v2(j_val)?)),
+                        "g:Operator" => Ok(GremlinTypes::Operator(Operator::decode_v2(j_val)?)),
+                        "g:Order" => Ok(GremlinTypes::Order(Order::decode_v2(j_val)?)),
+                        // "g:P" => Ok(GremlinTypes::P(P::decode_v2(j_val)?)),
+                        "g:Pick" => Ok(GremlinTypes::Pick(Pick::decode_v2(j_val)?)),
+                        "g:Pop" => Ok(GremlinTypes::Pop(Pop::decode_v2(j_val)?)),
+                        "g:Scope" => Ok(GremlinTypes::Scope(Scope::decode_v2(j_val)?)),
+                        "g:T" => Ok(GremlinTypes::T(T::decode_v2(j_val)?)),
+                        // "g:TextP" => Ok(GremlinTypes::TextP(TextP::decode_v2(j_val)?)),
+                        "g:TraversalMetrics" => Ok(GremlinTypes::TraversalMetrics(
+                            TraversalMetrics::decode_v2(j_val)?,
+                        )),
+                        "g:Traverser" => Ok(GremlinTypes::Traverser(Traverser::decode_v2(j_val)?)),
+                        // "gx:BigDecimal" => Ok(GremlinTypes::BigDecimal(BigDecimal::decode_v2(j_val)?)),
+                        // "gx:BigInteger" => Ok(GremlinTypes::BigInteger(BigInteger::decode_v2(j_val)?)),
+                        "gx:Byte" => Ok(GremlinTypes::Byte(u8::decode_v2(j_val)?)),
+                        // "gx:ByteBuffer" => Ok(GremlinTypes::ByteBuffer(ByteBuffer::decode_v2(j_val)?)),
+                        "gx:Char" => Ok(GremlinTypes::Char(char::decode_v2(j_val)?)),
+                        // "gx:Duration" => Ok(GremlinTypes::Duration(Duration::decode_v2(j_val)?)),
+                        // "gx:InetAddress" => Ok(GremlinTypes::InetAddress(InetAddress::decode_v2(j_val)?)),
+                        // "gx:Instant" => Ok(GremlinTypes::Instant(Instant::decode_v2(j_val)?)),
+                        // "gx:LocalDate" => Ok(GremlinTypes::LocalDate(LocalDate::decode_v2(j_val)?)),
+                        // "gx:LocalDateTime" => Ok(GremlinTypes::LocalDateTime(LocalDateTime::decode_v2(j_val)?)),
+                        // "gx:LocalTime" => Ok(GremlinTypes::LocalTime(LocalTime::decode_v2(j_val)?)),
+                        // "gx:MonthDay" => Ok(GremlinTypes::MonthDay(MonthDay::decode_v2(j_val)?)),
+                        // "gx:OffsetDateTime" => Ok(GremlinTypes::OffsetDateTime(OffsetDateTime::decode_v2(j_val)?)),
+                        // "gx:OffsetTime" => Ok(GremlinTypes::OffsetTime(OffsetTime::decode_v2(j_val)?)),
+                        // "gx:Period" => Ok(GremlinTypes::Period(Period::decode_v2(j_val)?)),
+                        "gx:Int16" => Ok(GremlinTypes::Short(i16::decode_v2(j_val)?)),
+                        // "gx:Year" => Ok(GremlinTypes::Year(Year::decode_v2(j_val)?)),
+                        // "gx:YearMonth" => Ok(GremlinTypes::YearMonth(YearMonth::decode_v2(j_val)?)),
+                        // "gx:ZonedDateTime" => Ok(GremlinTypes::ZonedDateTime(ZonedDateTime::decode_v2(j_val)?)),
+                        // "gx:ZoneOffset" => Ok(GremlinTypes::ZoneOffset(ZoneOffset::decode_v2(j_val)?)),
+                        _ => todo!(),
                     }
-                    "g:Column" => Ok(GremlinTypes::Column(Column::decode_v2(j_val)?)),
-                    "g:Direction" => Ok(GremlinTypes::Direction(Direction::decode_v2(j_val)?)),
-                    // "g:Lambda" => Ok(GremlinTypes::Lambda(Lambda::decode_v2(j_val)?)),
-                    "g:Merge" => Ok(GremlinTypes::Merge(Merge::decode_v2(j_val)?)),
-                    // "g:Metrics" => Ok(GremlinTypes::Metrics(Metrics::decode_v2(j_val)?)),
-                    "g:Operator" => Ok(GremlinTypes::Operator(Operator::decode_v2(j_val)?)),
-                    "g:Order" => Ok(GremlinTypes::Order(Order::decode_v2(j_val)?)),
-                    // "g:P" => Ok(GremlinTypes::P(P::decode_v2(j_val)?)),
-                    "g:Pick" => Ok(GremlinTypes::Pick(Pick::decode_v2(j_val)?)),
-                    "g:Pop" => Ok(GremlinTypes::Pop(Pop::decode_v2(j_val)?)),
-                    "g:Scope" => Ok(GremlinTypes::Scope(Scope::decode_v2(j_val)?)),
-                    "g:T" => Ok(GremlinTypes::T(T::decode_v2(j_val)?)),
-                    // "g:TextP" => Ok(GremlinTypes::TextP(TextP::decode_v2(j_val)?)),
-                    // "g:TraversalMetrics" => Ok(GremlinTypes::TraversalMetrics(TraversalMetrics::decode_v2(j_val)?)),
-                    // "g:Traverser" => Ok(GremlinTypes::Traverser(Traverser::decode_v2(j_val)?)),
-                    // "gx:BigDecimal" => Ok(GremlinTypes::BigDecimal(BigDecimal::decode_v2(j_val)?)),
-                    // "gx:BigInteger" => Ok(GremlinTypes::BigInteger(BigInteger::decode_v2(j_val)?)),
-                    "gx:Byte" => Ok(GremlinTypes::Byte(u8::decode_v2(j_val)?)),
-                    // "gx:ByteBuffer" => Ok(GremlinTypes::ByteBuffer(ByteBuffer::decode_v2(j_val)?)),
-                    "gx:Char" => Ok(GremlinTypes::Char(char::decode_v2(j_val)?)),
-                    // "gx:Duration" => Ok(GremlinTypes::Duration(Duration::decode_v2(j_val)?)),
-                    // "gx:InetAddress" => Ok(GremlinTypes::InetAddress(InetAddress::decode_v2(j_val)?)),
-                    // "gx:Instant" => Ok(GremlinTypes::Instant(Instant::decode_v2(j_val)?)),
-                    // "gx:LocalDate" => Ok(GremlinTypes::LocalDate(LocalDate::decode_v2(j_val)?)),
-                    // "gx:LocalDateTime" => Ok(GremlinTypes::LocalDateTime(LocalDateTime::decode_v2(j_val)?)),
-                    // "gx:LocalTime" => Ok(GremlinTypes::LocalTime(LocalTime::decode_v2(j_val)?)),
-                    // "gx:MonthDay" => Ok(GremlinTypes::MonthDay(MonthDay::decode_v2(j_val)?)),
-                    // "gx:OffsetDateTime" => Ok(GremlinTypes::OffsetDateTime(OffsetDateTime::decode_v2(j_val)?)),
-                    // "gx:OffsetTime" => Ok(GremlinTypes::OffsetTime(OffsetTime::decode_v2(j_val)?)),
-                    // "gx:Period" => Ok(GremlinTypes::Period(Period::decode_v2(j_val)?)),
-                    "gx:Int16" => Ok(GremlinTypes::Short(i16::decode_v2(j_val)?)),
-                    // "gx:Year" => Ok(GremlinTypes::Year(Year::decode_v2(j_val)?)),
-                    // "gx:YearMonth" => Ok(GremlinTypes::YearMonth(YearMonth::decode_v2(j_val)?)),
-                    // "gx:ZonedDateTime" => Ok(GremlinTypes::ZonedDateTime(ZonedDateTime::decode_v2(j_val)?)),
-                    // "gx:ZoneOffset" => Ok(GremlinTypes::ZoneOffset(ZoneOffset::decode_v2(j_val)?)),
-                    _ => todo!(),
+                } else {
+                    Ok(GremlinTypes::Map(HashMap::decode_v2(j_val)?))
                 }
             }
             _ => todo!(),
@@ -343,4 +354,3 @@ impl DecodeGraphSON for GremlinTypes {
         todo!()
     }
 }
-

@@ -5,11 +5,10 @@ use serde_json::{json, Map};
 use crate::{
     conversions,
     error::DecodeError,
-    get_val_v2, get_val_v3,
     graph_binary::{Decode, Encode, GremlinTypes},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::{self, CoreType},
-    struct_de_serialize,
+    struct_de_serialize, val_by_key_v2, val_by_key_v3,
 };
 
 use super::{
@@ -203,9 +202,9 @@ impl DecodeGraphSON for VertexProperty {
             .and_then(|m| m.get("@value"))
             .and_then(|m| m.as_object());
 
-        let id = get_val_v3!(value_object, "id", GremlinTypes, "VertexProperty")?;
-        let label = get_val_v3!(value_object, "label", String, "VertexProperty")?;
-        let value = get_val_v3!(value_object, "value", GremlinTypes, "VertexProperty")?;
+        let id = val_by_key_v3!(value_object, "id", GremlinTypes, "VertexProperty")?;
+        let label = val_by_key_v3!(value_object, "label", String, "VertexProperty")?;
+        let value = val_by_key_v3!(value_object, "value", GremlinTypes, "VertexProperty")?;
 
         let properties = value_object
             .and_then(|value_object| value_object.get("properties"))
@@ -245,10 +244,10 @@ impl DecodeGraphSON for VertexProperty {
             .and_then(|m| m.get("@value"))
             .and_then(|m| m.as_object());
 
-        let id = get_val_v2!(object, "id", GremlinTypes, "VertexProperty")?;
-        let label = get_val_v2!(object, "label", String, "VertexProperty")?;
-        let value = get_val_v2!(object, "value", GremlinTypes, "VertexProperty")?;
-        let vertex_id = get_val_v2!(object, "vertex", GremlinTypes, "VertexProperty")?;
+        let id = val_by_key_v2!(object, "id", GremlinTypes, "VertexProperty")?;
+        let label = val_by_key_v2!(object, "label", String, "VertexProperty")?;
+        let value = val_by_key_v2!(object, "value", GremlinTypes, "VertexProperty")?;
+        let vertex_id = val_by_key_v2!(object, "vertex", GremlinTypes, "VertexProperty")?;
 
         let properties = object
             .and_then(|m| m.get("properties"))

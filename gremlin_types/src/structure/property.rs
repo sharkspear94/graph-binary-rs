@@ -7,11 +7,10 @@ use super::{edge::Edge, vertex_property::VertexProperty};
 use crate::{
     conversions,
     error::DecodeError,
-    get_val_v1, get_val_v2, get_val_v3,
     graph_binary::{Decode, Encode, GremlinTypes, ValueFlag},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::{self, CoreType},
-    struct_de_serialize,
+    struct_de_serialize, val_by_key_v1, val_by_key_v2, val_by_key_v3,
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -195,8 +194,8 @@ impl DecodeGraphSON for Property {
             .and_then(|map| map.get("@value"))
             .and_then(|v| v.as_object());
 
-        let key = get_val_v3!(object, "key", String, "Property")?;
-        let value = get_val_v3!(object, "value", GremlinTypes, "Property")?;
+        let key = val_by_key_v3!(object, "key", String, "Property")?;
+        let value = val_by_key_v3!(object, "value", GremlinTypes, "Property")?;
 
         Ok(Property {
             key,
@@ -215,10 +214,10 @@ impl DecodeGraphSON for Property {
             .and_then(|map| map.get("@value"))
             .and_then(|v| v.as_object());
 
-        let key = get_val_v2!(object, "key", String, "Property")?;
-        let value = get_val_v2!(object, "value", GremlinTypes, "Property")?;
+        let key = val_by_key_v2!(object, "key", String, "Property")?;
+        let value = val_by_key_v2!(object, "value", GremlinTypes, "Property")?;
 
-        let parent = get_val_v2!(object, "element", EitherParent, "Property")?;
+        let parent = val_by_key_v2!(object, "element", EitherParent, "Property")?;
 
         Ok(Property {
             key,
@@ -232,8 +231,8 @@ impl DecodeGraphSON for Property {
         Self: std::marker::Sized,
     {
         let object = j_val.as_object();
-        let key = get_val_v1!(object, "key", String, "Property")?;
-        let value = get_val_v1!(object, "value", GremlinTypes, "Property")?;
+        let key = val_by_key_v1!(object, "key", String, "Property")?;
+        let value = val_by_key_v1!(object, "value", GremlinTypes, "Property")?;
 
         Ok(Property {
             key,
@@ -287,10 +286,10 @@ impl DecodeGraphSON for EitherParent {
             .is_some()
         {
             let obj = j_val.get("@value");
-            let id = get_val_v2!(obj, "id", GremlinTypes, "EitherParent")?;
-            let label = get_val_v2!(obj, "label", String, "EitherParent")?;
-            let out_v_id = get_val_v2!(obj, "outV", GremlinTypes, "EitherParent")?;
-            let in_v_id = get_val_v2!(obj, "inV", GremlinTypes, "EitherParent")?;
+            let id = val_by_key_v2!(obj, "id", GremlinTypes, "EitherParent")?;
+            let label = val_by_key_v2!(obj, "label", String, "EitherParent")?;
+            let out_v_id = val_by_key_v2!(obj, "outV", GremlinTypes, "EitherParent")?;
+            let in_v_id = val_by_key_v2!(obj, "inV", GremlinTypes, "EitherParent")?;
 
             Ok(EitherParent::Edge(Edge {
                 id: Box::new(id),

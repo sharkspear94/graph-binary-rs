@@ -3,11 +3,21 @@ use std::{
     fmt::{write, Display},
 };
 
+use serde_json::json;
+
+use super::validate_type_entry;
 use crate::{
     conversions,
     graph_binary::{Decode, Encode, GremlinTypes},
+    graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
     struct_de_serialize,
+    structure::property::{EitherParent, Property},
+    val_by_key_v2, val_by_key_v3,
+};
+use crate::{
+    error::DecodeError,
+    structure::{vertex::Vertex, vertex_property::VertexProperty},
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -45,6 +55,10 @@ impl<'a> Iterator for TraverserIter<'a> {
         } else {
             None
         }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.bulk, Some(self.bulk))
     }
 }
 
@@ -111,6 +125,77 @@ impl Decode for Traverser {
         let mut len = i64::get_partial_len(bytes)?;
         len += GremlinTypes::get_len(&bytes[len..])?;
         Ok(len)
+    }
+}
+
+impl EncodeGraphSON for Traverser {
+    fn encode_v3(&self) -> serde_json::Value {
+        json!({
+        "@type" : "g:Traverser",
+        "@value" : {
+          "bulk" : self.bulk.encode_v3(),
+          "value": self.value.encode_v3()
+        }})
+    }
+
+    fn encode_v2(&self) -> serde_json::Value {
+        json!({
+        "@type" : "g:Traverser",
+        "@value" : {
+          "bulk" : self.bulk.encode_v2(),
+          "value": self.value.encode_v2()
+        }})
+    }
+
+    fn encode_v1(&self) -> serde_json::Value {
+        todo!()
+    }
+}
+
+impl DecodeGraphSON for Traverser {
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let object = j_val
+            .as_object()
+            .filter(|map| validate_type_entry(*map, "g:Traverser"))
+            .and_then(|map| map.get("@value"))
+            .and_then(|v| v.as_object());
+
+        let bulk = val_by_key_v3!(object, "bulk", i64, "Traverser")?;
+        let value = val_by_key_v3!(object, "value", GremlinTypes, "Traverser")?;
+
+        Ok(Traverser {
+            bulk,
+            value: Box::new(value),
+        })
+    }
+
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let object = j_val
+            .as_object()
+            .filter(|map| validate_type_entry(*map, "g:Traverser"))
+            .and_then(|map| map.get("@value"))
+            .and_then(|v| v.as_object());
+
+        let bulk = val_by_key_v2!(object, "bulk", i64, "Traverser")?;
+        let value = val_by_key_v2!(object, "value", GremlinTypes, "Traverser")?;
+
+        Ok(Traverser {
+            bulk,
+            value: Box::new(value),
+        })
+    }
+
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        todo!()
     }
 }
 
@@ -210,7 +295,378 @@ fn decode_traverser() {
 }
 
 #[test]
-fn test() {
+fn test_iter() {
+    let t = Traverser {
+        bulk: 3,
+        value: Box::new(1.into()),
+    };
+    let mut iter = t.iter();
+    assert_eq!(iter.next(), Some(&1.into()));
+    assert_eq!(iter.next(), Some(&1.into()));
+    assert_eq!(iter.next(), Some(&1.into()));
+    assert_eq!(iter.next(), None)
+}
+#[test]
+fn encode_v3() {
+    let expected = r#"{"@type":"g:Traverser","@value":{"bulk":{"@type":"g:Int64","@value":1},"value":{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":1},"label":"person","properties":{"name":[{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":0},"value":"marko","label":"name"}}],"location":[{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":6},"value":"san diego","label":"location","properties":{"startTime":{"@type":"g:Int32","@value":1997},"endTime":{"@type":"g:Int32","@value":2001}}}},{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":7},"value":"santa cruz","label":"location","properties":{"startTime":{"@type":"g:Int32","@value":2001},"endTime":{"@type":"g:Int32","@value":2004}}}},{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":8},"value":"brussels","label":"location","properties":{"startTime":{"@type":"g:Int32","@value":2004},"endTime":{"@type":"g:Int32","@value":2005}}}},{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":9},"value":"santa fe","label":"location","properties":{"startTime":{"@type":"g:Int32","@value":2005}}}}]}}}}}"#;
+    let t = Traverser {
+        bulk: 1,
+        value: Box::new(
+            Vertex::new(
+                1,
+                "person",
+                Some(vec![
+                    VertexProperty::new(0i64, "name", "marko", None, None),
+                    VertexProperty::new(
+                        6i64,
+                        "location",
+                        "san diego",
+                        None,
+                        Some(vec![
+                            Property::new("startTime", 1997, EitherParent::None),
+                            Property::new("endTime", 2001, EitherParent::None),
+                        ]),
+                    ),
+                    VertexProperty::new(
+                        7i64,
+                        "location",
+                        "santa cruz",
+                        None,
+                        Some(vec![
+                            Property::new("startTime", 2001, EitherParent::None),
+                            Property::new("endTime", 2004, EitherParent::None),
+                        ]),
+                    ),
+                    VertexProperty::new(
+                        8i64,
+                        "location",
+                        "brussels",
+                        None,
+                        Some(vec![
+                            Property::new("startTime", 2004, EitherParent::None),
+                            Property::new("endTime", 2005, EitherParent::None),
+                        ]),
+                    ),
+                    VertexProperty::new(
+                        9i64,
+                        "location",
+                        "santa fe",
+                        None,
+                        Some(vec![Property::new("startTime", 2005, EitherParent::None)]),
+                    ),
+                ]),
+            )
+            .into(),
+        ),
+    };
+    let s = t.encode_v3();
+    let res: serde_json::Value = serde_json::from_str(expected).unwrap();
+    assert_eq!(s, res)
+}
+
+#[test]
+fn decode_v3() {
+    let s = r#"{"@type":"g:Traverser","@value":{"bulk":{"@type":"g:Int64","@value":1},"value":{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":1},"label":"person","properties":{"name":[{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":0},"value":"marko","label":"name"}}],"location":[{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":6},"value":"san diego","label":"location","properties":{"startTime":{"@type":"g:Int32","@value":1997},"endTime":{"@type":"g:Int32","@value":2001}}}},{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":7},"value":"santa cruz","label":"location","properties":{"startTime":{"@type":"g:Int32","@value":2001},"endTime":{"@type":"g:Int32","@value":2004}}}},{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":8},"value":"brussels","label":"location","properties":{"startTime":{"@type":"g:Int32","@value":2004},"endTime":{"@type":"g:Int32","@value":2005}}}},{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":9},"value":"santa fe","label":"location","properties":{"startTime":{"@type":"g:Int32","@value":2005}}}}]}}}}}"#;
+    let expected = Traverser {
+        bulk: 1,
+        value: Box::new(
+            Vertex::new(
+                1,
+                "person",
+                Some(vec![
+                    VertexProperty::new(0i64, "name", "marko", None, None),
+                    VertexProperty::new(
+                        6i64,
+                        "location",
+                        "san diego",
+                        None,
+                        Some(vec![
+                            Property::new("startTime", 1997, EitherParent::None),
+                            Property::new("endTime", 2001, EitherParent::None),
+                        ]),
+                    ),
+                    VertexProperty::new(
+                        7i64,
+                        "location",
+                        "santa cruz",
+                        None,
+                        Some(vec![
+                            Property::new("startTime", 2001, EitherParent::None),
+                            Property::new("endTime", 2004, EitherParent::None),
+                        ]),
+                    ),
+                    VertexProperty::new(
+                        8i64,
+                        "location",
+                        "brussels",
+                        None,
+                        Some(vec![
+                            Property::new("startTime", 2004, EitherParent::None),
+                            Property::new("endTime", 2005, EitherParent::None),
+                        ]),
+                    ),
+                    VertexProperty::new(
+                        9i64,
+                        "location",
+                        "santa fe",
+                        None,
+                        Some(vec![Property::new("startTime", 2005, EitherParent::None)]),
+                    ),
+                ]),
+            )
+            .into(),
+        ),
+    };
+
+    let res: serde_json::Value = serde_json::from_str(s).unwrap();
+    let mut res = Traverser::decode_v3(&res).unwrap();
+
+    res.value
+        .get_mut_ref::<Vertex>()
+        .unwrap()
+        .properties
+        .as_mut()
+        .into_iter()
+        .for_each(|p| {
+            for i in p {
+                if i.properties.is_some() {
+                    i.properties
+                        .as_mut()
+                        .unwrap()
+                        .sort_by(|p1, p2| p1.key.cmp(&p2.key).reverse())
+                }
+            }
+        });
+    res.value
+        .get_mut_ref::<Vertex>()
+        .unwrap()
+        .properties
+        .as_mut()
+        .unwrap()
+        .sort_by(|p1, p2| {
+            p1.id
+                .get_ref::<i64>()
+                .unwrap()
+                .cmp(p2.id.get_ref::<i64>().unwrap())
+        });
+    assert_eq!(res, expected)
+}
+
+#[test]
+fn decode_v2() {
+    let s = r#"{"@type":"g:Traverser","@value":{"bulk":{"@type":"g:Int64","@value":1},"value":{
+        "@type" : "g:Vertex",
+        "@value" : {
+          "id" : {
+            "@type" : "g:Int32",
+            "@value" : 1
+          },
+          "label" : "person",
+          "properties" : {
+            "name" : [ {
+              "@type" : "g:VertexProperty",
+              "@value" : {
+                "id" : {
+                  "@type" : "g:Int64",
+                  "@value" : 0
+                },
+                "value" : "marko",
+                "vertex" : {
+                  "@type" : "g:Int32",
+                  "@value" : 1
+                },
+                "label" : "name"
+              }
+            } ],
+            "location" : [ {
+              "@type" : "g:VertexProperty",
+              "@value" : {
+                "id" : {
+                  "@type" : "g:Int64",
+                  "@value" : 6
+                },
+                "value" : "san diego",
+                "vertex" : {
+                  "@type" : "g:Int32",
+                  "@value" : 1
+                },
+                "label" : "location",
+                "properties" : {
+                  "startTime" : {
+                    "@type" : "g:Int32",
+                    "@value" : 1997
+                  },
+                  "endTime" : {
+                    "@type" : "g:Int32",
+                    "@value" : 2001
+                  }
+                }
+              }
+            }, {
+              "@type" : "g:VertexProperty",
+              "@value" : {
+                "id" : {
+                  "@type" : "g:Int64",
+                  "@value" : 7
+                },
+                "value" : "santa cruz",
+                "vertex" : {
+                  "@type" : "g:Int32",
+                  "@value" : 1
+                },
+                "label" : "location",
+                "properties" : {
+                  "startTime" : {
+                    "@type" : "g:Int32",
+                    "@value" : 2001
+                  },
+                  "endTime" : {
+                    "@type" : "g:Int32",
+                    "@value" : 2004
+                  }
+                }
+              }
+            }, {
+              "@type" : "g:VertexProperty",
+              "@value" : {
+                "id" : {
+                  "@type" : "g:Int64",
+                  "@value" : 8
+                },
+                "value" : "brussels",
+                "vertex" : {
+                  "@type" : "g:Int32",
+                  "@value" : 1
+                },
+                "label" : "location",
+                "properties" : {
+                  "startTime" : {
+                    "@type" : "g:Int32",
+                    "@value" : 2004
+                  },
+                  "endTime" : {
+                    "@type" : "g:Int32",
+                    "@value" : 2005
+                  }
+                }
+              }
+            }, {
+              "@type" : "g:VertexProperty",
+              "@value" : {
+                "id" : {
+                  "@type" : "g:Int64",
+                  "@value" : 9
+                },
+                "value" : "santa fe",
+                "vertex" : {
+                  "@type" : "g:Int32",
+                  "@value" : 1
+                },
+                "label" : "location",
+                "properties" : {
+                  "startTime" : {
+                    "@type" : "g:Int32",
+                    "@value" : 2005
+                  }
+                }
+              }
+            } ]
+          }
+        }
+      }}}"#;
+    let expected = Traverser {
+        bulk: 1,
+        value: Box::new(
+            Vertex {
+                id: Box::new(1_i32.into()),
+                label: String::from("person"),
+                properties: Some(vec![
+                    VertexProperty::new(
+                        0i64,
+                        "name",
+                        "marko",
+                        Some(Vertex::new(1, "", None)),
+                        None,
+                    ),
+                    VertexProperty::new(
+                        6i64,
+                        "location",
+                        "san diego",
+                        Some(Vertex::new(1, "", None)),
+                        Some(vec![
+                            Property::new("startTime", 1997, EitherParent::None),
+                            Property::new("endTime", 2001, EitherParent::None),
+                        ]),
+                    ),
+                    VertexProperty::new(
+                        7i64,
+                        "location",
+                        "santa cruz",
+                        Some(Vertex::new(1, "", None)),
+                        Some(vec![
+                            Property::new("startTime", 2001, EitherParent::None),
+                            Property::new("endTime", 2004, EitherParent::None),
+                        ]),
+                    ),
+                    VertexProperty::new(
+                        8i64,
+                        "location",
+                        "brussels",
+                        Some(Vertex::new(1, "", None)),
+                        Some(vec![
+                            Property::new("startTime", 2004, EitherParent::None),
+                            Property::new("endTime", 2005, EitherParent::None),
+                        ]),
+                    ),
+                    VertexProperty::new(
+                        9i64,
+                        "location",
+                        "santa fe",
+                        Some(Vertex::new(1, "", None)),
+                        Some(vec![Property::new("startTime", 2005, EitherParent::None)]),
+                    ),
+                ]),
+            }
+            .into(),
+        ),
+    };
+
+    let res: serde_json::Value = serde_json::from_str(s).unwrap();
+    let mut res = Traverser::decode_v2(&res).unwrap();
+
+    res.value
+        .get_mut_ref::<Vertex>()
+        .unwrap()
+        .properties
+        .as_mut()
+        .into_iter()
+        .for_each(|p| {
+            for i in p {
+                if i.properties.is_some() {
+                    i.properties
+                        .as_mut()
+                        .unwrap()
+                        .sort_by(|p1, p2| p1.key.cmp(&p2.key).reverse())
+                }
+            }
+        });
+    res.value
+        .get_mut_ref::<Vertex>()
+        .unwrap()
+        .properties
+        .as_mut()
+        .unwrap()
+        .sort_by(|p1, p2| {
+            p1.id
+                .get_ref::<i64>()
+                .unwrap()
+                .cmp(p2.id.get_ref::<i64>().unwrap())
+        });
+    assert_eq!(res, expected)
+}
+
+#[test]
+fn iter() {
     let t = Traverser {
         bulk: 3,
         value: Box::new(1.into()),

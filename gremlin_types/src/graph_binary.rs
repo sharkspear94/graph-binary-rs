@@ -1,6 +1,7 @@
 use std::collections::{BTreeSet, HashMap};
 use std::fmt::Display;
 use std::io::{Read, Write};
+use std::str::FromStr;
 
 use crate::error::{DecodeError, EncodeError};
 use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
@@ -77,6 +78,21 @@ pub enum GremlinTypes {
     UnspecifiedNullObject,
     // Custom
     Char(char),
+    // Duration(),
+    // InetAddress(std::net::IpAddr),
+    // Instant(),
+    // LocalDate(),
+    // LocalDateTime(),
+    // LocalTime(),
+    // MonthDay(),
+    // OffsetDateTime(),
+    // OffsetTime(),
+    // Period(),
+    // Year(),
+    // YearMonth(),
+    // ZonedDateTime(),
+    // ZoneOffset,
+
 }
 
 pub fn encode_null_object<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
@@ -113,6 +129,22 @@ impl GremlinTypes {
         T::try_from(self).ok()
     }
 
+    /// Returns an Option of an cloned value if the Type was the GremlinTypes variant.
+    /// Returns None if GremlinTypes enum holds another Type
+    ///
+    /// ```
+    /// # use gremlin_types::graph_binary::GremlinTypes;
+    ///
+    /// let gb1 = GremlinTypes::Boolean(true);
+    /// assert_eq!(Some(true),gb1.get());
+    ///
+    /// let gb2 = GremlinTypes::Boolean(true);
+    /// assert_eq!(None, gb2.get::<String>());
+    ///
+    /// ```
+    pub fn get_cloned<T: TryFrom<GremlinTypes>>(&self) -> Option<T> {
+        T::try_from(self.clone()).ok()
+    }
     /// Returns an Option of the borrowed value if the Type was the GremlinTypes variant.
     /// Returns None if GremlinTypes enum holds another Type
     ///
@@ -502,6 +534,25 @@ impl TryFrom<GremlinTypes> for MapKeys {
                 "cannot convert from {:?} to MapKeys",
                 rest
             ))),
+        }
+    }
+}
+
+impl TryFrom<MapKeys> for String {
+    type Error = DecodeError;
+
+    fn try_from(value: MapKeys) -> Result<Self, Self::Error> {
+        match value {
+            MapKeys::Int(_) => Err(DecodeError::ConvertError(
+                "cannot convert from MapKeys::Int to String".to_string(),
+            )),
+            MapKeys::String(s) => Ok(s),
+            MapKeys::Long(_) => Err(DecodeError::ConvertError(
+                "cannot convert from MapKeys::Long to String".to_string(),
+            )),
+            MapKeys::Uuid(u) => Ok(u.to_string()),
+            MapKeys::T(t) => Ok(t.to_string()),
+            MapKeys::Direction(d) => Ok(d.to_string()),
         }
     }
 }

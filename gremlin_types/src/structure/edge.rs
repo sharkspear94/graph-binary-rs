@@ -5,11 +5,10 @@ use serde_json::{json, Map};
 use crate::{
     conversions,
     error::DecodeError,
-    get_val_v2, get_val_v3,
     graph_binary::{Decode, Encode, GremlinTypes},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::{self, CoreType},
-    struct_de_serialize,
+    struct_de_serialize, val_by_key_v2, val_by_key_v3,
 };
 
 use super::{
@@ -185,7 +184,6 @@ impl EncodeGraphSON for Edge {
                 .map(|prop| (prop.key.clone(), prop.value.encode_v2()))
                 .collect::<Map<String, serde_json::Value>>()
         });
-        // needs testing
 
         let mut json_value = json!({
           "@type" : "g:Edge",
@@ -220,24 +218,23 @@ impl DecodeGraphSON for Edge {
         let object = j_val
             .as_object()
             .filter(|map| validate_type_entry(*map, "g:Edge"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_object());
+            .and_then(|map| map.get("@value"));
 
-        let id = get_val_v3!(object, "id", GremlinTypes, "Edge")?;
-        let label = get_val_v3!(object, "label", String, "Edge")?;
-        let in_v_id = get_val_v3!(object, "inV", GremlinTypes, "Edge")?;
-        let in_v_label = get_val_v3!(object, "inVLabel", String, "Edge")?;
-        let out_v_id = get_val_v3!(object, "outV", GremlinTypes, "Edge")?;
-        let out_v_label = get_val_v3!(object, "outVLabel", String, "Edge")?;
+        let id = val_by_key_v3!(object, "id", GremlinTypes, "Edge")?;
+        let label = val_by_key_v3!(object, "label", String, "Edge")?;
+        let in_v_id = val_by_key_v3!(object, "inV", GremlinTypes, "Edge")?;
+        let in_v_label = val_by_key_v3!(object, "inVLabel", String, "Edge")?;
+        let out_v_id = val_by_key_v3!(object, "outV", GremlinTypes, "Edge")?;
+        let out_v_label = val_by_key_v3!(object, "outVLabel", String, "Edge")?;
 
         let mut properties_vec = None;
         let prop_iter = object
             .and_then(|map| map.get("properties"))
             .and_then(|map| map.as_object())
-            .map(|map| map.iter());
+            .map(|map| map.values());
         if let Some(props) = prop_iter {
             let mut vec = Vec::new();
-            for (_, v) in props {
+            for v in props {
                 vec.push(Property::decode_v3(v)?);
             }
             properties_vec = Some(vec);
@@ -265,12 +262,12 @@ impl DecodeGraphSON for Edge {
             .and_then(|map| map.get("@value"))
             .and_then(|v| v.as_object());
 
-        let id = get_val_v2!(object, "id", GremlinTypes, "Edge")?;
-        let label = get_val_v2!(object, "label", String, "Edge")?;
-        let in_v_id = get_val_v2!(object, "inV", GremlinTypes, "Edge")?;
-        let in_v_label = get_val_v2!(object, "inVLabel", String, "Edge")?;
-        let out_v_id = get_val_v2!(object, "outV", GremlinTypes, "Edge")?;
-        let out_v_label = get_val_v2!(object, "outVLabel", String, "Edge")?;
+        let id = val_by_key_v2!(object, "id", GremlinTypes, "Edge")?;
+        let label = val_by_key_v2!(object, "label", String, "Edge")?;
+        let in_v_id = val_by_key_v2!(object, "inV", GremlinTypes, "Edge")?;
+        let in_v_label = val_by_key_v2!(object, "inVLabel", String, "Edge")?;
+        let out_v_id = val_by_key_v2!(object, "outV", GremlinTypes, "Edge")?;
+        let out_v_label = val_by_key_v2!(object, "outVLabel", String, "Edge")?;
 
         let mut properties_vec = None;
         let prop_iter = object

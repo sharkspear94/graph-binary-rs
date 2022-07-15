@@ -426,7 +426,7 @@ impl DecodeGraphSON for i32 {
             .and_then(|map| map.get("@value"))
             .and_then(|value| value.as_i64())
             .ok_or_else(|| DecodeError::DecodeError("json error i32 v3 in error".to_string()))
-            .map(|t| t as i32) // maybe try from for conversion to
+            .map(|t| t as i32)
     }
 
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>

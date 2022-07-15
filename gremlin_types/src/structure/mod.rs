@@ -21,8 +21,10 @@ pub mod traverser;
 pub mod tree;
 pub mod vertex_property;
 
+use crate::error::DecodeError;
+
 #[macro_export]
-macro_rules! get_val_v1 {
+macro_rules! val_by_key_v1 {
     ($obj:expr,$key:literal,$expected:ty,$context:literal) => {
         $obj.and_then(|m| m.get($key))
             .and_then(|j_val| <$expected>::decode_v1(j_val).ok())
@@ -38,7 +40,7 @@ macro_rules! get_val_v1 {
 }
 
 #[macro_export]
-macro_rules! get_val_v2 {
+macro_rules! val_by_key_v2 {
     ($obj:expr,$key:literal,$expected:ty,$context:literal) => {
         $obj.and_then(|m| m.get($key))
             .and_then(|j_val| <$expected>::decode_v2(j_val).ok())
@@ -54,7 +56,7 @@ macro_rules! get_val_v2 {
 }
 
 #[macro_export]
-macro_rules! get_val_v3 {
+macro_rules! val_by_key_v3 {
     ($obj:expr,$key:literal,$expected:ty,$context:literal) => {
         $obj.and_then(|m| m.get($key))
             .and_then(|j_val| <$expected>::decode_v3(j_val).ok())

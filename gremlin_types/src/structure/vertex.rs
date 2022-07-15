@@ -5,12 +5,12 @@ use serde_json::json;
 use crate::{
     conversions,
     error::DecodeError,
-    get_val_v2, get_val_v3,
     graph_binary::{Decode, Encode, GremlinTypes},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::{self, CoreType},
     struct_de_serialize,
     structure::property::{EitherParent, Property},
+    val_by_key_v2, val_by_key_v3,
 };
 
 use super::{validate_type_entry, vertex_property::VertexProperty};
@@ -23,11 +23,15 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    pub fn new<ID: Into<GremlinTypes>>(id: ID, label: &str) -> Self {
+    pub fn new<ID: Into<GremlinTypes>>(
+        id: ID,
+        label: &str,
+        properties: Option<Vec<VertexProperty>>,
+    ) -> Self {
         Vertex {
             id: Box::new(id.into()),
             label: label.to_owned(),
-            properties: None,
+            properties,
         }
     }
 }
@@ -160,26 +164,27 @@ impl DecodeGraphSON for Vertex {
             .and_then(|map| map.get("@value"))
             .and_then(|o| o.as_object());
 
-        let id = get_val_v3!(type_value_object, "id", GremlinTypes, "Vertex")?;
-        let label = get_val_v3!(type_value_object, "label", String, "Vertex")?;
+        let id = val_by_key_v3!(type_value_object, "id", GremlinTypes, "Vertex")?;
 
-        let mut collector = Vec::new();
+        let label = val_by_key_v3!(type_value_object, "label", String, "Vertex")?;
+
         let mut properties = None;
-        if let Some(opt) = type_value_object
+        if let Some(jvalues) = type_value_object
             .and_then(|obj| obj.get("properties"))
             .and_then(|obj| obj.as_object())
             .map(|map| {
-                map.values().for_each(|arr_value| {
-                    if let Some(vec) = arr_value.as_array() {
-                        collector.extend(vec.iter().map(VertexProperty::decode_v3));
-                    }
-                });
-                collector
+                map.values()
+                    .flat_map(|val| val.as_array().into_iter())
+                    .flatten()
             })
         {
-            let mut vertex_properties = Vec::new();
-            for i in opt {
-                vertex_properties.push(i?);
+            let mut vertex_properties = if let (_, Some(size)) = jvalues.size_hint() {
+                Vec::with_capacity(size)
+            } else {
+                Vec::new()
+            };
+            for i in jvalues {
+                vertex_properties.push(VertexProperty::decode_v3(i)?);
             }
             properties = Some(vertex_properties);
         }
@@ -198,29 +203,28 @@ impl DecodeGraphSON for Vertex {
         let type_value_object = j_val
             .as_object()
             .filter(|map| validate_type_entry(*map, "g:Vertex"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|o| o.as_object());
+            .and_then(|map| map.get("@value"));
 
-        let id = get_val_v2!(type_value_object, "id", GremlinTypes, "Vertex")?;
-        let label = get_val_v2!(type_value_object, "label", String, "Vertex")?;
+        let id = val_by_key_v2!(type_value_object, "id", GremlinTypes, "Vertex")?;
+        let label = val_by_key_v2!(type_value_object, "label", String, "Vertex")?;
 
-        let mut collector = Vec::new();
         let mut properties = None;
-        if let Some(opt) = type_value_object
+        if let Some(jvalues) = type_value_object
             .and_then(|obj| obj.get("properties"))
             .and_then(|obj| obj.as_object())
             .map(|map| {
-                map.values().for_each(|arr_value| {
-                    if let Some(vec) = arr_value.as_array() {
-                        collector.extend(vec.iter().map(VertexProperty::decode_v2));
-                    }
-                });
-                collector
+                map.values()
+                    .flat_map(|val| val.as_array().into_iter())
+                    .flatten()
             })
         {
-            let mut vertex_properties = Vec::new();
-            for i in opt {
-                vertex_properties.push(i?);
+            let mut vertex_properties = if let (_, Some(size)) = jvalues.size_hint() {
+                Vec::with_capacity(size)
+            } else {
+                Vec::new()
+            };
+            for i in jvalues {
+                vertex_properties.push(VertexProperty::decode_v2(i)?);
             }
             properties = Some(vertex_properties);
         }
@@ -721,12 +725,12 @@ fn decode_v2() {
         id: Box::new(1_i32.into()),
         label: String::from("person"),
         properties: Some(vec![
-            VertexProperty::new(0i64, "name", "marko", Some(Vertex::new(1, "")), None),
+            VertexProperty::new(0i64, "name", "marko", Some(Vertex::new(1, "", None)), None),
             VertexProperty::new(
                 6i64,
                 "location",
                 "san diego",
-                Some(Vertex::new(1, "")),
+                Some(Vertex::new(1, "", None)),
                 Some(vec![
                     Property::new("startTime", 1997, EitherParent::None),
                     Property::new("endTime", 2001, EitherParent::None),
@@ -736,7 +740,7 @@ fn decode_v2() {
                 7i64,
                 "location",
                 "santa cruz",
-                Some(Vertex::new(1, "")),
+                Some(Vertex::new(1, "", None)),
                 Some(vec![
                     Property::new("startTime", 2001, EitherParent::None),
                     Property::new("endTime", 2004, EitherParent::None),
@@ -746,7 +750,7 @@ fn decode_v2() {
                 8i64,
                 "location",
                 "brussels",
-                Some(Vertex::new(1, "")),
+                Some(Vertex::new(1, "", None)),
                 Some(vec![
                     Property::new("startTime", 2004, EitherParent::None),
                     Property::new("endTime", 2005, EitherParent::None),
@@ -756,7 +760,7 @@ fn decode_v2() {
                 9i64,
                 "location",
                 "santa fe",
-                Some(Vertex::new(1, "")),
+                Some(Vertex::new(1, "", None)),
                 Some(vec![Property::new("startTime", 2005, EitherParent::None)]),
             ),
         ]),

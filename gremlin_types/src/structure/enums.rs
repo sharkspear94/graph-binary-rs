@@ -9,6 +9,7 @@ use crate::{
     graph_binary::{decode, Decode, Encode, GremlinTypes},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
+    val_by_key_v3,
 };
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -287,6 +288,7 @@ pub enum P {
     Within(Vec<GremlinTypes>),
     Without(Vec<GremlinTypes>),
 }
+
 pub struct PublicP<T: Into<GremlinTypes> + Clone> {
     p: P,
     marker: PhantomData<T>,
@@ -655,21 +657,21 @@ impl EncodeGraphSON for P {
               "@type" : "g:P",
               "@value" : {
                 "predicate" : "inside",
-                "value" : (val.0.clone(),val.1.clone()).encode_v3()
+                "value" : &[val.0.clone(),val.1.clone()].encode_v3()
               }
             }),
             P::Outside(val) => json!({
               "@type" : "g:P",
               "@value" : {
                 "predicate" : "outside",
-                "value" : (val.0.clone(),val.1.clone()).encode_v3()
+                "value" : &[val.0.clone(),val.1.clone()].encode_v3()
               }
             }),
             P::Between(val) => json!({
               "@type" : "g:P",
               "@value" : {
                 "predicate" : "between",
-                "value" : (val.0.clone(),val.1.clone()).encode_v3()
+                "value" : &[val.0.clone(),val.1.clone()].encode_v3()
               }
             }),
             P::Within(val) => json!({
@@ -737,21 +739,21 @@ impl EncodeGraphSON for P {
               "@type" : "g:P",
               "@value" : {
                 "predicate" : "inside",
-                "value" : (val.0.clone(),val.1.clone()).encode_v2()
+                "value" : [val.0.encode_v3(),val.1.encode_v3()]
               }
             }),
             P::Outside(val) => json!({
               "@type" : "g:P",
               "@value" : {
                 "predicate" : "outside",
-                "value" : (val.0.clone(),val.1.clone()).encode_v2()
+                "value" : [val.0.encode_v3(),val.1.encode_v3()]
               }
             }),
             P::Between(val) => json!({
               "@type" : "g:P",
               "@value" : {
                 "predicate" : "between",
-                "value" : (val.0.clone(),val.1.clone()).encode_v2()
+                "value" : [val.0.encode_v3(),val.1.encode_v3()]
               }
             }),
             P::Within(val) => json!({
@@ -772,6 +774,114 @@ impl EncodeGraphSON for P {
     }
 
     fn encode_v1(&self) -> serde_json::Value {
+        todo!()
+    }
+}
+
+impl DecodeGraphSON for P {
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let object = j_val
+            .as_object()
+            .filter(|map| validate_type_entry(*map, "g:P"))
+            .and_then(|m| m.get("@value"))
+            .and_then(|m| m.as_object());
+
+        let predicate = val_by_key_v3!(object, "predicate", String, "P")?;
+        match predicate.as_str() {
+            "eq" => Ok(P::Eq(Box::new(val_by_key_v3!(
+                object,
+                "value",
+                GremlinTypes,
+                "P"
+            )?))),
+            "neq" => Ok(P::Neq(Box::new(val_by_key_v3!(
+                object,
+                "value",
+                GremlinTypes,
+                "P"
+            )?))),
+            "gt" => Ok(P::Gt(Box::new(val_by_key_v3!(
+                object,
+                "value",
+                GremlinTypes,
+                "P"
+            )?))),
+            "gte" => Ok(P::Gte(Box::new(val_by_key_v3!(
+                object,
+                "value",
+                GremlinTypes,
+                "P"
+            )?))),
+            "lt" => Ok(P::Lt(Box::new(val_by_key_v3!(
+                object,
+                "value",
+                GremlinTypes,
+                "P"
+            )?))),
+            "lte" => Ok(P::Lte(Box::new(val_by_key_v3!(
+                object,
+                "value",
+                GremlinTypes,
+                "P"
+            )?))),
+            "inside" => {
+                let value = val_by_key_v3!(object, "value", Vec<GremlinTypes>, "P")?;
+                let tupel = value.get(0..2).ok_or_else(|| {
+                    DecodeError::DecodeError("inside predicate has let than two values".to_string())
+                })?;
+                Ok(P::Inside(Box::new((tupel[0].clone(), tupel[1].clone()))))
+            }
+
+            "outside" => {
+                let value = val_by_key_v3!(object, "value", Vec<GremlinTypes>, "P")?;
+                let tupel = value.get(0..2).ok_or_else(|| {
+                    DecodeError::DecodeError(
+                        "outside predicate has let than two values".to_string(),
+                    )
+                })?;
+                Ok(P::Outside(Box::new((tupel[0].clone(), tupel[1].clone()))))
+            }
+            "between" => {
+                let value = val_by_key_v3!(object, "value", Vec<GremlinTypes>, "P")?;
+                let tupel = value.get(0..2).ok_or_else(|| {
+                    DecodeError::DecodeError(
+                        "between predicate has let than two values".to_string(),
+                    )
+                })?;
+                Ok(P::Between(Box::new((tupel[0].clone(), tupel[1].clone()))))
+            }
+            "within" => Ok(P::Within(val_by_key_v3!(
+                object,
+                "value",
+                Vec<GremlinTypes>,
+                "P"
+            )?)),
+            "without" => Ok(P::Without(val_by_key_v3!(
+                object,
+                "value",
+                Vec<GremlinTypes>,
+                "P"
+            )?)),
+            error => Err(DecodeError::DecodeError(format!(
+                "found predicate {error} in decoding P v3"
+            ))),
+        }
+    }
+
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        todo!()
+    }
+
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
         todo!()
     }
 }

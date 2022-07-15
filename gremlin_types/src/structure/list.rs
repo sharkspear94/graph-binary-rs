@@ -379,10 +379,7 @@ impl<T: EncodeGraphSON> EncodeGraphSON for (T, T) {
     }
 
     fn encode_v2(&self) -> serde_json::Value {
-        json!({
-            "@type" : "g:List",
-            "@value" : [self.0.encode_v2(),self.1.encode_v2()]
-        })
+        json!([self.0.encode_v2(), self.1.encode_v2()])
     }
 
     fn encode_v1(&self) -> serde_json::Value {

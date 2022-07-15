@@ -1,25 +1,34 @@
 use std::fmt::Display;
 
+use serde_json::{json, Map};
+
 use crate::{
     conversions,
     graph_binary::{Decode, Encode, GremlinTypes},
+    graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::{self, CoreType},
     struct_de_serialize,
     structure::property::EitherParent,
+    val_by_key_v2, val_by_key_v3,
 };
 
-use super::{property::Property, vertex::Vertex, vertex_property::VertexProperty};
+use crate::error::DecodeError;
+
+use super::{
+    edge::Edge, property::Property, validate_type_entry, vertex::Vertex,
+    vertex_property::VertexProperty,
+};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Graph {
-    vertexes: Vec<Vertex>,
+    vertices: Vec<Vertex>,
     edges: Vec<GraphEdge>,
 }
 
 impl Display for Graph {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "vertexes:[")?;
-        for vertex in &self.vertexes {
+        for vertex in &self.vertices {
             write!(f, "{vertex},")?;
         }
         writeln!(f, "]")?;
@@ -41,6 +50,25 @@ struct GraphEdge {
     out_v_label: Option<String>,
     parent: Option<Vertex>,
     properties: Vec<Property>,
+}
+
+impl From<Edge> for GraphEdge {
+    fn from(e: Edge) -> Self {
+        let mut v = Vec::new();
+        if e.properties.is_some() {
+            v = e.properties.unwrap();
+        }
+        GraphEdge {
+            id: *e.id,
+            label: e.label,
+            in_v_id: *e.in_v_id,
+            in_v_label: Some(e.in_v_label),
+            out_v_id: *e.out_v_id,
+            out_v_label: Some(e.out_v_label),
+            parent: e.parent,
+            properties: v,
+        }
+    }
 }
 
 impl Display for GraphEdge {
@@ -125,11 +153,11 @@ impl Encode for Graph {
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
-        let v_len = self.vertexes.len() as i32;
+        let v_len = self.vertices.len() as i32;
         let e_len = self.edges.len() as i32;
 
         v_len.partial_encode(writer)?;
-        for vertex in &self.vertexes {
+        for vertex in &self.vertices {
             vertex.id.encode(writer)?;
             vertex.label.partial_encode(writer)?;
             if vertex.properties.is_some() {
@@ -209,7 +237,7 @@ impl Decode for Graph {
             e_vec.push(GraphEdge::partial_decode(reader)?);
         }
         Ok(Graph {
-            vertexes: v_vec,
+            vertices: v_vec,
             edges: e_vec,
         })
     }
@@ -243,6 +271,156 @@ impl Decode for Graph {
             len += GraphEdge::get_partial_len(&bytes[len..])?;
         }
         Ok(len)
+    }
+}
+
+impl EncodeGraphSON for GraphEdge {
+    fn encode_v3(&self) -> serde_json::Value {
+        let properties_map = self
+            .properties
+            .iter()
+            .map(|prop| (prop.key.clone(), prop.encode_v3()))
+            .collect::<Map<String, serde_json::Value>>();
+
+        let mut json_value = json!({
+          "@type" : "g:Edge",
+          "@value" : {
+            "id" : self.id.encode_v3(),
+            "label" : self.label.encode_v3(),
+            "inVLabel" : self.in_v_label.encode_v3(),
+            "outVLabel" : self.out_v_label.encode_v3(),
+            "inV" : self.in_v_id.encode_v3(),
+            "outV" : self.out_v_id.encode_v3(),
+          }
+        });
+        if !properties_map.is_empty() {
+            json_value["@value"]
+                .as_object_mut()
+                .unwrap()
+                .insert("properties".to_string(), json! {properties_map});
+        }
+        json_value
+    }
+
+    fn encode_v2(&self) -> serde_json::Value {
+        let properties_map = self
+            .properties
+            .iter()
+            .map(|prop| (prop.key.clone(), prop.encode_v2()))
+            .collect::<Map<String, serde_json::Value>>();
+
+        let mut json_value = json!({
+          "@type" : "g:Edge",
+          "@value" : {
+            "id" : self.id.encode_v2(),
+            "label" : self.label.encode_v2(),
+            "inVLabel" : self.in_v_label.encode_v2(),
+            "outVLabel" : self.out_v_label.encode_v2(),
+            "inV" : self.in_v_id.encode_v2(),
+            "outV" : self.out_v_id.encode_v2(),
+          }
+        });
+        if !properties_map.is_empty() {
+            json_value["@value"]
+                .as_object_mut()
+                .unwrap()
+                .insert("properties".to_string(), json! {properties_map});
+        }
+        json_value
+    }
+
+    fn encode_v1(&self) -> serde_json::Value {
+        todo!()
+    }
+}
+
+impl DecodeGraphSON for GraphEdge {
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        Ok(Edge::decode_v3(j_val)?.into())
+    }
+
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        Ok(Edge::decode_v2(j_val)?.into())
+    }
+
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        todo!()
+    }
+}
+
+impl EncodeGraphSON for Graph {
+    fn encode_v3(&self) -> serde_json::Value {
+        json!({
+            "@type" : "tinker:graph",
+            "@value" : {
+                "vertices": self.vertices.iter().map(|vertex| vertex.encode_v3()).collect::<Vec<serde_json::Value>>(),
+                "edges": self.edges.iter().map(|edge| edge.encode_v3()).collect::<Vec<serde_json::Value>>()
+             }
+        })
+    }
+
+    fn encode_v2(&self) -> serde_json::Value {
+        json!({
+            "@type" : "tinker:graph",
+            "@value" : {
+                "vertices": self.vertices.iter().map(|vertex| vertex.encode_v2()).collect::<Vec<serde_json::Value>>(),
+                "edges": self.edges.iter().map(|edge| edge.encode_v2()).collect::<Vec<serde_json::Value>>()
+             }
+        })
+    }
+
+    fn encode_v1(&self) -> serde_json::Value {
+        todo!()
+    }
+}
+
+impl DecodeGraphSON for Graph {
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let value_obj = j_val
+            .as_object()
+            .filter(|map| validate_type_entry(*map, "g:tinker:graph"))
+            .and_then(|map| map.get("@value"))
+            .and_then(|v| v.as_object());
+
+        let vertices = val_by_key_v3!(value_obj, "vertices", Vec<Vertex>, "TinkerGraph")?;
+        let edges = val_by_key_v3!(value_obj, "edges", Vec<GraphEdge>, "TinkerGraph")?;
+
+        Ok(Graph { vertices, edges })
+    }
+
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let value_obj = j_val
+            .as_object()
+            .filter(|map| validate_type_entry(*map, "g:tinker:graph"))
+            .and_then(|map| map.get("@value"))
+            .and_then(|v| v.as_object());
+
+        let vertices = val_by_key_v2!(value_obj, "vertices", Vec<Vertex>, "TinkerGraph")?;
+        let edges = val_by_key_v2!(value_obj, "edges", Vec<GraphEdge>, "TinkerGraph")?;
+
+        Ok(Graph { vertices, edges })
+    }
+
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        todo!()
     }
 }
 
@@ -328,7 +506,7 @@ fn encode_graph_test() {
     }];
 
     let graph = Graph {
-        vertexes: v_s,
+        vertices: v_s,
         edges: edge,
     };
 
@@ -418,7 +596,7 @@ fn decode_graph_test() {
     }];
 
     let expected = Graph {
-        vertexes: v_s,
+        vertices: v_s,
         edges: edge,
     };
 

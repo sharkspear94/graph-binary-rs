@@ -1,16 +1,20 @@
 use std::fmt::Display;
 
+use serde::de::value;
 use serde_json::json;
 
+use crate::error::DecodeError;
+use crate::structure::vertex_property::VertexProperty;
+use crate::val_by_key_v2;
 use crate::{
     conversions,
     graph_binary::{Decode, Encode, GremlinTypes},
-    graphson::EncodeGraphSON,
+    graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
-    struct_de_serialize,
+    struct_de_serialize, val_by_key_v3,
 };
 
-use super::{list::Set, vertex::Vertex};
+use super::{list::Set, validate_type_entry, vertex::Vertex};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Path {
@@ -122,6 +126,47 @@ impl EncodeGraphSON for Path {
     }
 }
 
+impl DecodeGraphSON for Path {
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let object = j_val
+            .as_object()
+            .filter(|map| validate_type_entry(*map, "g:Path"))
+            .and_then(|m| m.get("@value"))
+            .and_then(|m| m.as_object());
+
+        let labels = val_by_key_v3!(object, "labels", Vec<Set<String>>, "Path")?;
+        let objects = val_by_key_v3!(object, "objects", Vec<GremlinTypes>, "Path")?;
+
+        Ok(Path { labels, objects })
+    }
+
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let object = j_val
+            .as_object()
+            .filter(|map| validate_type_entry(*map, "g:Path"))
+            .and_then(|m| m.get("@value"))
+            .and_then(|m| m.as_object());
+
+        let labels = val_by_key_v2!(object, "labels", Vec<Set<String>>, "Path")?;
+        let objects = val_by_key_v2!(object, "objects", Vec<GremlinTypes>, "Path")?;
+
+        Ok(Path { labels, objects })
+    }
+
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        todo!()
+    }
+}
+
 struct_de_serialize!((Path, PathVisitor, 64));
 conversions!((Path, Path));
 
@@ -182,9 +227,9 @@ fn encode_v3() {
     let p = Path {
         labels: vec![Set::new(vec![]), Set::new(vec![]), Set::new(vec![])],
         objects: vec![
-            Vertex::new(1, "person").into(),
-            Vertex::new(10, "sofware").into(),
-            Vertex::new(11, "software").into(),
+            Vertex::new(1, "person", None).into(),
+            Vertex::new(10, "sofware", None).into(),
+            Vertex::new(11, "software", None).into(),
         ],
     };
 
@@ -194,18 +239,97 @@ fn encode_v3() {
 }
 
 #[test]
+fn decode_v3() {
+    let s = r#"{"@type":"g:Path","@value":{"labels":{"@type":"g:List","@value":[{"@type":"g:Set","@value":[]},{"@type":"g:Set","@value":[]},{"@type":"g:Set","@value":[]}]},"objects":{"@type":"g:List","@value":[{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":1},"label":"person"}},{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":10},"label":"sofware"}},{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":11},"label":"software"}}]}}}"#;
+    let expected = Path {
+        labels: vec![Set::new(vec![]), Set::new(vec![]), Set::new(vec![])],
+        objects: vec![
+            Vertex::new(1, "person", None).into(),
+            Vertex::new(10, "sofware", None).into(),
+            Vertex::new(11, "software", None).into(),
+        ],
+    };
+
+    let jval = serde_json::from_str(s).unwrap();
+    let path = Path::decode_v3(&jval).unwrap();
+    assert_eq!(path, expected)
+}
+
+#[test]
 fn encode_v2() {
     let p = Path {
         labels: vec![Set::new(vec![]), Set::new(vec![]), Set::new(vec![])],
         objects: vec![
-            Vertex::new(1, "person").into(),
-            Vertex::new(10, "sofware").into(),
-            Vertex::new(11, "software").into(),
+            Vertex::new(1, "person", None).into(),
+            Vertex::new(
+                10,
+                "software",
+                Some(vec![VertexProperty::new(
+                    4i64,
+                    "name",
+                    "gremlin",
+                    Some(Vertex::new(10, "software", None)),
+                    None,
+                )]),
+            )
+            .into(),
+            Vertex::new(
+                11,
+                "software",
+                Some(vec![VertexProperty::new(
+                    5i64,
+                    "name",
+                    "tinkergraph",
+                    Some(Vertex::new(11, "software", None)),
+                    None,
+                )]),
+            )
+            .into(),
         ],
     };
 
     let s = serde_json::to_string(&p.encode_v2()).unwrap();
-    let expected = r#"{"@type":"g:Path","@value":{"labels":[[],[],[]],"objects":[{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":1},"label":"person"}},{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":10},"label":"sofware"}},{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":11},"label":"software"}}]}}"#;
-    println!("{s}");
-    assert_eq!(s, expected)
+    let expected = r#"{"@type":"g:Path","@value":{"labels":[[],[],[]],"objects":[{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":1},"label":"person"}},{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":10},"label":"software","properties":{"name":[{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":4},"value":"gremlin","vertex":{"@type":"g:Int32","@value":10},"label":"name"}}]}}},{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":11},"label":"software","properties":{"name":[{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":5},"value":"tinkergraph","vertex":{"@type":"g:Int32","@value":11},"label":"name"}}]}}}]}}"#;
+    let value: serde_json::Value = serde_json::from_str(expected).unwrap();
+    let own_value: serde_json::Value = serde_json::from_str(&s).unwrap();
+    assert_eq!(own_value, value);
+}
+
+#[test]
+fn decode_v2() {
+    let s = r#"{"@type":"g:Path","@value":{"labels":[[],[],[]],"objects":[{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":1},"label":"person"}},{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":10},"label":"software","properties":{"name":[{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":4},"value":"gremlin","vertex":{"@type":"g:Int32","@value":10},"label":"name"}}]}}},{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":11},"label":"software","properties":{"name":[{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":5},"value":"tinkergraph","vertex":{"@type":"g:Int32","@value":11},"label":"name"}}]}}}]}}"#;
+    let expected = Path {
+        labels: vec![Set::new(vec![]), Set::new(vec![]), Set::new(vec![])],
+        objects: vec![
+            Vertex::new(1, "person", None).into(),
+            Vertex::new(
+                10,
+                "software",
+                Some(vec![VertexProperty::new(
+                    4i64,
+                    "name",
+                    "gremlin",
+                    Some(Vertex::new(10, "", None)),
+                    None,
+                )]),
+            )
+            .into(),
+            Vertex::new(
+                11,
+                "software",
+                Some(vec![VertexProperty::new(
+                    5i64,
+                    "name",
+                    "tinkergraph",
+                    Some(Vertex::new(11, "", None)),
+                    None,
+                )]),
+            )
+            .into(),
+        ],
+    };
+
+    let jval = serde_json::from_str(s).unwrap();
+    let path = Path::decode_v2(&jval).unwrap();
+    assert_eq!(path, expected)
 }

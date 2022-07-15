@@ -58,3 +58,9 @@ impl serde::de::Error for DecodeError {
         DecodeError::DeserilizationError(msg.to_string())
     }
 }
+
+
+// #[derive(Error, Debug)]
+// pub enum GraphSonError {
+//     Json{}
+// }

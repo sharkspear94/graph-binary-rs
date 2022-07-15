@@ -834,32 +834,6 @@ fn test_ser_deser() {
     )
 }
 
-// #[test]
-// fn test_ser_deser_gb() {
-//     #[derive(Debug, Serialize, Deserialize, PartialEq)]
-//     struct TestStruct {
-//         abc: Option<i32>,
-//         test: GraphBinary,
-//     }
-
-//     let test_struct = TestStruct {
-//         abc: Some(6),
-//         test: GraphBinary::Column(Column::Keys),
-//     };
-
-//     let res = to_bytes(test_struct).unwrap();
-
-//     let val = from_slice(&res).unwrap();
-
-//     assert_eq!(
-//         TestStruct {
-//             abc: Some(6),
-//             test: GraphBinary::Column(Column::Keys)
-//         },
-//         val
-//     )
-// }
-
 #[test]
 fn test_struct_from_gb() {
     use std::collections::HashMap;
@@ -888,6 +862,33 @@ fn test_struct_from_gb() {
 
 #[test]
 fn test_new_type_struct_from_gb() {
+    use std::collections::HashMap;
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct TestStruct {
+        test: Vec<u8>,
+        abc: Vec<i64>,
+        milli: i16,
+    }
+
+    let gb = GremlinTypes::Map(HashMap::from([
+        ("test".into(), vec![0x01_u8, 2, 3].into()),
+        ("abc".into(), vec![123, 321].into()),
+        ("milli".into(), 123_i16.into()),
+        ("other_field".into(), false.into()),
+    ]));
+
+    let expected = TestStruct {
+        test: vec![1_u8, 2, 3],
+        abc: vec![123, 321],
+        milli: 123,
+    };
+
+    let test_struct = crate::de::from_graph_binary(gb).unwrap();
+    assert_eq!(expected, test_struct)
+}
+
+#[test]
+fn struct_from_gb() {
     #[derive(Debug, Deserialize, PartialEq)]
     struct TestStruct(Vec<u8>);
 

@@ -1,13 +1,16 @@
 use serde_json::json;
 
+use super::validate_type_entry;
 use crate::{
     error::{DecodeError, EncodeError},
     graph_binary::{Decode, Encode, GremlinTypes, MapKeys},
-    graphson::{ DecodeGraphSON, EncodeGraphSON},
+    graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
 };
-use std::{collections::HashMap, hash::BuildHasher};
-use super::validate_type_entry;
+use std::{
+    collections::HashMap,
+    hash::{BuildHasher, Hash},
+};
 impl<K, V, S: BuildHasher> Encode for HashMap<K, V, S>
 where
     K: Encode,
@@ -71,6 +74,47 @@ impl<K: Into<MapKeys>, V: Into<GremlinTypes>> From<HashMap<K, V>> for GremlinTyp
     fn from(m: HashMap<K, V>) -> Self {
         let map = m.into_iter().map(|(k, v)| (k.into(), v.into())).collect();
         GremlinTypes::Map(map)
+    }
+}
+
+impl<K, V> TryFrom<GremlinTypes> for HashMap<K, V>
+where
+    K: TryFrom<MapKeys, Error = DecodeError> + Eq + Hash,
+    V: TryFrom<GremlinTypes, Error = DecodeError>,
+{
+    type Error = DecodeError;
+
+    fn try_from(value: GremlinTypes) -> Result<Self, Self::Error> {
+        match value {
+            GremlinTypes::Map(map) => {
+                let mut ret_map = HashMap::with_capacity(map.len());
+                for (k, v) in map {
+                    ret_map.insert(K::try_from(k)?, V::try_from(v)?);
+                }
+                Ok(ret_map)
+            }
+            _ => Err(DecodeError::ConvertError(String::new())),
+        }
+    }
+}
+
+impl<K> TryFrom<GremlinTypes> for HashMap<K, GremlinTypes>
+where
+    K: TryFrom<MapKeys, Error = DecodeError> + Eq + Hash,
+{
+    type Error = DecodeError;
+
+    fn try_from(value: GremlinTypes) -> Result<Self, Self::Error> {
+        match value {
+            GremlinTypes::Map(map) => {
+                let mut ret_map = HashMap::with_capacity(map.len());
+                for (k, v) in map {
+                    ret_map.insert(K::try_from(k)?, v);
+                }
+                Ok(ret_map)
+            }
+            _ => Err(DecodeError::ConvertError(String::new())),
+        }
     }
 }
 
@@ -325,19 +369,53 @@ fn map_decode_graphson_v3_error() {
 
 #[test]
 fn map_decode_graphson_v2() {
-    let str = r#"{ "dur" :{
+    let str = r#"{ 
+        "dur" :{
           "@type" : "g:Int32",
           "@value" : 1
-        }, "test": {
+        }, 
+        "test": {
             "@type" : "g:Int32",
             "@value" : 2
-          }}"#;
+        }
+    }"#;
 
     let s = serde_json::from_str(str).unwrap();
     let s: HashMap<String, i32> = HashMap::decode_v2(&s).unwrap();
     let mut map = HashMap::new();
-    map.insert("dur".to_string(), 1);
-    map.insert("test".to_string(), 2);
+    map.insert("dur".to_string(), 1.into());
+    map.insert("test".to_string(), 2.into());
+    println!("{s:?}");
+
+    assert_eq!(s, map);
+}
+
+#[test]
+fn map_decode_v2_gremlin_types() {
+    let str = r#"{
+        "dur" : {
+          "@type" : "g:Double",
+          "@value" : 100.0
+        },
+        "counts" : {
+          "traverserCount" : {
+            "@type" : "g:Int64",
+            "@value" : 4
+          },
+          "elementCount" : {
+            "@type" : "g:Int64",
+            "@value" : 4
+          }
+        }}"#;
+
+    let s = serde_json::from_str(str).unwrap();
+    let s: HashMap<String, GremlinTypes> = HashMap::decode_v2(&s).unwrap();
+    let mut map = HashMap::new();
+    map.insert("dur".to_string(), 100f64.into());
+    map.insert(
+        "counts".to_string(),
+        HashMap::from([("elementCount", 4i64), ("traverserCount", 4i64)]).into(),
+    );
     println!("{s:?}");
 
     assert_eq!(s, map);
@@ -416,10 +494,9 @@ fn empty_map_decode_graphson_v1() {
 fn empty_vec_encode_graphson_v1() {
     let str = r#"{}"#;
 
-    let v: HashMap<String,i32> = HashMap::new();
+    let v: HashMap<String, i32> = HashMap::new();
     let val = v.encode_v1();
     let val = serde_json::to_string(&val).unwrap();
 
     assert_eq!(str, val);
 }
-
