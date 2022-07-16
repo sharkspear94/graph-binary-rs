@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
-    io::{Read, Write}, time::{SystemTime, UNIX_EPOCH, Duration},
+    io::{Read, Write},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use std::time::Instant;
@@ -8,9 +9,9 @@ use std::time::Instant;
 use serde_json::Map;
 use uuid::Uuid;
 
+use crate::GremlinValue;
 use crate::{
     error::{DecodeError, EncodeError},
-    graph_binary::{GremlinValue, MapKeys},
     structure::{
         bulkset::BulkSet,
         bytecode::Bytecode,
@@ -31,19 +32,25 @@ use crate::{
     Binding,
 };
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 pub trait EncodeGraphSON {
+    #[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
     fn encode_v3(&self) -> serde_json::Value;
 
+    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value;
 
     fn encode_v1(&self) -> serde_json::Value;
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 pub trait DecodeGraphSON {
+    #[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized;
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized;
@@ -53,7 +60,9 @@ pub trait DecodeGraphSON {
         Self: std::marker::Sized;
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl EncodeGraphSON for GremlinValue {
+    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         match self {
             GremlinValue::Int(val) => val.encode_v3(),
@@ -105,6 +114,7 @@ impl EncodeGraphSON for GremlinValue {
         }
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         match self {
             GremlinValue::Int(val) => val.encode_v2(),
@@ -161,11 +171,15 @@ impl EncodeGraphSON for GremlinValue {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for GremlinValue {
+    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
+        use crate::structure::map::MapKeys;
+
         match j_val {
             serde_json::Value::Null => Ok(GremlinValue::UnspecifiedNullObject),
             serde_json::Value::Bool(b) => Ok(GremlinValue::Boolean(*b)),
@@ -254,10 +268,13 @@ impl DecodeGraphSON for GremlinValue {
         }
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
+        use crate::structure::map::MapKeys;
+
         match j_val {
             serde_json::Value::Null => Ok(GremlinValue::UnspecifiedNullObject),
             serde_json::Value::Bool(b) => Ok(GremlinValue::Boolean(*b)),
@@ -365,5 +382,5 @@ impl DecodeGraphSON for GremlinValue {
 fn test() {
     let i = Duration::from_millis(1481750076295);
     // let x: i64 = SystemTime::from(i);
-    println!("{:?}",i)
+    println!("{:?}", i)
 }

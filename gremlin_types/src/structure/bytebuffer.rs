@@ -57,13 +57,11 @@ impl Decode for ByteBuffer {
         reader.read_exact(&mut buffer)?;
         Ok(ByteBuffer(buffer))
     }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        todo!()
-    }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl EncodeGraphSON for ByteBuffer {
+    #[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
     fn encode_v3(&self) -> serde_json::Value {
         json!({
           "@type" : "gx:ByteBuffer",
@@ -71,6 +69,7 @@ impl EncodeGraphSON for ByteBuffer {
         })
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         self.encode_v3()
     }
@@ -80,7 +79,9 @@ impl EncodeGraphSON for ByteBuffer {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for ByteBuffer {
+    #[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -96,7 +97,7 @@ impl DecodeGraphSON for ByteBuffer {
             })?;
         Ok(ByteBuffer(inner))
     }
-
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,

@@ -8,12 +8,11 @@ use serde_json::json;
 use super::validate_type_entry;
 use crate::{
     conversion,
-    graph_binary::{Decode, Encode, GremlinValue},
+    graph_binary::{Decode, Encode},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
-    struct_de_serialize,
     structure::property::{EitherParent, Property},
-    val_by_key_v2, val_by_key_v3,
+    val_by_key_v2, val_by_key_v3, GremlinValue,
 };
 use crate::{
     error::DecodeError,
@@ -122,15 +121,11 @@ impl Decode for Traverser {
 
         Ok(Traverser { bulk, value })
     }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = i64::get_partial_len(bytes)?;
-        len += GremlinValue::get_len(&bytes[len..])?;
-        Ok(len)
-    }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl EncodeGraphSON for Traverser {
+    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         json!({
         "@type" : "g:Traverser",
@@ -140,6 +135,7 @@ impl EncodeGraphSON for Traverser {
         }})
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         json!({
         "@type" : "g:Traverser",
@@ -154,7 +150,9 @@ impl EncodeGraphSON for Traverser {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for Traverser {
+    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -174,6 +172,7 @@ impl DecodeGraphSON for Traverser {
         })
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -250,18 +249,8 @@ impl Decode for TraversalStrategy {
             configuration,
         })
     }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = String::get_partial_len(bytes)?;
-        len += HashMap::<String, GremlinValue>::get_partial_len(&bytes[len..])?;
-        Ok(len)
-    }
 }
 
-struct_de_serialize!(
-    (Traverser, TraverserVisitor, 32),
-    (TraversalStrategy, TraversalStrategyVisitor, 32)
-);
 conversion!(Traverser, Traverser);
 conversion!(TraversalStrategy, TraversalStrategy);
 

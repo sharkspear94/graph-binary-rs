@@ -4,12 +4,11 @@ use serde_json::{json, Map};
 
 use crate::{
     conversion,
-    graph_binary::{Decode, Encode, GremlinValue},
+    graph_binary::{Decode, Encode},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::{self, CoreType},
-    struct_de_serialize,
     structure::property::EitherParent,
-    val_by_key_v2, val_by_key_v3,
+    val_by_key_v2, val_by_key_v3, GremlinValue,
 };
 
 use crate::error::DecodeError;
@@ -130,19 +129,6 @@ impl Decode for GraphEdge {
             properties,
         })
     }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = GremlinValue::get_len(bytes)?;
-        len += String::get_partial_len(&bytes[len..])?;
-        len += GremlinValue::get_len(&bytes[len..])?;
-        len += Option::<String>::get_len(&bytes[len..])?; //TODO not sure if correct
-        len += GremlinValue::get_len(&bytes[len..])?;
-        len += Option::<String>::get_len(&bytes[len..])?; //TODO not sure if correct
-        len += Option::<Vertex>::get_len(&bytes[len..])?;
-        len += Vec::<Property>::get_partial_len(&bytes[len..])?;
-
-        Ok(len)
-    }
 }
 
 #[cfg(feature = "graph_binary")]
@@ -243,40 +229,11 @@ impl Decode for Graph {
             edges: e_vec,
         })
     }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let t: [u8; 4] = bytes[0..4].try_into()?;
-        let v_len = i32::from_be_bytes(t);
-        let mut len = 4;
-        for _ in 0..v_len {
-            len += GremlinValue::get_len(&bytes[len..])?;
-            len += String::get_partial_len(&bytes[len..])?;
-
-            let t: [u8; 4] = bytes[len..len + 4].try_into()?;
-            let p_len = i32::from_be_bytes(t);
-            len += 4;
-
-            for _ in 0..p_len {
-                len += GremlinValue::get_len(&bytes[len..])?;
-                len += String::get_partial_len(&bytes[len..])?;
-                len += GremlinValue::get_len(&bytes[len..])?;
-                len += 2; //parent is always null
-                len += Vec::<Property>::get_partial_len(&bytes[len..])?;
-            }
-        }
-
-        let t: [u8; 4] = bytes[len..len + 4].try_into()?;
-        let e_len = i32::from_be_bytes(t);
-        len += 4;
-
-        for _ in 0..e_len {
-            len += GraphEdge::get_partial_len(&bytes[len..])?;
-        }
-        Ok(len)
-    }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl EncodeGraphSON for GraphEdge {
+    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         let properties_map = self
             .properties
@@ -304,6 +261,7 @@ impl EncodeGraphSON for GraphEdge {
         json_value
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         let properties_map = self
             .properties
@@ -336,14 +294,16 @@ impl EncodeGraphSON for GraphEdge {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for GraphEdge {
+    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
     {
         Ok(Edge::decode_v3(j_val)?.into())
     }
-
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -359,7 +319,9 @@ impl DecodeGraphSON for GraphEdge {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl EncodeGraphSON for Graph {
+    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         json!({
             "@type" : "tinker:graph",
@@ -370,6 +332,7 @@ impl EncodeGraphSON for Graph {
         })
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         json!({
             "@type" : "tinker:graph",
@@ -385,7 +348,9 @@ impl EncodeGraphSON for Graph {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for Graph {
+    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -402,6 +367,7 @@ impl DecodeGraphSON for Graph {
         Ok(Graph { vertices, edges })
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -426,7 +392,6 @@ impl DecodeGraphSON for Graph {
     }
 }
 
-struct_de_serialize!((Graph, GraphVisitor, 254));
 conversion!(Graph, Graph);
 
 #[test]
@@ -605,29 +570,4 @@ fn decode_graph_test() {
     let graph = Graph::decode(&mut &reader[..]).unwrap();
 
     assert_eq!(expected, graph);
-}
-
-#[test]
-fn consume_graph_test() {
-    let reader = vec![
-        0x10_u8, 0x0, 0x0, 0x0, 0x0, 0x2, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0,
-        0x0, 0x0, 0x6, 0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e, 0x0, 0x0, 0x0, 0x2, 0x2, 0x0, 0x0, 0x0,
-        0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x4, 0x6e, 0x61, 0x6d, 0x65, 0x3, 0x0, 0x0,
-        0x0, 0x0, 0x5, 0x6d, 0x61, 0x72, 0x6b, 0x6f, 0xfe, 0x1, 0x0, 0x0, 0x0, 0x0, 0x2, 0x0, 0x0,
-        0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x3, 0x61, 0x67, 0x65, 0x1, 0x0, 0x0,
-        0x0, 0x0, 0x1d, 0xfe, 0x1, 0x0, 0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-        0x2, 0x0, 0x0, 0x0, 0x6, 0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e, 0x0, 0x0, 0x0, 0x2, 0x2, 0x0,
-        0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x4, 0x6e, 0x61, 0x6d, 0x65, 0x3,
-        0x0, 0x0, 0x0, 0x0, 0x5, 0x76, 0x61, 0x64, 0x61, 0x73, 0xfe, 0x1, 0x0, 0x0, 0x0, 0x0, 0x2,
-        0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x4, 0x0, 0x0, 0x0, 0x3, 0x61, 0x67, 0x65, 0x1,
-        0x0, 0x0, 0x0, 0x0, 0x1b, 0xfe, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x2, 0x0, 0x0,
-        0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xd, 0x0, 0x0, 0x0, 0x4, 0x74, 0x65, 0x73, 0x74, 0x2, 0x0,
-        0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x2, 0xfe, 0x1, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
-        0x0, 0x1, 0xfe, 0x1, 0xfe, 0x1, 0x0, 0x0, 0x0, 0x1, 0xf, 0x0, 0x0, 0x0, 0x0, 0x5, 0x73,
-        0x69, 0x6e, 0x63, 0x65, 0x1, 0x0, 0x0, 0x0, 0x0, 0x7b, 0xfe, 0x1,
-    ];
-
-    let len = Graph::get_len(&reader).unwrap();
-
-    assert_eq!(reader.len(), len);
 }

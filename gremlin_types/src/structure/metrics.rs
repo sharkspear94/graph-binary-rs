@@ -3,15 +3,14 @@ use std::{collections::HashMap, fmt::Display, ops::IndexMut};
 use serde_json::json;
 
 use crate::error::DecodeError;
-use crate::val_by_key_v2;
 use crate::{
     conversion,
-    graph_binary::{Decode, Encode, GremlinValue},
+    graph_binary::{Decode, Encode},
     graphson::{DecodeGraphSON, EncodeGraphSON},
-    insertion_sort,
     specs::CoreType,
-    struct_de_serialize, val_by_key_v3,
+    val_by_key_v3,
 };
+use crate::{val_by_key_v2, GremlinValue};
 
 use super::validate_type_entry;
 
@@ -76,16 +75,6 @@ impl Decode for Metrics {
             nested_metrics,
         })
     }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = String::get_partial_len(bytes)?;
-        len += String::get_partial_len(&bytes[len..])?;
-        len += i64::get_partial_len(&bytes[len..])?;
-        len += HashMap::<String, i64>::get_partial_len(&bytes[len..])?;
-        len += HashMap::<String, GremlinValue>::get_partial_len(&bytes[len..])?;
-        len += Vec::<Metrics>::get_partial_len(&bytes[len..])?;
-        Ok(len)
-    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -94,34 +83,7 @@ pub struct TraversalMetrics {
     pub metrics: Vec<Metrics>,
 }
 
-#[test]
-fn test_build_string() {
-    let metric = Metrics {
-        id: "4.0.0()".to_string(),
-        name: "TinkerGraphStep(vertex,[1])".to_string(),
-        duration: 206082,
-        counts: HashMap::from([
-            ("traverserCount".to_string(), 1),
-            ("elementCount".to_string(), 1),
-        ]),
-        annotations: HashMap::from([("percentDur".to_string(), 19.11682037524559_f64.into())]),
-        nested_metrics: Vec::new(),
-    };
-    let metric2 = Metrics {
-        id: "4.0.0()".to_string(),
-        name: "TraversalFilterStep([VertexStep(OUT,vertex), HasLabel(asdasd)".to_string(),
-        duration: 3206082,
-        counts: HashMap::from([
-            ("traverserCount".to_string(), 11),
-            ("elementCount".to_string(), 1123),
-        ]),
-        annotations: HashMap::from([("percentDur".to_string(), 19.11682037524559_f64.into())]),
-        nested_metrics: Vec::new(),
-    };
-    println!("{}", build_string(&metric, 0));
-    println!("{}", build_string(&metric2, 0))
-}
-
+#[cfg(feature = "graph_binary")]
 impl Encode for TraversalMetrics {
     fn type_code() -> u8 {
         CoreType::TraversalMetrics.into()
@@ -135,7 +97,7 @@ impl Encode for TraversalMetrics {
         self.metrics.partial_encode(writer)
     }
 }
-
+#[cfg(feature = "graph_binary")]
 impl Decode for TraversalMetrics {
     fn expected_type_code() -> u8 {
         CoreType::TraversalMetrics.into()
@@ -149,12 +111,6 @@ impl Decode for TraversalMetrics {
         let metrics = Vec::<Metrics>::partial_decode(reader)?;
 
         Ok(TraversalMetrics { duration, metrics })
-    }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = i64::get_partial_len(bytes)?;
-        len += Vec::<Metrics>::get_partial_len(&bytes[len..])?;
-        Ok(len)
     }
 }
 
@@ -220,7 +176,9 @@ fn build_string(metrics: &Metrics, start_offset: usize) -> String {
     result_string
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl EncodeGraphSON for Metrics {
+    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         let dur = self.duration as f64 / 1000. / 1000.;
         if !self.nested_metrics.is_empty() {
@@ -255,6 +213,7 @@ impl EncodeGraphSON for Metrics {
         }
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         let dur = self.duration as f64 / 1000. / 1000.;
         if !self.nested_metrics.is_empty() {
@@ -289,7 +248,9 @@ impl EncodeGraphSON for Metrics {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for Metrics {
+    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -350,6 +311,7 @@ impl DecodeGraphSON for Metrics {
         }
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -420,7 +382,9 @@ impl DecodeGraphSON for Metrics {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl EncodeGraphSON for TraversalMetrics {
+    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         json!({
             "@type" : "g:TraversalMetrics",
@@ -431,6 +395,7 @@ impl EncodeGraphSON for TraversalMetrics {
         })
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         json!({
             "@type" : "g:TraversalMetrics",
@@ -446,7 +411,9 @@ impl EncodeGraphSON for TraversalMetrics {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for TraversalMetrics {
+    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -474,6 +441,7 @@ impl DecodeGraphSON for TraversalMetrics {
         Ok(TraversalMetrics { duration, metrics })
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -508,11 +476,6 @@ impl DecodeGraphSON for TraversalMetrics {
         todo!()
     }
 }
-
-struct_de_serialize!(
-    (TraversalMetrics, TraversalMetricsVisitor, 128),
-    (Metrics, MetricsVisitor, 64)
-);
 
 conversion!(TraversalMetrics, TraversalMetrics);
 conversion!(Metrics, Metrics);
@@ -948,4 +911,32 @@ fn decode_v2_traversal() {
     let jval: serde_json::Value = serde_json::from_str(str).unwrap();
     let metrics_res = Metrics::decode_v2(&jval).unwrap();
     assert_eq!(metrics_res, expected)
+}
+
+#[test]
+fn test_build_string() {
+    let metric = Metrics {
+        id: "4.0.0()".to_string(),
+        name: "TinkerGraphStep(vertex,[1])".to_string(),
+        duration: 206082,
+        counts: HashMap::from([
+            ("traverserCount".to_string(), 1),
+            ("elementCount".to_string(), 1),
+        ]),
+        annotations: HashMap::from([("percentDur".to_string(), 19.11682037524559_f64.into())]),
+        nested_metrics: Vec::new(),
+    };
+    let metric2 = Metrics {
+        id: "4.0.0()".to_string(),
+        name: "TraversalFilterStep([VertexStep(OUT,vertex), HasLabel(asdasd)".to_string(),
+        duration: 3206082,
+        counts: HashMap::from([
+            ("traverserCount".to_string(), 11),
+            ("elementCount".to_string(), 1123),
+        ]),
+        annotations: HashMap::from([("percentDur".to_string(), 19.11682037524559_f64.into())]),
+        nested_metrics: Vec::new(),
+    };
+    println!("{}", build_string(&metric, 0));
+    println!("{}", build_string(&metric2, 0))
 }

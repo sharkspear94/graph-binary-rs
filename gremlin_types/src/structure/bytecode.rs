@@ -4,10 +4,10 @@ use serde_json::json;
 
 use crate::{
     conversion,
-    graph_binary::{Decode, Encode, GremlinValue},
+    graph_binary::{Decode, Encode},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
-    struct_de_serialize,
+    GremlinValue,
 };
 
 use super::validate_type_entry;
@@ -174,27 +174,10 @@ impl Decode for Bytecode {
 
         Ok(Bytecode { steps, sources })
     }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let t: [u8; 4] = bytes[0..4].try_into()?;
-        let steps_len = i32::from_be_bytes(t);
-        let mut len = 4;
-        for _ in 0..steps_len {
-            len += String::get_partial_len(&bytes[len..])?;
-            len += Vec::<GremlinValue>::get_partial_len(&bytes[len..])?;
-        }
-        let t: [u8; 4] = bytes[len..len + 4].try_into()?;
-        let sources_len = i32::from_be_bytes(t);
-        len += 4;
-        for _ in 0..sources_len {
-            len += String::get_partial_len(&bytes[len..])?;
-            len += Vec::<GremlinValue>::get_partial_len(&bytes[len..])?;
-        }
-        Ok(len)
-    }
 }
 
 //TODO impl sources in encoding Bytecode
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v3"))]
 impl EncodeGraphSON for Bytecode {
     fn encode_v3(&self) -> serde_json::Value {
         let v: Vec<Vec<serde_json::Value>> = self
@@ -223,7 +206,9 @@ impl EncodeGraphSON for Bytecode {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for Bytecode {
+    #[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -286,6 +271,7 @@ impl DecodeGraphSON for Bytecode {
         Ok(Bytecode { steps, sources })
     }
 
+    #[cfg(feature = "graph_son_v3")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -301,7 +287,6 @@ impl DecodeGraphSON for Bytecode {
     }
 }
 
-struct_de_serialize!((Bytecode, ByteCodeVisitor, 32));
 conversion!(Bytecode, Bytecode);
 
 #[test]

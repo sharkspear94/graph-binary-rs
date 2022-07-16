@@ -6,10 +6,10 @@ use std::marker::PhantomData;
 use super::validate_type_entry;
 use crate::{
     error::DecodeError,
-    graph_binary::{decode, Decode, Encode, GremlinValue},
+    graph_binary::{decode, Decode, Encode},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
-    val_by_key_v2, val_by_key_v3,
+    val_by_key_v2, val_by_key_v3, GremlinValue,
 };
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -693,12 +693,6 @@ impl Decode for P {
             ))),
         }
     }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError> {
-        let mut len = String::get_len(bytes)?;
-        len += Vec::<GremlinValue>::get_partial_len(&bytes[len..])?;
-        Ok(len)
-    }
 }
 
 impl EncodeGraphSON for P {
@@ -1270,11 +1264,6 @@ impl Decode for TextP {
             ))),
         }
     }
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError> {
-        let mut len = String::get_len(bytes)?;
-        len += Vec::<GremlinValue>::get_partial_len(&bytes[len..])?;
-        Ok(len)
-    }
 }
 
 fn fmt_lists(
@@ -1547,10 +1536,6 @@ macro_rules! de_serialize_impls {
             {
                 $t::try_from(String::decode(reader)?.as_str())
             }
-
-            fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError> {
-                String::get_len(bytes)
-            }
         }
 
         impl From<$t> for GremlinValue {
@@ -1734,17 +1719,4 @@ fn text_p_fq_decode_test() {
     let t = GremlinValue::TextP(TextP::StartingWith(vec!["test".into()]));
     println!("{t}");
     assert_eq!(TextP::StartingWith(vec!["test".into()]), p.unwrap());
-}
-
-#[test]
-fn text_p_consumed_bytes() {
-    let reader = vec![
-        0x28, 0x00, 0x03, 0x0, 0x0, 0x0, 0x0, 0x0c, b's', b't', b'a', b'r', b't', b'i', b'n', b'g',
-        b'W', b'i', b't', b'h', 0x0, 0x0, 0x0, 0x01, 0x3, 0x0, 0x0, 0x0, 0x0, 0x04, b't', b'e',
-        b's', b't',
-    ];
-
-    let p = TextP::get_len(&reader);
-
-    assert_eq!(reader.len(), p.unwrap());
 }

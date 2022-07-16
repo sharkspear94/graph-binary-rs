@@ -7,9 +7,10 @@ use serde::{
 
 use crate::{
     error::EncodeError,
-    graph_binary::{encode_null_object, Encode, GremlinValue, MapKeys},
+    graph_binary::{encode_null_object, Encode},
     specs::CoreType,
-    structure::bytebuffer::ByteBuffer,
+    structure::{bytebuffer::ByteBuffer, map::MapKeys},
+    GremlinValue,
     // structure::{enums::T, list::List},
 };
 
@@ -100,8 +101,9 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
-        #[cfg(feature = "extended")] {
-        v.encode(&mut self.writer)
+        #[cfg(feature = "extended")]
+        {
+            v.encode(&mut self.writer)
         }
         #[cfg(not(feature = "extended"))]
         unimplemented!()
@@ -539,7 +541,6 @@ impl serde::Serializer for GremlinValueSerializer {
     }
 }
 
-
 struct GraphBinarySerializerSeq(Vec<GremlinValue>);
 
 impl SerializeSeq for GraphBinarySerializerSeq {
@@ -798,10 +799,7 @@ fn struct_to_gb() {
         abc: bool,
     }
 
-    let test = TestStruct {
-        test: 1,
-        abc: true,
-    };
+    let test = TestStruct { test: 1, abc: true };
 
     let gb = to_graph_binary(&test).unwrap();
 

@@ -5,14 +5,14 @@ use serde_json::json;
 
 use crate::error::DecodeError;
 use crate::structure::vertex_property::VertexProperty;
-use crate::val_by_key_v2;
 use crate::{
     conversion,
-    graph_binary::{Decode, Encode, GremlinValue},
+    graph_binary::{Decode, Encode},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
-    struct_de_serialize, val_by_key_v3,
+    val_by_key_v3,
 };
+use crate::{val_by_key_v2, GremlinValue};
 
 use super::{list::Set, validate_type_entry, vertex::Vertex};
 
@@ -65,18 +65,6 @@ impl Decode for Path {
 
         Ok(Path { labels, objects })
     }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let t: [u8; 4] = bytes[2..6].try_into()?;
-        let vec_len = i32::from_be_bytes(t);
-        let mut len = 6; //4 bytes from i32 vec_len and 2 bytes from List Typecode and value flag
-        for _ in 0..vec_len {
-            len += Vec::<String>::get_len(&bytes[len..])?;
-        }
-        len += Vec::<GremlinValue>::get_len(&bytes[len..])?;
-
-        Ok(len)
-    }
 }
 
 impl Display for Path {
@@ -95,7 +83,9 @@ impl Display for Path {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl EncodeGraphSON for Path {
+    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         json!(
             {
@@ -107,7 +97,7 @@ impl EncodeGraphSON for Path {
             }
         )
     }
-
+    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         json!(
             {
@@ -128,7 +118,9 @@ impl EncodeGraphSON for Path {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for Path {
+    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -144,7 +136,7 @@ impl DecodeGraphSON for Path {
 
         Ok(Path { labels, objects })
     }
-
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -169,7 +161,6 @@ impl DecodeGraphSON for Path {
     }
 }
 
-struct_de_serialize!((Path, PathVisitor, 64));
 conversion!(Path, Path);
 
 #[test]
@@ -208,20 +199,6 @@ fn test_decode() {
     let path = Path::decode(&mut &buf[..]).unwrap();
 
     assert_eq!(expecetd, path)
-}
-
-#[test]
-fn test_consume_bytes() {
-    let buf = vec![
-        0xe, 0x0, 0x9, 0x0, 0x0, 0x0, 0x0, 0x3, 0xb, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb, 0x0, 0x0, 0x0,
-        0x0, 0x0, 0xb, 0x0, 0x0, 0x0, 0x0, 0x0, 0x9, 0x0, 0x0, 0x0, 0x0, 0x3, 0x3, 0x0, 0x0, 0x0,
-        0x0, 0x5, 0x6d, 0x61, 0x72, 0x6b, 0x6f, 0x1, 0x0, 0x0, 0x0, 0x0, 0x20, 0x3, 0x0, 0x0, 0x0,
-        0x0, 0x6, 0x72, 0x69, 0x70, 0x70, 0x6c, 0x65,
-    ];
-
-    let size = Path::get_len(&buf).unwrap();
-
-    assert_eq!(buf.len(), size)
 }
 
 #[test]

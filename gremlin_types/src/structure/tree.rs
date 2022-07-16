@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    graph_binary::{Decode, Encode, GremlinValue},
+    graph_binary::{Decode, Encode},
     specs::CoreType,
 };
 

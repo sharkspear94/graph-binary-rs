@@ -4,13 +4,14 @@ use serde_json::json;
 
 use super::validate_type_entry;
 use super::{edge::Edge, vertex_property::VertexProperty};
+use crate::GremlinValue;
 use crate::{
     conversion,
     error::DecodeError,
-    graph_binary::{Decode, Encode, GremlinValue, ValueFlag},
+    graph_binary::{Decode, Encode, ValueFlag},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::{self, CoreType},
-    struct_de_serialize, val_by_key_v1, val_by_key_v2, val_by_key_v3,
+    val_by_key_v1, val_by_key_v2, val_by_key_v3,
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -104,9 +105,6 @@ impl Decode for EitherParent {
         unreachable!()
     }
 
-    fn get_partial_len(_bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        unimplemented!()
-    }
     fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -148,16 +146,11 @@ impl Decode for Property {
 
         Ok(Property { key, value, parent })
     }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = String::get_partial_len(bytes)?;
-        len += GremlinValue::get_len(&bytes[len..])?;
-        len += GremlinValue::get_len(&bytes[len..])?; //FIXME
-        Ok(len)
-    }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl EncodeGraphSON for Property {
+    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         json!({
           "@type" : "g:Property",
@@ -168,12 +161,13 @@ impl EncodeGraphSON for Property {
         })
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         json!({
           "@type" : "g:Property",
           "@value" : {
             "key" : self.key,
-            "value" : self.value.encode_v3(),
+            "value" : self.value.encode_v2(),
             "element" : self.parent.encode_v2()
           }
         })
@@ -187,7 +181,9 @@ impl EncodeGraphSON for Property {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for Property {
+    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -208,6 +204,7 @@ impl DecodeGraphSON for Property {
         })
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -246,11 +243,13 @@ impl DecodeGraphSON for Property {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl EncodeGraphSON for EitherParent {
+    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         unimplemented!()
     }
-
+    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         match self {
             EitherParent::Edge(e) => json!({
@@ -272,7 +271,9 @@ impl EncodeGraphSON for EitherParent {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for EitherParent {
+    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -280,6 +281,7 @@ impl DecodeGraphSON for EitherParent {
         unimplemented!()
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -332,7 +334,6 @@ impl DecodeGraphSON for EitherParent {
     }
 }
 
-struct_de_serialize!((Property, PropertyVisitor, 32));
 conversion!(Property, Property);
 
 #[test]

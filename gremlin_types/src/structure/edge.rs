@@ -5,10 +5,10 @@ use serde_json::{json, Map};
 use crate::{
     conversion,
     error::DecodeError,
-    graph_binary::{Decode, Encode, GremlinValue},
+    graph_binary::{Decode, Encode},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::{self, CoreType},
-    struct_de_serialize, val_by_key_v2, val_by_key_v3,
+    val_by_key_v2, val_by_key_v3, GremlinValue,
 };
 
 use super::{
@@ -137,21 +137,11 @@ impl Decode for Edge {
             properties,
         })
     }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = GremlinValue::get_len(bytes)?;
-        len += String::get_partial_len(&bytes[len..])?;
-        len += GremlinValue::get_len(&bytes[len..])?;
-        len += String::get_partial_len(&bytes[len..])?;
-        len += GremlinValue::get_len(&bytes[len..])?;
-        len += String::get_partial_len(&bytes[len..])?;
-        len += Option::<Vertex>::get_len(&bytes[len..])?;
-        len += Option::<Vec<GremlinValue>>::get_len(&bytes[len..])?;
-        Ok(len)
-    }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl EncodeGraphSON for Edge {
+    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         let properties_map = self.properties.as_ref().map(|vec| {
             vec.iter()
@@ -180,6 +170,7 @@ impl EncodeGraphSON for Edge {
         json_value
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         let properties_map = self.properties.as_ref().map(|vec| {
             vec.iter()
@@ -212,7 +203,9 @@ impl EncodeGraphSON for Edge {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for Edge {
+    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -254,6 +247,7 @@ impl DecodeGraphSON for Edge {
         })
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -308,7 +302,6 @@ impl DecodeGraphSON for Edge {
     }
 }
 
-struct_de_serialize!((Edge, EdgeVisitor, 64));
 conversion!(Edge, Edge);
 
 #[test]

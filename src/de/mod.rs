@@ -4,7 +4,7 @@ use std::io::{Read, Write};
 use std::vec;
 mod deser_gb;
 
-use serde::de::value::U128Deserializer;
+use serde::de::value::{self, U128Deserializer};
 use serde::de::{DeserializeOwned, EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -623,11 +623,9 @@ impl<'de> serde::de::Deserializer<'de> for GraphBinaryDeserializer {
             GraphBinary::Set(v) => visitor.visit_seq(SeqDeser {
                 iter: v.into_iter(),
             }),
-            // GraphBinary::Vertex(v) => visitor.visit_map(map),
             GraphBinary::Byte(v) => visitor.visit_u8(v),
             GraphBinary::Short(v) => visitor.visit_i16(v),
             GraphBinary::Boolean(v) => visitor.visit_bool(v),
-            // GraphBinary::Traverser(t) =>
             _ => Err(DecodeError::DecodeError(
                 "Graphbinary not supported in deserialize_any".to_string(),
             )),
@@ -728,6 +726,26 @@ impl<'de> MapAccess<'de> for MapDeser {
             .ok_or_else(|| DecodeError::DecodeError("value without key".to_string()))?;
         let de = GraphBinaryDeserializer(val);
         seed.deserialize(de)
+    }
+
+    fn next_entry_seed<K, V>(
+        &mut self,
+        kseed: K,
+        vseed: V,
+    ) -> Result<Option<(K::Value, V::Value)>, Self::Error>
+    where
+        K: serde::de::DeserializeSeed<'de>,
+        V: serde::de::DeserializeSeed<'de>,
+    {
+        if let Some((key, value)) = self.iter.next() {
+            let de = GraphBinaryDeserializer(key.into());
+            let key = kseed.deserialize(de)?;
+            let de = GraphBinaryDeserializer(value);
+            let value = vseed.deserialize(de)?;
+            Ok(Some((key, value)))
+        } else {
+            Ok(None)
+        }
     }
 
     fn size_hint(&self) -> Option<usize> {

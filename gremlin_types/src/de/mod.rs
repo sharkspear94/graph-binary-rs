@@ -9,14 +9,12 @@ use serde::Deserialize;
 
 use crate::error::DecodeError;
 use crate::graph_binary::ValueFlag;
+use crate::GremlinValue;
 
-use crate::{
-    graph_binary::{Decode, GremlinValue, MapKeys},
-    specs::CoreType,
-};
+use crate::structure::map::MapKeys;
+use crate::{graph_binary::Decode, specs::CoreType};
 
-
-fn from_gremlin<'de,T: Deserialize<'de>>(g: GremlinValue) -> Result<T,DecodeError> {
+fn from_gremlin<'de, T: Deserialize<'de>>(g: GremlinValue) -> Result<T, DecodeError> {
     let de = GraphBinaryDeserializer(g);
     T::deserialize(de)
 }
@@ -158,7 +156,6 @@ impl<'de> MapAccess<'de> for MapDeser {
         Some(self.size)
     }
 }
-
 
 #[test]
 fn test_struct_from_gb() {

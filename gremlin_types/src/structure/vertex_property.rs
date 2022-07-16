@@ -5,10 +5,10 @@ use serde_json::{json, Map};
 use crate::{
     conversion,
     error::DecodeError,
-    graph_binary::{Decode, Encode, GremlinValue},
+    graph_binary::{Decode, Encode},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::{self, CoreType},
-    struct_de_serialize, val_by_key_v2, val_by_key_v3,
+    val_by_key_v2, val_by_key_v3, GremlinValue,
 };
 
 use super::{
@@ -107,19 +107,11 @@ impl Decode for VertexProperty {
             properties,
         })
     }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = GremlinValue::get_len(bytes)?;
-        len += String::get_partial_len(&bytes[len..])?;
-        len += GremlinValue::get_len(&bytes[len..])?;
-        len += Option::<Vertex>::get_len(&bytes[len..])?;
-        len += Option::<Vec<Property>>::get_len(&bytes[len..])?;
-
-        Ok(len)
-    }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl EncodeGraphSON for VertexProperty {
+    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         let mut jval_map = Map::new();
         if let Some(props) = &self.properties {
@@ -151,6 +143,7 @@ impl EncodeGraphSON for VertexProperty {
         }
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         let mut jval_map = Map::new();
         if let Some(props) = &self.properties {
@@ -193,7 +186,9 @@ impl EncodeGraphSON for VertexProperty {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for VertexProperty {
+    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -236,6 +231,7 @@ impl DecodeGraphSON for VertexProperty {
         })
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -291,5 +287,4 @@ impl DecodeGraphSON for VertexProperty {
     }
 }
 
-struct_de_serialize!((VertexProperty, VertexVertexProperty, 32));
 conversion!(VertexProperty, VertexProperty);

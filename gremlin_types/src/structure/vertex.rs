@@ -5,12 +5,11 @@ use serde_json::json;
 use crate::{
     conversion,
     error::DecodeError,
-    graph_binary::{Decode, Encode, GremlinValue},
+    graph_binary::{Decode, Encode},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::{self, CoreType},
-    struct_de_serialize,
     structure::property::{EitherParent, Property},
-    val_by_key_v2, val_by_key_v3,
+    val_by_key_v2, val_by_key_v3, GremlinValue,
 };
 
 use super::{validate_type_entry, vertex_property::VertexProperty};
@@ -84,16 +83,11 @@ impl Decode for Vertex {
             properties,
         })
     }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError> {
-        let mut len = GremlinValue::get_len(bytes)?;
-        len += String::get_partial_len(&bytes[len..])?;
-        len += GremlinValue::get_len(&bytes[len..])?;
-        Ok(len)
-    }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl EncodeGraphSON for Vertex {
+    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         if let Some(properties) = &self.properties {
             let mut map = HashMap::<String, Vec<serde_json::Value>>::new();
@@ -122,6 +116,7 @@ impl EncodeGraphSON for Vertex {
         }
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         if let Some(properties) = &self.properties {
             let mut map = HashMap::<String, Vec<serde_json::Value>>::new();
@@ -155,7 +150,9 @@ impl EncodeGraphSON for Vertex {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for Vertex {
+    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -198,6 +195,7 @@ impl DecodeGraphSON for Vertex {
         })
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -246,7 +244,6 @@ impl DecodeGraphSON for Vertex {
     }
 }
 
-struct_de_serialize!((Vertex, VertexVisitor, 32));
 conversion!(Vertex, Vertex);
 
 #[test]
@@ -283,18 +280,6 @@ fn test_vertex_decode_none() {
     };
 
     assert_eq!(expected, v.unwrap())
-}
-
-#[test]
-fn test_vertex_consume() {
-    let reader = vec![
-        0x11_u8, 0x0, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x6, 0x70,
-        0x65, 0x72, 0x73, 0x6f, 0x6e, 0xfe, 0x01,
-    ];
-
-    let size = Vertex::get_len(&reader).unwrap();
-
-    assert_eq!(reader.len(), size)
 }
 
 #[test]

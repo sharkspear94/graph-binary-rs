@@ -1,16 +1,253 @@
 use serde_json::json;
+use uuid::Uuid;
 
-use super::validate_type_entry;
+use super::{
+    enums::{Direction, T},
+    validate_type_entry,
+};
 use crate::{
     error::{DecodeError, EncodeError},
-    graph_binary::{Decode, Encode, GremlinValue, MapKeys},
+    graph_binary::{Decode, Encode},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
+    GremlinValue,
 };
 use std::{
     collections::HashMap,
+    fmt::Display,
     hash::{BuildHasher, Hash},
+    io::{Read, Write},
 };
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+pub enum MapKeys {
+    Int(i32),
+    String(String),
+    Long(i64),
+    Uuid(Uuid),
+    T(T),
+    Direction(Direction),
+}
+
+impl Display for MapKeys {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MapKeys::Int(val) => write!(f, "{val}"),
+            MapKeys::String(val) => write!(f, "{val}"),
+            MapKeys::Long(val) => write!(f, "{val}"),
+            MapKeys::Uuid(val) => write!(f, "{val}"),
+            MapKeys::T(val) => write!(f, "{val}"),
+            MapKeys::Direction(val) => write!(f, "{val}"),
+        }
+    }
+}
+
+impl From<MapKeys> for GremlinValue {
+    fn from(keys: MapKeys) -> GremlinValue {
+        match keys {
+            MapKeys::Int(val) => GremlinValue::Int(val),
+            MapKeys::String(val) => GremlinValue::String(val),
+            MapKeys::Long(val) => GremlinValue::Long(val),
+            MapKeys::Uuid(val) => GremlinValue::Uuid(val),
+            MapKeys::T(val) => GremlinValue::T(val),
+            MapKeys::Direction(val) => GremlinValue::Direction(val),
+        }
+    }
+}
+
+impl<T: Into<GremlinValue> + Clone> From<&T> for GremlinValue {
+    fn from(t: &T) -> Self {
+        t.clone().into()
+    }
+}
+
+impl<T: Into<GremlinValue>, const N: usize> From<[T; N]> for GremlinValue {
+    fn from(array: [T; N]) -> Self {
+        GremlinValue::List(array.into_iter().map(Into::into).collect())
+    }
+}
+
+impl TryFrom<GremlinValue> for MapKeys {
+    type Error = DecodeError;
+
+    fn try_from(value: GremlinValue) -> Result<Self, Self::Error> {
+        match value {
+            GremlinValue::Int(val) => Ok(MapKeys::Int(val)),
+            GremlinValue::Long(val) => Ok(MapKeys::Long(val)),
+            GremlinValue::String(val) => Ok(MapKeys::String(val)),
+            GremlinValue::Uuid(val) => Ok(MapKeys::Uuid(val)),
+            GremlinValue::T(val) => Ok(MapKeys::T(val)),
+            GremlinValue::Direction(val) => Ok(MapKeys::Direction(val)),
+            rest => Err(DecodeError::ConvertError(format!(
+                "cannot convert from {:?} to MapKeys",
+                rest
+            ))),
+        }
+    }
+}
+
+impl TryFrom<MapKeys> for String {
+    type Error = DecodeError;
+
+    fn try_from(value: MapKeys) -> Result<Self, Self::Error> {
+        match value {
+            MapKeys::Int(_) => Err(DecodeError::ConvertError(
+                "cannot convert from MapKeys::Int to String".to_string(),
+            )),
+            MapKeys::String(s) => Ok(s),
+            MapKeys::Long(_) => Err(DecodeError::ConvertError(
+                "cannot convert from MapKeys::Long to String".to_string(),
+            )),
+            MapKeys::Uuid(u) => Ok(u.to_string()),
+            MapKeys::T(t) => Ok(t.to_string()),
+            MapKeys::Direction(d) => Ok(d.to_string()),
+        }
+    }
+}
+
+impl From<&str> for MapKeys {
+    fn from(s: &str) -> Self {
+        MapKeys::String(s.to_owned())
+    }
+}
+
+impl From<String> for MapKeys {
+    fn from(s: String) -> Self {
+        MapKeys::String(s)
+    }
+}
+
+impl From<i32> for MapKeys {
+    fn from(val: i32) -> Self {
+        MapKeys::Int(val)
+    }
+}
+
+impl From<i64> for MapKeys {
+    fn from(val: i64) -> Self {
+        MapKeys::Long(val)
+    }
+}
+
+impl From<Uuid> for MapKeys {
+    fn from(val: Uuid) -> Self {
+        MapKeys::Uuid(val)
+    }
+}
+
+#[cfg(feature = "graph_binary")]
+impl Encode for MapKeys {
+    fn type_code() -> u8 {
+        unimplemented!()
+    }
+
+    fn partial_encode<W: Write>(&self, _writer: &mut W) -> Result<(), EncodeError> {
+        todo!()
+    }
+
+    fn encode<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+        match self {
+            MapKeys::Int(val) => val.encode(writer),
+            MapKeys::String(val) => val.encode(writer),
+            MapKeys::Long(val) => val.encode(writer),
+            MapKeys::Uuid(val) => val.encode(writer),
+            MapKeys::T(val) => val.encode(writer),
+            MapKeys::Direction(val) => val.encode(writer),
+        }
+    }
+}
+
+#[cfg(feature = "graph_binary")]
+impl Decode for MapKeys {
+    fn expected_type_code() -> u8 {
+        unimplemented!("MapKeys is a collection of different GrapBinary Keys")
+    }
+
+    fn partial_decode<R: Read>(_reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        unimplemented!()
+    }
+
+    fn decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let key = GremlinValue::decode(reader)?;
+        MapKeys::try_from(key)
+    }
+}
+
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v3"))]
+impl EncodeGraphSON for MapKeys {
+    fn encode_v3(&self) -> serde_json::Value {
+        match self {
+            MapKeys::Int(val) => val.encode_v3(),
+            MapKeys::String(val) => val.encode_v3(),
+            MapKeys::Long(val) => val.encode_v3(),
+            MapKeys::Uuid(val) => val.encode_v3(),
+            MapKeys::T(val) => val.encode_v3(),
+            MapKeys::Direction(val) => val.encode_v3(),
+        }
+    }
+
+    fn encode_v2(&self) -> serde_json::Value {
+        match self {
+            MapKeys::Int(_) => panic!(
+                "non String Mapkeys are not suppoted in GraphSONV2, tried Serilization with i32"
+            ),
+            MapKeys::String(val) => val.encode_v2(),
+            MapKeys::Long(_) => panic!(
+                "non String Mapkeys are not suppoted in GraphSONV2, tried Serilization with i64"
+            ),
+            MapKeys::Uuid(val) => val.to_string().encode_v2(),
+            MapKeys::T(val) => val.to_string().encode_v2(),
+            MapKeys::Direction(val) => val.to_string().encode_v2(),
+        }
+    }
+
+    fn encode_v1(&self) -> serde_json::Value {
+        match self {
+            MapKeys::Int(_) => panic!(
+                "non String Mapkeys are not suppoted in GraphSONV2, tried Serilization with i32"
+            ),
+            MapKeys::String(val) => val.encode_v2(),
+            MapKeys::Long(_) => panic!(
+                "non String Mapkeys are not suppoted in GraphSONV2, tried Serilization with i64"
+            ),
+            MapKeys::Uuid(val) => val.to_string().encode_v2(),
+            MapKeys::T(val) => val.to_string().encode_v2(),
+            MapKeys::Direction(val) => val.to_string().encode_v2(),
+        }
+    }
+}
+
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v3"))]
+impl DecodeGraphSON for MapKeys {
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let g_key = GremlinValue::decode_v3(j_val)?;
+        MapKeys::try_from(g_key)
+    }
+
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let s = String::decode_v2(j_val)?;
+        Ok(MapKeys::String(s))
+    }
+
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        todo!()
+    }
+}
 
 #[cfg(feature = "graph_binary")]
 impl<K, V, S: BuildHasher> Encode for HashMap<K, V, S>
@@ -59,17 +296,6 @@ where
         }
 
         Ok(hash_map)
-    }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let t: [u8; 4] = bytes[0..4].try_into()?;
-        let size = i32::from_be_bytes(t) as usize;
-        let mut len = 4;
-        for _ in 0..size {
-            len += K::get_len(&bytes[len..])?;
-            len += V::get_len(&bytes[len..])?;
-        }
-        Ok(len)
     }
 }
 
@@ -235,8 +461,6 @@ where
 
 #[test]
 fn testing_map() {
-    use crate::graph_binary::{GremlinValue, MapKeys};
-
     let mut map = HashMap::new();
 
     map.insert(MapKeys::Int(1), GremlinValue::String("test".to_owned()));
@@ -252,8 +476,6 @@ fn testing_map() {
 }
 #[test]
 fn testing_nestet_map() {
-    use crate::graph_binary::{GremlinValue, MapKeys};
-
     let mut map = HashMap::new();
     let mut inner_map = HashMap::new();
 

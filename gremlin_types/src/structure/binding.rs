@@ -5,10 +5,10 @@ use serde_json::json;
 use crate::{
     conversion,
     error::DecodeError,
-    graph_binary::{Decode, Encode, GremlinValue},
+    graph_binary::{Decode, Encode},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
-    struct_de_serialize,
+    GremlinValue,
 };
 
 use super::validate_type_entry;
@@ -81,14 +81,9 @@ impl Decode for Binding {
 
         Ok(Binding { key, value })
     }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = String::get_partial_len(bytes)?;
-        len += GremlinValue::get_len(&bytes[len..])?;
-        Ok(len)
-    }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v3"))]
 impl EncodeGraphSON for Binding {
     fn encode_v3(&self) -> serde_json::Value {
         json!({
@@ -109,6 +104,7 @@ impl EncodeGraphSON for Binding {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v3"))]
 impl DecodeGraphSON for Binding {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -147,7 +143,7 @@ impl DecodeGraphSON for Binding {
         todo!()
     }
 }
-struct_de_serialize!((Binding, BindingVisitor, 16));
+
 conversion!(Binding, Binding);
 
 #[test]
@@ -177,14 +173,4 @@ fn test_binding_decode() {
     };
     let b = Binding::decode(&mut &buf[..]).unwrap();
     assert_eq!(expected, b)
-}
-
-#[test]
-fn test_binding_count_bytes() {
-    let expected = vec![
-        0x14_u8, 0x0, 0x0, 0x00, 0x00, 0x04, 0x74, 0x65, 0x73, 0x74, 0x01, 0x00, 0x00, 0x0, 0x0,
-        0x01,
-    ];
-    let count = Binding::get_len(&expected).unwrap();
-    assert_eq!(count, expected.len())
 }

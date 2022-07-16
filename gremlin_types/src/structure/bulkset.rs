@@ -1,6 +1,7 @@
 use crate::{
-    graph_binary::{Decode, Encode, GremlinValue},
+    graph_binary::{Decode, Encode},
     specs::CoreType,
+    GremlinValue,
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -45,16 +46,5 @@ impl Decode for BulkSet {
             items.push((gb, bulk));
         }
         Ok(BulkSet(items))
-    }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let t: [u8; 4] = bytes[0..4].try_into()?;
-        let bulkset_len = i32::from_be_bytes(t);
-        let mut len = 4;
-        for _ in 0..bulkset_len {
-            len += GremlinValue::get_len(&bytes[len..])?;
-            len += i64::get_partial_len(&bytes[len..])?;
-        }
-        Ok(len)
     }
 }

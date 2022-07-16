@@ -1,10 +1,10 @@
 use super::validate_type_entry;
-use crate::conversion;
 use crate::error::DecodeError;
-use crate::graph_binary::{encode_null_object, Decode, GremlinValue};
+use crate::graph_binary::{encode_null_object, Decode};
 use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
 use crate::macros::{TryBorrowFrom, TryMutBorrowFrom};
 use crate::specs::CoreType;
+use crate::{conversion, GremlinValue};
 use crate::{error::EncodeError, graph_binary::Encode};
 use serde::Deserialize;
 use serde_json::json;
@@ -58,20 +58,14 @@ impl Decode for String {
             _ => Ok(s),
         }
     }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError> {
-        let t: [u8; 4] = bytes[0..4].try_into()?;
-        let mut len = i32::from_be_bytes(t);
-        len += 4;
-        Ok(len as usize)
-    }
 }
-
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl EncodeGraphSON for String {
     fn encode_v3(&self) -> serde_json::Value {
         json!(self)
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         self.encode_v3()
     }
@@ -80,7 +74,7 @@ impl EncodeGraphSON for String {
         self.encode_v3()
     }
 }
-
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for String {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -91,7 +85,7 @@ impl DecodeGraphSON for String {
             .ok_or_else(|| DecodeError::DecodeError("json error in String".to_string()))
             .map(ToString::to_string)
     }
-
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -138,12 +132,12 @@ impl Encode for &str {
         Ok(())
     }
 }
-
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl EncodeGraphSON for &str {
     fn encode_v3(&self) -> serde_json::Value {
         json!(self)
     }
-
+    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         self.encode_v3()
     }
@@ -224,22 +218,10 @@ impl Decode for char {
             ))),
         }
     }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError> {
-        match bytes[0] {
-            one if one < 0b1000_0000 => Ok(1),
-            two if (0b1100_0000..0b1110_0000).contains(&two) => Ok(2),
-            three if (0b1110_0000..0b1111_0000).contains(&three) => Ok(3),
-            four if (0b1111_0000..0b1111_1000).contains(&four) => Ok(4),
-            rest => Err(DecodeError::DecodeError(format!(
-                "not a valid utf-8 first byte: value {:b}",
-                rest
-            ))),
-        }
-    }
 }
-
+#[cfg(feature = "extended")]
 impl DecodeGraphSON for char {
+    #[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -253,6 +235,7 @@ impl DecodeGraphSON for char {
             .ok_or_else(|| DecodeError::DecodeError("json error in char".to_string()))
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -295,12 +278,9 @@ impl Decode for u8 {
 
         Ok(u8::from_be_bytes(int))
     }
-
-    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
-        Ok(1)
-    }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for u8 {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -315,6 +295,7 @@ impl DecodeGraphSON for u8 {
             .map(|val| val as u8)
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -358,12 +339,9 @@ impl Decode for i16 {
 
         Ok(i16::from_be_bytes(int))
     }
-
-    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
-        Ok(2)
-    }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for i16 {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -378,6 +356,7 @@ impl DecodeGraphSON for i16 {
             .map(|val| val as i16)
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -418,12 +397,9 @@ impl Decode for i32 {
 
         Ok(i32::from_be_bytes(int))
     }
-
-    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
-        Ok(4)
-    }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for i32 {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -437,7 +413,7 @@ impl DecodeGraphSON for i32 {
             .ok_or_else(|| DecodeError::DecodeError("json error i32 v3 in error".to_string()))
             .map(|t| t as i32)
     }
-
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -478,12 +454,9 @@ impl Decode for i64 {
 
         Ok(i64::from_be_bytes(int))
     }
-
-    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
-        Ok(8)
-    }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for i64 {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -497,6 +470,7 @@ impl DecodeGraphSON for i64 {
             .ok_or_else(|| DecodeError::DecodeError("json error in i64".to_string()))
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -537,12 +511,9 @@ impl Decode for f32 {
 
         Ok(f32::from_be_bytes(int))
     }
-
-    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
-        Ok(4)
-    }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for f32 {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -573,6 +544,7 @@ impl DecodeGraphSON for f32 {
         }
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -616,12 +588,9 @@ impl Decode for f64 {
 
         Ok(f64::from_be_bytes(int))
     }
-
-    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
-        Ok(8)
-    }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for f64 {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -652,6 +621,7 @@ impl DecodeGraphSON for f64 {
         }
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -682,62 +652,6 @@ impl Encode for Uuid {
     }
 }
 
-#[derive(Deserialize)]
-#[serde(remote = "Uuid")]
-pub struct UuidDef(#[serde(getter = "Uuid::bytes")] [u8; 16]);
-
-impl From<UuidDef> for Uuid {
-    fn from(def: UuidDef) -> Uuid {
-        Uuid::from_bytes(def.0)
-    }
-}
-
-impl<'de> Deserialize<'de> for UuidDef {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        deserializer.deserialize_bytes(UuidDefVisitor)
-    }
-}
-
-struct UuidDefVisitor;
-
-impl<'de> serde::de::Visitor<'de> for UuidDefVisitor {
-    type Value = UuidDef;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(formatter, "a struct UuidDef")
-    }
-
-    fn visit_bytes<E>(self, mut v: &[u8]) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        match UuidDef::decode(&mut v) {
-            Ok(val) => Ok(val),
-            Err(_) => Err(E::custom(concat!(stringify!($t), " Visitor Decode Error"))),
-        }
-    }
-}
-
-impl Decode for UuidDef {
-    fn expected_type_code() -> u8 {
-        CoreType::Uuid.into()
-    }
-
-    fn partial_decode<R: Read>(reader: &mut R) -> Result<UuidDef, DecodeError> {
-        let mut buf = [0_u8; 16];
-        reader.read_exact(&mut buf)?;
-
-        Ok(UuidDef(buf))
-    }
-
-    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
-        Ok(16)
-    }
-}
-
 #[cfg(feature = "graph_binary")]
 impl Decode for Uuid {
     fn expected_type_code() -> u8 {
@@ -750,12 +664,9 @@ impl Decode for Uuid {
 
         Ok(Uuid::from_bytes(buf))
     }
-
-    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
-        Ok(16)
-    }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for Uuid {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -770,6 +681,7 @@ impl DecodeGraphSON for Uuid {
             .ok_or_else(|| DecodeError::DecodeError("json error Uuid v3 in error".to_string()))
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -799,10 +711,6 @@ impl Decode for u128 {
         reader.read_exact(&mut buf)?;
         let val = u128::from_be_bytes(buf);
         Ok(val)
-    }
-
-    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
-        Ok(16)
     }
 }
 
@@ -840,17 +748,15 @@ impl Decode for bool {
             _ => Err(DecodeError::DecodeError(String::from("bool"))),
         }
     }
-
-    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
-        Ok(1)
-    }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl EncodeGraphSON for bool {
     fn encode_v3(&self) -> serde_json::Value {
         json!(self)
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         self.encode_v3()
     }
@@ -860,6 +766,7 @@ impl EncodeGraphSON for bool {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl DecodeGraphSON for bool {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -870,6 +777,7 @@ impl DecodeGraphSON for bool {
             .ok_or_else(|| DecodeError::DecodeError("json error bool".to_string()))
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -957,28 +865,11 @@ impl<T: Decode> Decode for Option<T> {
             ))),
         }
     }
-
-    fn get_partial_len(_bytes: &[u8]) -> Result<usize, DecodeError> {
-        unimplemented!(
-            "partial_count_bytes not supported for Option<T> use consumed_bytes or Graphbinray"
-        )
-    }
-    fn get_len(bytes: &[u8]) -> Result<usize, DecodeError> {
-        let value = bytes
-            .get(1)
-            .ok_or_else(|| DecodeError::DecodeError("".to_string()))?;
-        match value {
-            1 => Ok(2),
-            0 => T::get_partial_len(&bytes[2..]),
-            rest => Err(DecodeError::DecodeError(format!(
-                "ValueFlag in Option<T> consumed bytes not a valid value found: {}",
-                rest
-            ))),
-        }
-    }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl<T: EncodeGraphSON> EncodeGraphSON for Option<T> {
+    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         match self {
             Some(val) => val.encode_v3(), // not sure if correct
@@ -986,6 +877,7 @@ impl<T: EncodeGraphSON> EncodeGraphSON for Option<T> {
         }
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         match self {
             Some(val) => val.encode_v2(),
@@ -1001,7 +893,9 @@ impl<T: EncodeGraphSON> EncodeGraphSON for Option<T> {
     }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl<T: DecodeGraphSON> DecodeGraphSON for Option<T> {
+    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -1012,6 +906,7 @@ impl<T: DecodeGraphSON> DecodeGraphSON for Option<T> {
         }
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -1036,14 +931,16 @@ impl<T: DecodeGraphSON> DecodeGraphSON for Option<T> {
 macro_rules! graphson_impl {
     ($(($t:ty,$type_sig:literal)),*$(,)?) => {
         $(
+        #[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
         impl EncodeGraphSON for $t {
+            #[cfg(feature = "graph_son_v3")]
             fn encode_v3(&self) -> serde_json::Value {
                 json!({
                     "@type" : $type_sig,
                     "@value" : self
                 })
             }
-
+            #[cfg(feature = "graph_son_v2")]
             fn encode_v2(&self) -> serde_json::Value {
                 json!({
                     "@type" : $type_sig,
@@ -1124,13 +1021,6 @@ fn decode_string_test() {
     assert_eq!("host", s.unwrap().as_str())
 }
 
-#[test]
-fn test_string_consume() {
-    assert_eq!(
-        10,
-        String::get_len(&[0x3, 0x0, 0x0, 0x0, 0x0, 0x4, 0x1, 0x03, 0x1, 0x4]).unwrap()
-    )
-}
 #[test]
 fn test_string_utf8() {
     let reader = vec![0x3_u8, 0x0, 0x0, 0x0, 0x0, 0x4, 240, 159, 146, 150];

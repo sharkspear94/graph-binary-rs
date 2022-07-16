@@ -6,10 +6,10 @@ use super::validate_type_entry;
 use crate::error::DecodeError;
 use crate::{
     conversion,
-    graph_binary::{Decode, Encode, GremlinValue},
+    graph_binary::{Decode, Encode},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
-    struct_de_serialize, val_by_key_v3,
+    val_by_key_v3,
 };
 
 #[derive(Debug, PartialEq, Clone)]
@@ -65,16 +65,11 @@ impl Decode for Lambda {
             arguments_length,
         })
     }
-
-    fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = String::get_partial_len(bytes)?;
-        len += String::get_partial_len(&bytes[len..])?;
-        len += i32::get_partial_len(&bytes[len..])?;
-        Ok(len)
-    }
 }
 
+#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
 impl EncodeGraphSON for Lambda {
+    #[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
     fn encode_v3(&self) -> serde_json::Value {
         json!({
           "@type" : "g:Lambda",
@@ -86,6 +81,7 @@ impl EncodeGraphSON for Lambda {
         })
     }
 
+    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         self.encode_v3()
     }
@@ -147,7 +143,6 @@ impl Display for Lambda {
     }
 }
 
-struct_de_serialize!((Lambda, LambdaVisitor, 254));
 conversion!(Lambda, Lambda);
 
 #[test]
