@@ -1,4 +1,4 @@
-use crate::graph_binary::GremlinTypes;
+use crate::graph_binary::GremlinValue;
 
 #[macro_export]
 macro_rules! struct_de_serialize {
@@ -49,54 +49,52 @@ macro_rules! struct_de_serialize {
     };
 }
 pub trait TryBorrowFrom {
-    fn try_borrow_from(graph_binary: &GremlinTypes) -> Option<&Self>;
+    fn try_borrow_from(graph_binary: &GremlinValue) -> Option<&Self>;
 }
 
 pub trait TryMutBorrowFrom {
-    fn try_mut_borrow_from(graph_binary: &mut GremlinTypes) -> Option<&mut Self>;
+    fn try_mut_borrow_from(graph_binary: &mut GremlinValue) -> Option<&mut Self>;
 }
 
 #[macro_export]
-macro_rules! conversions {
-    ($(($t:ty,$variant:ident)),*) => {
-        $(
-        impl From<$t> for GremlinTypes {
+macro_rules! conversion {
+    ($t:ty,$variant:ident) => {
+        impl From<$t> for GremlinValue {
             fn from(g: $t) -> Self {
-                GremlinTypes::$variant(g)
+                GremlinValue::$variant(g)
             }
         }
 
+        impl TryFrom<GremlinValue> for $t {
+            type Error = crate::error::DecodeError;
 
-        impl TryFrom<GremlinTypes> for $t {
-        type Error = crate::error::DecodeError;
-
-        fn try_from(value: GremlinTypes) -> Result<Self, Self::Error> {
-            match value {
-                GremlinTypes::$variant(val) => Ok(val),
-                _ => Err(crate::error::DecodeError::ConvertError(
-                    format!("cannot convert Value to {}",stringify!($t))
-                )),
+            fn try_from(value: GremlinValue) -> Result<Self, Self::Error> {
+                match value {
+                    GremlinValue::$variant(val) => Ok(val),
+                    _ => Err(crate::error::DecodeError::ConvertError(format!(
+                        "cannot convert Value to {}",
+                        stringify!($t)
+                    ))),
+                }
             }
-        }
         }
 
         impl crate::macros::TryBorrowFrom for $t {
-        fn try_borrow_from(graph_binary: &GremlinTypes) -> Option<&Self> {
-            match graph_binary {
-                GremlinTypes::$variant(val) => Some(val),
-                _ => None
+            fn try_borrow_from(graph_binary: &GremlinValue) -> Option<&Self> {
+                match graph_binary {
+                    GremlinValue::$variant(val) => Some(val),
+                    _ => None,
+                }
             }
-        }
         }
 
         impl crate::macros::TryMutBorrowFrom for $t {
-        fn try_mut_borrow_from(graph_binary: &mut GremlinTypes) -> Option<&mut Self> {
-            match graph_binary {
-                GremlinTypes::$variant(val) => Some(val),
-                _ => None
+            fn try_mut_borrow_from(graph_binary: &mut GremlinValue) -> Option<&mut Self> {
+                match graph_binary {
+                    GremlinValue::$variant(val) => Some(val),
+                    _ => None,
+                }
             }
         }
-        }
-        )*
-    }
+    };
 }

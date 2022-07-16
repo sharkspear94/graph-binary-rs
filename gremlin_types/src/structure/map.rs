@@ -3,7 +3,7 @@ use serde_json::json;
 use super::validate_type_entry;
 use crate::{
     error::{DecodeError, EncodeError},
-    graph_binary::{Decode, Encode, GremlinTypes, MapKeys},
+    graph_binary::{Decode, Encode, GremlinValue, MapKeys},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
 };
@@ -11,6 +11,8 @@ use std::{
     collections::HashMap,
     hash::{BuildHasher, Hash},
 };
+
+#[cfg(feature = "graph_binary")]
 impl<K, V, S: BuildHasher> Encode for HashMap<K, V, S>
 where
     K: Encode,
@@ -32,6 +34,7 @@ where
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl<K, V, S> Decode for HashMap<K, V, S>
 where
     K: Decode + std::cmp::Eq + std::hash::Hash,
@@ -70,23 +73,23 @@ where
     }
 }
 
-impl<K: Into<MapKeys>, V: Into<GremlinTypes>> From<HashMap<K, V>> for GremlinTypes {
+impl<K: Into<MapKeys>, V: Into<GremlinValue>> From<HashMap<K, V>> for GremlinValue {
     fn from(m: HashMap<K, V>) -> Self {
         let map = m.into_iter().map(|(k, v)| (k.into(), v.into())).collect();
-        GremlinTypes::Map(map)
+        GremlinValue::Map(map)
     }
 }
 
-impl<K, V> TryFrom<GremlinTypes> for HashMap<K, V>
+impl<K, V> TryFrom<GremlinValue> for HashMap<K, V>
 where
     K: TryFrom<MapKeys, Error = DecodeError> + Eq + Hash,
-    V: TryFrom<GremlinTypes, Error = DecodeError>,
+    V: TryFrom<GremlinValue, Error = DecodeError>,
 {
     type Error = DecodeError;
 
-    fn try_from(value: GremlinTypes) -> Result<Self, Self::Error> {
+    fn try_from(value: GremlinValue) -> Result<Self, Self::Error> {
         match value {
-            GremlinTypes::Map(map) => {
+            GremlinValue::Map(map) => {
                 let mut ret_map = HashMap::with_capacity(map.len());
                 for (k, v) in map {
                     ret_map.insert(K::try_from(k)?, V::try_from(v)?);
@@ -98,15 +101,15 @@ where
     }
 }
 
-impl<K> TryFrom<GremlinTypes> for HashMap<K, GremlinTypes>
+impl<K> TryFrom<GremlinValue> for HashMap<K, GremlinValue>
 where
     K: TryFrom<MapKeys, Error = DecodeError> + Eq + Hash,
 {
     type Error = DecodeError;
 
-    fn try_from(value: GremlinTypes) -> Result<Self, Self::Error> {
+    fn try_from(value: GremlinValue) -> Result<Self, Self::Error> {
         match value {
-            GremlinTypes::Map(map) => {
+            GremlinValue::Map(map) => {
                 let mut ret_map = HashMap::with_capacity(map.len());
                 for (k, v) in map {
                     ret_map.insert(K::try_from(k)?, v);
@@ -232,11 +235,11 @@ where
 
 #[test]
 fn testing_map() {
-    use crate::graph_binary::{GremlinTypes, MapKeys};
+    use crate::graph_binary::{GremlinValue, MapKeys};
 
     let mut map = HashMap::new();
 
-    map.insert(MapKeys::Int(1), GremlinTypes::String("test".to_owned()));
+    map.insert(MapKeys::Int(1), GremlinValue::String("test".to_owned()));
 
     let mut buf: Vec<u8> = vec![];
     map.encode(&mut buf).unwrap();
@@ -249,13 +252,13 @@ fn testing_map() {
 }
 #[test]
 fn testing_nestet_map() {
-    use crate::graph_binary::{GremlinTypes, MapKeys};
+    use crate::graph_binary::{GremlinValue, MapKeys};
 
     let mut map = HashMap::new();
     let mut inner_map = HashMap::new();
 
-    inner_map.insert(MapKeys::Int(1), GremlinTypes::String("test".to_owned()));
-    map.insert(MapKeys::Int(1), GremlinTypes::Map(inner_map));
+    inner_map.insert(MapKeys::Int(1), GremlinValue::String("test".to_owned()));
+    map.insert(MapKeys::Int(1), GremlinValue::Map(inner_map));
 
     let mut buf: Vec<u8> = vec![];
     map.encode(&mut buf).unwrap();
@@ -409,7 +412,7 @@ fn map_decode_v2_gremlin_types() {
         }}"#;
 
     let s = serde_json::from_str(str).unwrap();
-    let s: HashMap<String, GremlinTypes> = HashMap::decode_v2(&s).unwrap();
+    let s: HashMap<String, GremlinValue> = HashMap::decode_v2(&s).unwrap();
     let mut map = HashMap::new();
     map.insert("dur".to_string(), 100f64.into());
     map.insert(

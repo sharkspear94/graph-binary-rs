@@ -5,8 +5,8 @@ use serde_json::json;
 use super::validate_type_entry;
 use crate::error::DecodeError;
 use crate::{
-    conversions,
-    graph_binary::{Decode, Encode, GremlinTypes},
+    conversion,
+    graph_binary::{Decode, Encode, GremlinValue},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
     struct_de_serialize, val_by_key_v3,
@@ -29,6 +29,7 @@ impl Lambda {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for Lambda {
     fn type_code() -> u8 {
         CoreType::Lambda.into()
@@ -44,6 +45,7 @@ impl Encode for Lambda {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for Lambda {
     fn expected_type_code() -> u8 {
         CoreType::Lambda.into()
@@ -146,7 +148,7 @@ impl Display for Lambda {
 }
 
 struct_de_serialize!((Lambda, LambdaVisitor, 254));
-conversions!((Lambda, Lambda));
+conversion!(Lambda, Lambda);
 
 #[test]
 fn encode_v3() {

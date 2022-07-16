@@ -11,6 +11,7 @@ mod binding;
 
 pub use self::binding::Binding;
 pub mod bulkset;
+pub mod bytebuffer;
 pub mod bytecode;
 pub mod enums;
 pub mod graph;

@@ -10,7 +10,7 @@ use crate::{
 use serde_json::{json, Map};
 use std::ops::Deref;
 
-use crate::graph_binary::GremlinTypes;
+use crate::graph_binary::GremlinValue;
 
 use super::validate_type_entry;
 
@@ -30,7 +30,7 @@ impl<T> Set<T> {
         Set(v)
     }
 }
-
+#[cfg(feature = "graph_binary")]
 impl<T: Encode> Encode for Set<T> {
     fn type_code() -> u8 {
         CoreType::Set.into()
@@ -41,6 +41,7 @@ impl<T: Encode> Encode for Set<T> {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl<T: Decode> Decode for Set<T> {
     fn expected_type_code() -> u8 {
         CoreType::Set.into()
@@ -120,7 +121,7 @@ impl<T: DecodeGraphSON> DecodeGraphSON for Set<T> {
         todo!()
     }
 }
-
+#[cfg(feature = "graph_binary")]
 impl<T: Encode> Encode for &[T] {
     fn type_code() -> u8 {
         CoreType::List.into()
@@ -137,7 +138,7 @@ impl<T: Encode> Encode for &[T] {
         Ok(())
     }
 }
-
+#[cfg(feature = "graph_binary")]
 impl<T: Encode> Encode for Vec<T> {
     fn type_code() -> u8 {
         CoreType::List.into()
@@ -158,12 +159,12 @@ impl<T: Encode> Encode for Vec<T> {
     }
 }
 
-impl<T: TryFrom<GremlinTypes>> TryFrom<GremlinTypes> for Vec<T> {
+impl<T: TryFrom<GremlinValue>> TryFrom<GremlinValue> for Vec<T> {
     type Error = DecodeError;
 
-    fn try_from(value: GremlinTypes) -> Result<Self, Self::Error> {
+    fn try_from(value: GremlinValue) -> Result<Self, Self::Error> {
         match value {
-            GremlinTypes::List(list) | GremlinTypes::Set(list) => Ok(list
+            GremlinValue::List(list) | GremlinValue::Set(list) => Ok(list
                 .into_iter()
                 .filter_map(|gb| gb.try_into().ok())
                 .collect()),
@@ -172,30 +173,30 @@ impl<T: TryFrom<GremlinTypes>> TryFrom<GremlinTypes> for Vec<T> {
     }
 }
 
-impl TryBorrowFrom for Vec<GremlinTypes> {
-    fn try_borrow_from(graph_binary: &GremlinTypes) -> Option<&Self> {
+impl TryBorrowFrom for Vec<GremlinValue> {
+    fn try_borrow_from(graph_binary: &GremlinValue) -> Option<&Self> {
         match graph_binary {
-            GremlinTypes::List(list) | GremlinTypes::Set(list) => Some(list),
+            GremlinValue::List(list) | GremlinValue::Set(list) => Some(list),
             _ => None,
         }
     }
 }
 
-impl TryMutBorrowFrom for Vec<GremlinTypes> {
-    fn try_mut_borrow_from(graph_binary: &mut GremlinTypes) -> Option<&mut Self> {
+impl TryMutBorrowFrom for Vec<GremlinValue> {
+    fn try_mut_borrow_from(graph_binary: &mut GremlinValue) -> Option<&mut Self> {
         match graph_binary {
-            GremlinTypes::List(val) | GremlinTypes::Set(val) => Some(val),
+            GremlinValue::List(val) | GremlinValue::Set(val) => Some(val),
             _ => None,
         }
     }
 }
 
-impl<T> From<Vec<T>> for GremlinTypes
+impl<T> From<Vec<T>> for GremlinValue
 where
-    T: Into<GremlinTypes>,
+    T: Into<GremlinValue>,
 {
     fn from(v: Vec<T>) -> Self {
-        GremlinTypes::List(v.into_iter().map(Into::into).collect())
+        GremlinValue::List(v.into_iter().map(Into::into).collect())
     }
 }
 
@@ -403,7 +404,7 @@ fn vec_decode_test() {
         assert_eq!(
             4,
             match gb {
-                GremlinTypes::Int(s) => s,
+                GremlinValue::Int(s) => s,
                 _ => panic!(),
             }
         )
@@ -417,7 +418,7 @@ fn vec_consume_bytes() {
         0x0, 0x0, 0x0, 0x0, 0x04, 0x01, 0x0, 0x0, 0x0, 0x0, 0x04,
     ];
 
-    let s = Vec::<GremlinTypes>::get_partial_len(&reader);
+    let s = Vec::<GremlinValue>::get_partial_len(&reader);
 
     assert!(s.is_ok());
     let s = s.unwrap();

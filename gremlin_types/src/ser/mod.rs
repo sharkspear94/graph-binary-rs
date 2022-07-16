@@ -7,8 +7,9 @@ use serde::{
 
 use crate::{
     error::EncodeError,
-    graph_binary::{encode_null_object, Encode, GremlinTypes, MapKeys},
+    graph_binary::{encode_null_object, Encode, GremlinValue, MapKeys},
     specs::CoreType,
+    structure::bytebuffer::ByteBuffer,
     // structure::{enums::T, list::List},
 };
 
@@ -99,7 +100,11 @@ impl ser::Serializer for &mut Serializer {
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
+        #[cfg(feature = "extended")] {
         v.encode(&mut self.writer)
+        }
+        #[cfg(not(feature = "extended"))]
+        unimplemented!()
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
@@ -313,10 +318,10 @@ impl SerializeStruct for &mut Serializer {
     }
 }
 
-struct GraphBinarySerializer;
+struct GremlinValueSerializer;
 
-impl SerializeStruct for GraphBinarySerializer {
-    type Ok = GremlinTypes;
+impl SerializeStruct for GremlinValueSerializer {
+    type Ok = GremlinValue;
 
     type Error = EncodeError;
 
@@ -336,22 +341,22 @@ impl SerializeStruct for GraphBinarySerializer {
     }
 }
 
-impl GraphBinarySerializer {
-    fn new() -> GraphBinarySerializer {
-        GraphBinarySerializer {}
+impl GremlinValueSerializer {
+    fn new() -> GremlinValueSerializer {
+        GremlinValueSerializer {}
     }
 }
 
-pub fn to_graph_binary<T>(value: &T) -> Result<GremlinTypes, EncodeError>
+pub fn to_graph_binary<T>(value: &T) -> Result<GremlinValue, EncodeError>
 where
     T: Serialize,
 {
-    let serializer = GraphBinarySerializer {};
+    let serializer = GremlinValueSerializer {};
     value.serialize(serializer)
 }
 
-impl serde::Serializer for GraphBinarySerializer {
-    type Ok = GremlinTypes;
+impl serde::Serializer for GremlinValueSerializer {
+    type Ok = GremlinValue;
     type Error = EncodeError;
 
     type SerializeSeq = GraphBinarySerializerSeq;
@@ -369,7 +374,7 @@ impl serde::Serializer for GraphBinarySerializer {
     type SerializeStructVariant = Impossible<Self::Ok, Self::Error>;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
-        Ok(GremlinTypes::Boolean(v))
+        Ok(GremlinValue::Boolean(v))
     }
 
     fn serialize_i8(self, _v: i8) -> Result<Self::Ok, Self::Error> {
@@ -377,19 +382,19 @@ impl serde::Serializer for GraphBinarySerializer {
     }
 
     fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
-        Ok(GremlinTypes::Short(v))
+        Ok(GremlinValue::Short(v))
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
-        Ok(GremlinTypes::Int(v))
+        Ok(GremlinValue::Int(v))
     }
 
     fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
-        Ok(GremlinTypes::Long(v))
+        Ok(GremlinValue::Long(v))
     }
 
     fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
-        Ok(GremlinTypes::Byte(v))
+        Ok(GremlinValue::Byte(v))
     }
 
     fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
@@ -405,27 +410,30 @@ impl serde::Serializer for GraphBinarySerializer {
     }
 
     fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
-        Ok(GremlinTypes::Float(v))
+        Ok(GremlinValue::Float(v))
     }
 
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
-        Ok(GremlinTypes::Double(v))
+        Ok(GremlinValue::Double(v))
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
-        Ok(GremlinTypes::Char(v))
+        #[cfg(not(feature = "extended"))]
+        unimplemented!();
+        #[cfg(feature = "extended")]
+        Ok(GremlinValue::Char(v))
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        Ok(GremlinTypes::String(v.to_string()))
+        Ok(GremlinValue::String(v.to_string()))
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        Ok(GremlinTypes::ByteBuffer(Vec::from_iter(v.to_owned())))
+        Ok(GremlinValue::ByteBuffer(ByteBuffer::new(v)))
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-        Ok(GremlinTypes::UnspecifiedNullObject)
+        Ok(GremlinValue::UnspecifiedNullObject)
     }
 
     fn serialize_some<T: ?Sized>(self, value: &T) -> Result<Self::Ok, Self::Error>
@@ -436,11 +444,11 @@ impl serde::Serializer for GraphBinarySerializer {
     }
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
-        Ok(GremlinTypes::UnspecifiedNullObject)
+        Ok(GremlinValue::UnspecifiedNullObject)
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
-        Ok(GremlinTypes::UnspecifiedNullObject)
+        Ok(GremlinValue::UnspecifiedNullObject)
     }
 
     fn serialize_unit_variant(
@@ -531,63 +539,11 @@ impl serde::Serializer for GraphBinarySerializer {
     }
 }
 
-impl Serialize for GremlinTypes {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            GremlinTypes::Int(value) => value.serialize(serializer),
-            GremlinTypes::Long(value) => value.serialize(serializer),
-            GremlinTypes::String(value) => value.serialize(serializer),
-            GremlinTypes::Class(value) => value.serialize(serializer),
-            GremlinTypes::Double(value) => value.serialize(serializer),
-            GremlinTypes::Float(value) => value.serialize(serializer),
-            GremlinTypes::List(value) => value.serialize(serializer),
-            GremlinTypes::Set(value) => value.serialize(serializer),
-            GremlinTypes::Map(value) => value.serialize(serializer),
-            GremlinTypes::Uuid(value) => todo!(),
-            GremlinTypes::Edge(value) => value.serialize(serializer),
-            GremlinTypes::Path(value) => todo!(),
-            GremlinTypes::Property(value) => value.serialize(serializer),
-            GremlinTypes::Graph(value) => value.serialize(serializer),
-            GremlinTypes::Vertex(value) => value.serialize(serializer),
-            GremlinTypes::VertexProperty(value) => value.serialize(serializer),
-            GremlinTypes::Barrier(value) => value.serialize(serializer),
-            GremlinTypes::Binding(value) => value.serialize(serializer),
-            GremlinTypes::Bytecode(value) => value.serialize(serializer),
-            GremlinTypes::Cardinality(value) => value.serialize(serializer),
-            GremlinTypes::Column(value) => value.serialize(serializer),
-            GremlinTypes::Direction(value) => value.serialize(serializer),
-            GremlinTypes::Operator(value) => value.serialize(serializer),
-            GremlinTypes::Order(value) => value.serialize(serializer),
-            GremlinTypes::Pick(value) => value.serialize(serializer),
-            GremlinTypes::Pop(value) => value.serialize(serializer),
-            GremlinTypes::Lambda(value) => value.serialize(serializer),
-            GremlinTypes::P(value) => value.serialize(serializer),
-            GremlinTypes::Scope(value) => value.serialize(serializer),
-            GremlinTypes::T(value) => value.serialize(serializer),
-            GremlinTypes::Traverser(value) => value.serialize(serializer),
-            GremlinTypes::Byte(value) => value.serialize(serializer),
-            GremlinTypes::ByteBuffer(value) => value.serialize(serializer),
-            GremlinTypes::Short(value) => value.serialize(serializer),
-            GremlinTypes::Boolean(value) => value.serialize(serializer),
-            GremlinTypes::TextP(value) => value.serialize(serializer),
-            GremlinTypes::TraversalStrategy(value) => value.serialize(serializer),
-            GremlinTypes::Tree(value) => todo!(),
-            GremlinTypes::Metrics(value) => value.serialize(serializer),
-            GremlinTypes::TraversalMetrics(value) => value.serialize(serializer),
-            GremlinTypes::BulkSet(value) => todo!(),
-            GremlinTypes::UnspecifiedNullObject => serializer.serialize_none(),
-            GremlinTypes::Merge(value) => value.serialize(serializer),
-            GremlinTypes::Char(value) => value.serialize(serializer),
-        }
-    }
-}
-struct GraphBinarySerializerSeq(Vec<GremlinTypes>);
+
+struct GraphBinarySerializerSeq(Vec<GremlinValue>);
 
 impl SerializeSeq for GraphBinarySerializerSeq {
-    type Ok = GremlinTypes;
+    type Ok = GremlinValue;
 
     type Error = EncodeError;
 
@@ -595,17 +551,17 @@ impl SerializeSeq for GraphBinarySerializerSeq {
     where
         T: Serialize,
     {
-        self.0.push(value.serialize(GraphBinarySerializer)?);
+        self.0.push(value.serialize(GremlinValueSerializer)?);
         Ok(())
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(GremlinTypes::List(self.0))
+        Ok(GremlinValue::List(self.0))
     }
 }
 
 impl SerializeTuple for GraphBinarySerializerSeq {
-    type Ok = GremlinTypes;
+    type Ok = GremlinValue;
 
     type Error = EncodeError;
 
@@ -613,18 +569,18 @@ impl SerializeTuple for GraphBinarySerializerSeq {
     where
         T: Serialize,
     {
-        self.0.push(value.serialize(GraphBinarySerializer)?);
+        self.0.push(value.serialize(GremlinValueSerializer)?);
         Ok(())
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(GremlinTypes::List(self.0))
+        Ok(GremlinValue::List(self.0))
     }
 }
-struct GraphBinarySerializerMap(HashMap<MapKeys, GremlinTypes>);
+struct GraphBinarySerializerMap(HashMap<MapKeys, GremlinValue>);
 
 impl SerializeMap for GraphBinarySerializerMap {
-    type Ok = GremlinTypes;
+    type Ok = GremlinValue;
 
     type Error = EncodeError;
 
@@ -651,18 +607,18 @@ impl SerializeMap for GraphBinarySerializerMap {
         K: Serialize,
         V: Serialize,
     {
-        let key = MapKeys::try_from(key.serialize(GraphBinarySerializer)?).unwrap(); // TODO tryFrom needs own Error
-        self.0.insert(key, value.serialize(GraphBinarySerializer)?);
+        let key = MapKeys::try_from(key.serialize(GremlinValueSerializer)?).unwrap(); // TODO tryFrom needs own Error
+        self.0.insert(key, value.serialize(GremlinValueSerializer)?);
         Ok(())
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(GremlinTypes::Map(self.0))
+        Ok(GremlinValue::Map(self.0))
     }
 }
 
 impl SerializeStruct for GraphBinarySerializerMap {
-    type Ok = GremlinTypes;
+    type Ok = GremlinValue;
 
     type Error = EncodeError;
 
@@ -675,12 +631,12 @@ impl SerializeStruct for GraphBinarySerializerMap {
         T: Serialize,
     {
         self.0
-            .insert(key.into(), value.serialize(GraphBinarySerializer)?);
+            .insert(key.into(), value.serialize(GremlinValueSerializer)?);
         Ok(())
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(GremlinTypes::Map(self.0))
+        Ok(GremlinValue::Map(self.0))
     }
 }
 
@@ -788,12 +744,12 @@ fn ser_struct_gb_primitiv_test() {
     #[derive(Debug, Serialize)]
     struct TestStruct {
         test: i32,
-        abc: GremlinTypes,
+        abc: bool,
         milli: Millimeters,
     }
     let test = TestStruct {
         test: 1,
-        abc: GremlinTypes::Boolean(true),
+        abc: true,
         milli: Millimeters(1),
     };
 
@@ -815,7 +771,7 @@ fn ser_struct_option_gb_test() {
     #[derive(Debug, Serialize)]
     struct TestStruct {
         test: i32,
-        abc: Option<GremlinTypes>,
+        abc: Option<i32>,
         milli: Millimeters,
     }
     let test = TestStruct {
@@ -839,19 +795,19 @@ fn struct_to_gb() {
     #[derive(Debug, Serialize)]
     struct TestStruct {
         test: i32,
-        abc: GremlinTypes,
+        abc: bool,
     }
 
     let test = TestStruct {
         test: 1,
-        abc: GremlinTypes::Boolean(true),
+        abc: true,
     };
 
     let gb = to_graph_binary(&test).unwrap();
 
     let map = HashMap::from([("test".into(), 1.into()), ("abc".into(), true.into())]);
 
-    let expected = GremlinTypes::Map(map);
+    let expected = GremlinValue::Map(map);
 
     assert_eq!(expected, gb);
 }
@@ -870,7 +826,7 @@ fn struct_to_gb2() {
 
     let map = HashMap::from([("test".into(), 1.into()), ("abc".into(), true.into())]);
 
-    let expected = GremlinTypes::Map(map);
+    let expected = GremlinValue::Map(map);
 
     assert_eq!(expected, gb);
 }

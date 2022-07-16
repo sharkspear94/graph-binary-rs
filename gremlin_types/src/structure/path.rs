@@ -7,8 +7,8 @@ use crate::error::DecodeError;
 use crate::structure::vertex_property::VertexProperty;
 use crate::val_by_key_v2;
 use crate::{
-    conversions,
-    graph_binary::{Decode, Encode, GremlinTypes},
+    conversion,
+    graph_binary::{Decode, Encode, GremlinValue},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
     struct_de_serialize, val_by_key_v3,
@@ -19,9 +19,10 @@ use super::{list::Set, validate_type_entry, vertex::Vertex};
 #[derive(Debug, PartialEq, Clone)]
 pub struct Path {
     labels: Vec<Set<String>>,   // List<Set<String>>
-    objects: Vec<GremlinTypes>, // List<T>
+    objects: Vec<GremlinValue>, // List<T>
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for Path {
     fn type_code() -> u8 {
         CoreType::Path.into()
@@ -42,6 +43,7 @@ impl Encode for Path {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for Path {
     fn expected_type_code() -> u8 {
         CoreType::Path.into()
@@ -59,7 +61,7 @@ impl Decode for Path {
             let set = Set::<String>::partial_decode(reader)?;
             labels.push(set);
         }
-        let objects = Vec::<GremlinTypes>::decode(reader)?;
+        let objects = Vec::<GremlinValue>::decode(reader)?;
 
         Ok(Path { labels, objects })
     }
@@ -71,7 +73,7 @@ impl Decode for Path {
         for _ in 0..vec_len {
             len += Vec::<String>::get_len(&bytes[len..])?;
         }
-        len += Vec::<GremlinTypes>::get_len(&bytes[len..])?;
+        len += Vec::<GremlinValue>::get_len(&bytes[len..])?;
 
         Ok(len)
     }
@@ -138,7 +140,7 @@ impl DecodeGraphSON for Path {
             .and_then(|m| m.as_object());
 
         let labels = val_by_key_v3!(object, "labels", Vec<Set<String>>, "Path")?;
-        let objects = val_by_key_v3!(object, "objects", Vec<GremlinTypes>, "Path")?;
+        let objects = val_by_key_v3!(object, "objects", Vec<GremlinValue>, "Path")?;
 
         Ok(Path { labels, objects })
     }
@@ -154,7 +156,7 @@ impl DecodeGraphSON for Path {
             .and_then(|m| m.as_object());
 
         let labels = val_by_key_v2!(object, "labels", Vec<Set<String>>, "Path")?;
-        let objects = val_by_key_v2!(object, "objects", Vec<GremlinTypes>, "Path")?;
+        let objects = val_by_key_v2!(object, "objects", Vec<GremlinValue>, "Path")?;
 
         Ok(Path { labels, objects })
     }
@@ -168,7 +170,7 @@ impl DecodeGraphSON for Path {
 }
 
 struct_de_serialize!((Path, PathVisitor, 64));
-conversions!((Path, Path));
+conversion!(Path, Path);
 
 #[test]
 fn test_encode() {

@@ -3,18 +3,21 @@
 use core::slice;
 use std::{collections::BinaryHeap, mem::size_of};
 #[macro_use]
-extern crate lazy_static;
 
-pub mod de;
+mod error;
 pub mod graph_binary;
-pub mod graphson;
-pub mod ser;
+mod macros;
 mod specs;
 mod structure;
 
-mod error;
-mod macros;
-pub mod message;
+#[cfg(feature = "graph_son")]
+pub mod graphson;
+
+#[cfg(feature = "serde")]
+pub mod de;
+#[cfg(feature = "serde")]
+pub mod ser;
+
 pub use structure::Binding;
 #[cfg(test)]
 mod tests {}

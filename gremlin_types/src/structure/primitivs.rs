@@ -1,7 +1,7 @@
 use super::validate_type_entry;
-use crate::conversions;
+use crate::conversion;
 use crate::error::DecodeError;
-use crate::graph_binary::{encode_null_object, Decode, GremlinTypes};
+use crate::graph_binary::{encode_null_object, Decode, GremlinValue};
 use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
 use crate::macros::{TryBorrowFrom, TryMutBorrowFrom};
 use crate::specs::CoreType;
@@ -14,6 +14,7 @@ use std::io::Read;
 use std::slice;
 use std::str::FromStr;
 
+#[cfg(feature = "graph_binary")]
 impl Encode for String {
     fn type_code() -> u8 {
         CoreType::String.into()
@@ -27,6 +28,7 @@ impl Encode for String {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for String {
     fn expected_type_code() -> u8 {
         CoreType::String.into()
@@ -106,23 +108,24 @@ impl DecodeGraphSON for String {
 }
 
 impl TryBorrowFrom for str {
-    fn try_borrow_from(graph_binary: &GremlinTypes) -> Option<&Self> {
+    fn try_borrow_from(graph_binary: &GremlinValue) -> Option<&Self> {
         match graph_binary {
-            GremlinTypes::String(s) => Some(s),
+            GremlinValue::String(s) => Some(s),
             _ => None,
         }
     }
 }
 
 impl TryMutBorrowFrom for str {
-    fn try_mut_borrow_from(graph_binary: &mut GremlinTypes) -> Option<&mut Self> {
+    fn try_mut_borrow_from(graph_binary: &mut GremlinValue) -> Option<&mut Self> {
         match graph_binary {
-            GremlinTypes::String(s) => Some(s),
+            GremlinValue::String(s) => Some(s),
             _ => None,
         }
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for &str {
     fn type_code() -> u8 {
         CoreType::String.into()
@@ -150,12 +153,13 @@ impl EncodeGraphSON for &str {
     }
 }
 
-impl From<&str> for GremlinTypes {
+impl From<&str> for GremlinValue {
     fn from(s: &str) -> Self {
-        GremlinTypes::String(s.to_owned())
+        GremlinValue::String(s.to_owned())
     }
 }
 
+#[cfg(all(feature = "graph_binary", feature = "extended"))]
 impl Encode for char {
     fn type_code() -> u8 {
         CoreType::Char.into()
@@ -169,6 +173,7 @@ impl Encode for char {
     }
 }
 
+#[cfg(all(feature = "graph_binary", feature = "extended"))]
 impl Decode for char {
     fn expected_type_code() -> u8 {
         CoreType::Char.into()
@@ -266,6 +271,7 @@ impl DecodeGraphSON for char {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for u8 {
     fn type_code() -> u8 {
         CoreType::Byte.into()
@@ -277,6 +283,7 @@ impl Encode for u8 {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for u8 {
     fn expected_type_code() -> u8 {
         CoreType::Byte.into()
@@ -326,6 +333,7 @@ impl DecodeGraphSON for u8 {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for i16 {
     fn type_code() -> u8 {
         CoreType::Short.into()
@@ -338,6 +346,7 @@ impl Encode for i16 {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for i16 {
     fn expected_type_code() -> u8 {
         CoreType::Short.into()
@@ -386,7 +395,7 @@ impl DecodeGraphSON for i16 {
             .map(|val| val as i16)
     }
 }
-
+#[cfg(feature = "graph_binary")]
 impl Encode for i32 {
     fn type_code() -> u8 {
         CoreType::Int32.into()
@@ -397,7 +406,7 @@ impl Encode for i32 {
         Ok(())
     }
 }
-
+#[cfg(feature = "graph_binary")]
 impl Decode for i32 {
     fn expected_type_code() -> u8 {
         CoreType::Int32.into()
@@ -446,7 +455,7 @@ impl DecodeGraphSON for i32 {
             .map(|t| t as i32)
     }
 }
-
+#[cfg(feature = "graph_binary")]
 impl Encode for i64 {
     fn type_code() -> u8 {
         CoreType::Long.into()
@@ -457,7 +466,7 @@ impl Encode for i64 {
         Ok(())
     }
 }
-
+#[cfg(feature = "graph_binary")]
 impl Decode for i64 {
     fn expected_type_code() -> u8 {
         CoreType::Long.into()
@@ -504,7 +513,7 @@ impl DecodeGraphSON for i64 {
             .ok_or_else(|| DecodeError::DecodeError("json error in i64 v1".to_string()))
     }
 }
-
+#[cfg(feature = "graph_binary")]
 impl Encode for f32 {
     fn type_code() -> u8 {
         CoreType::Float.into()
@@ -516,7 +525,7 @@ impl Encode for f32 {
         Ok(())
     }
 }
-
+#[cfg(feature = "graph_binary")]
 impl Decode for f32 {
     fn expected_type_code() -> u8 {
         CoreType::Float.into()
@@ -539,13 +548,29 @@ impl DecodeGraphSON for f32 {
     where
         Self: std::marker::Sized,
     {
-        j_val
+        let val = j_val
             .as_object()
             .filter(|map| validate_type_entry(*map, "g:Float"))
             .and_then(|map| map.get("@value"))
-            .and_then(|value| value.as_f64())
-            .ok_or_else(|| DecodeError::DecodeError("json error f32 v3 in error".to_string()))
-            .map(|t| t as f32) // maybe try from for conversion to
+            .ok_or_else(|| {
+                DecodeError::DecodeError("type identifier for f32 v3 failed".to_string())
+            })?;
+
+        if let Some(res) = val.as_f64().map(|f| f as f32) {
+            return Ok(res);
+        }
+        if let Some(res) = val.as_str().and_then(|s| match s {
+            "NaN" => Some(f32::NAN),
+            "Infinity" => Some(f32::INFINITY),
+            "-Infinity" => Some(f32::NEG_INFINITY),
+            _ => None,
+        }) {
+            Ok(res)
+        } else {
+            Err(DecodeError::DecodeError(
+                "json error f32 v3 in error".to_string(),
+            ))
+        }
     }
 
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
@@ -566,6 +591,7 @@ impl DecodeGraphSON for f32 {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for f64 {
     fn type_code() -> u8 {
         CoreType::Double.into()
@@ -578,6 +604,7 @@ impl Encode for f64 {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for f64 {
     fn expected_type_code() -> u8 {
         CoreType::Double.into()
@@ -600,12 +627,29 @@ impl DecodeGraphSON for f64 {
     where
         Self: std::marker::Sized,
     {
-        j_val
+        let val = j_val
             .as_object()
             .filter(|map| validate_type_entry(*map, "g:Double"))
             .and_then(|map| map.get("@value"))
-            .and_then(|value| value.as_f64())
-            .ok_or_else(|| DecodeError::DecodeError("json error f64 v3 in error".to_string()))
+            .ok_or_else(|| {
+                DecodeError::DecodeError("type identifier for f64 v3 failed".to_string())
+            })?;
+
+        if let Some(res) = val.as_f64() {
+            return Ok(res);
+        }
+        if let Some(res) = val.as_str().and_then(|s| match s {
+            "NaN" => Some(f64::NAN),
+            "Infinity" => Some(f64::INFINITY),
+            "-Infinity" => Some(f64::NEG_INFINITY),
+            _ => None,
+        }) {
+            Ok(res)
+        } else {
+            Err(DecodeError::DecodeError(
+                "json error f64 v3 in error".to_string(),
+            ))
+        }
     }
 
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
@@ -625,6 +669,7 @@ impl DecodeGraphSON for f64 {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for Uuid {
     fn type_code() -> u8 {
         CoreType::Uuid.into()
@@ -693,6 +738,7 @@ impl Decode for UuidDef {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for Uuid {
     fn expected_type_code() -> u8 {
         CoreType::Uuid.into()
@@ -742,6 +788,7 @@ impl DecodeGraphSON for Uuid {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for u128 {
     fn expected_type_code() -> u8 {
         CoreType::Uuid.into()
@@ -759,6 +806,7 @@ impl Decode for u128 {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for bool {
     fn type_code() -> u8 {
         CoreType::Boolean.into()
@@ -776,6 +824,7 @@ impl Encode for bool {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for bool {
     fn expected_type_code() -> u8 {
         CoreType::Boolean.into()
@@ -836,6 +885,7 @@ impl DecodeGraphSON for bool {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl<T: Encode> Encode for Option<T> {
     fn type_code() -> u8 {
         T::type_code()
@@ -869,6 +919,7 @@ impl<T: Encode> Encode for Option<T> {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl<T: Decode> Decode for Option<T> {
     fn expected_type_code() -> u8 {
         T::expected_type_code()
@@ -1019,18 +1070,17 @@ graphson_impl!(
     (Uuid, "g:UUID"),
 );
 
-conversions!(
-    (String, String),
-    (u8, Byte),
-    (i16, Short),
-    (i32, Int),
-    (i64, Long),
-    (f32, Float),
-    (f64, Double),
-    (bool, Boolean),
-    (Uuid, Uuid),
-    (char, Char)
-);
+conversion!(String, String);
+conversion!(u8, Byte);
+conversion!(i16, Short);
+conversion!(i32, Int);
+conversion!(i64, Long);
+conversion!(f32, Float);
+conversion!(f64, Double);
+conversion!(bool, Boolean);
+conversion!(Uuid, Uuid);
+#[cfg(feature = "extended")]
+conversion!(char, Char);
 
 #[test]
 fn encode_string_test() {
@@ -1175,22 +1225,25 @@ fn option_should_fail_decode_test() {
     assert!(option.is_err())
 }
 
+#[cfg(feature = "extended")]
 #[test]
-fn test3() {
+fn char_decode_utf8() {
     let reader = [0x80_u8, 0x0, 0xe2, 0x99, 0xa5];
     let c = char::decode(&mut &reader[..]).unwrap();
 
     assert_eq!('♥', c)
 }
 
+#[cfg(feature = "extended")]
 #[test]
-fn test1() {
+fn char_decode() {
     let reader = [0x80_u8, 0x0, 65];
     let c = char::decode(&mut &reader[..]).unwrap();
 
     assert_eq!('A', c)
 }
 
+#[cfg(feature = "extended")]
 #[test]
 fn test2() {
     let reader = [0x80_u8, 0x0, 0xc3, 0x9f];
@@ -1199,6 +1252,7 @@ fn test2() {
     assert_eq!('ß', c)
 }
 
+#[cfg(feature = "extended")]
 #[test]
 fn test4() {
     let reader = [0x80_u8, 0x0, 0xf0, 0x9f, 0xa6, 0x80];
@@ -1212,4 +1266,26 @@ fn test12() {
     let obj = r#"{"@type" : "g:Int32","@value" : 100}"#;
     let val = serde_json::from_str(obj).expect("a json value");
     assert_eq!(100, i32::decode_v3(&val).unwrap())
+}
+
+#[test]
+fn f32_inf() {
+    let f = r#"{
+        "@type" : "g:Float",
+        "@value" : "Infinity"
+      }"#;
+    let v = serde_json::from_str(f).unwrap();
+    let a = f32::decode_v3(&v).unwrap();
+    assert_eq!(a, f32::INFINITY)
+}
+
+#[test]
+fn f64_neg_infinity() {
+    let f = r#"{
+        "@type" : "g:Double",
+        "@value" : "-Infinity"
+      }"#;
+    let v = serde_json::from_str(f).unwrap();
+    let a = f64::decode_v3(&v).unwrap();
+    assert_eq!(a, f64::NEG_INFINITY)
 }

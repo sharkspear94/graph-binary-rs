@@ -3,9 +3,9 @@ use std::{collections::HashMap, fmt::Display};
 use serde_json::{json, Map};
 
 use crate::{
-    conversions,
+    conversion,
     error::DecodeError,
-    graph_binary::{Decode, Encode, GremlinTypes},
+    graph_binary::{Decode, Encode, GremlinValue},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::{self, CoreType},
     struct_de_serialize, val_by_key_v2, val_by_key_v3,
@@ -19,18 +19,18 @@ use super::{
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct VertexProperty {
-    pub id: Box<GremlinTypes>, // needs refinment
+    pub id: Box<GremlinValue>, // needs refinment
     pub label: String,
-    pub value: Box<GremlinTypes>,
+    pub value: Box<GremlinValue>,
     pub parent: Option<Vertex>,
     pub properties: Option<Vec<Property>>,
 }
 
 impl VertexProperty {
     pub fn new(
-        id: impl Into<GremlinTypes>,
+        id: impl Into<GremlinValue>,
         label: &str,
-        value: impl Into<GremlinTypes>,
+        value: impl Into<GremlinValue>,
         parent: Option<Vertex>,
         properties: Option<Vec<Property>>,
     ) -> Self {
@@ -64,6 +64,7 @@ impl Display for VertexProperty {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for VertexProperty {
     fn type_code() -> u8 {
         specs::CoreType::VertexProperty.into()
@@ -82,6 +83,7 @@ impl Encode for VertexProperty {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for VertexProperty {
     fn expected_type_code() -> u8 {
         CoreType::VertexProperty.into()
@@ -91,9 +93,9 @@ impl Decode for VertexProperty {
     where
         Self: std::marker::Sized,
     {
-        let id = GremlinTypes::decode(reader)?;
+        let id = GremlinValue::decode(reader)?;
         let label = String::partial_decode(reader)?;
-        let value = GremlinTypes::decode(reader)?;
+        let value = GremlinValue::decode(reader)?;
         let parent = Option::<Vertex>::decode(reader)?;
         let properties = Option::<Vec<Property>>::decode(reader)?;
 
@@ -107,9 +109,9 @@ impl Decode for VertexProperty {
     }
 
     fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = GremlinTypes::get_len(bytes)?;
+        let mut len = GremlinValue::get_len(bytes)?;
         len += String::get_partial_len(&bytes[len..])?;
-        len += GremlinTypes::get_len(&bytes[len..])?;
+        len += GremlinValue::get_len(&bytes[len..])?;
         len += Option::<Vertex>::get_len(&bytes[len..])?;
         len += Option::<Vec<Property>>::get_len(&bytes[len..])?;
 
@@ -202,9 +204,9 @@ impl DecodeGraphSON for VertexProperty {
             .and_then(|m| m.get("@value"))
             .and_then(|m| m.as_object());
 
-        let id = val_by_key_v3!(value_object, "id", GremlinTypes, "VertexProperty")?;
+        let id = val_by_key_v3!(value_object, "id", GremlinValue, "VertexProperty")?;
         let label = val_by_key_v3!(value_object, "label", String, "VertexProperty")?;
-        let value = val_by_key_v3!(value_object, "value", GremlinTypes, "VertexProperty")?;
+        let value = val_by_key_v3!(value_object, "value", GremlinValue, "VertexProperty")?;
 
         let properties = value_object
             .and_then(|value_object| value_object.get("properties"))
@@ -218,7 +220,7 @@ impl DecodeGraphSON for VertexProperty {
             for (key, value) in iter {
                 v_properties.push(Property {
                     key: key.clone(),
-                    value: Box::new(GremlinTypes::decode_v3(value)?),
+                    value: Box::new(GremlinValue::decode_v3(value)?),
                     parent: EitherParent::None,
                 })
             }
@@ -244,10 +246,10 @@ impl DecodeGraphSON for VertexProperty {
             .and_then(|m| m.get("@value"))
             .and_then(|m| m.as_object());
 
-        let id = val_by_key_v2!(object, "id", GremlinTypes, "VertexProperty")?;
+        let id = val_by_key_v2!(object, "id", GremlinValue, "VertexProperty")?;
         let label = val_by_key_v2!(object, "label", String, "VertexProperty")?;
-        let value = val_by_key_v2!(object, "value", GremlinTypes, "VertexProperty")?;
-        let vertex_id = val_by_key_v2!(object, "vertex", GremlinTypes, "VertexProperty")?;
+        let value = val_by_key_v2!(object, "value", GremlinValue, "VertexProperty")?;
+        let vertex_id = val_by_key_v2!(object, "vertex", GremlinValue, "VertexProperty")?;
 
         let properties = object
             .and_then(|m| m.get("properties"))
@@ -261,7 +263,7 @@ impl DecodeGraphSON for VertexProperty {
             for (k, v) in iter {
                 v_properties.push(Property {
                     key: k.clone(),
-                    value: Box::new(GremlinTypes::decode_v3(v)?),
+                    value: Box::new(GremlinValue::decode_v3(v)?),
                     parent: EitherParent::None,
                 })
             }
@@ -290,4 +292,4 @@ impl DecodeGraphSON for VertexProperty {
 }
 
 struct_de_serialize!((VertexProperty, VertexVertexProperty, 32));
-conversions!((VertexProperty, VertexProperty));
+conversion!(VertexProperty, VertexProperty);

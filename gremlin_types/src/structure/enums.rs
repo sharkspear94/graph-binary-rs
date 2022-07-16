@@ -6,10 +6,10 @@ use std::marker::PhantomData;
 use super::validate_type_entry;
 use crate::{
     error::DecodeError,
-    graph_binary::{decode, Decode, Encode, GremlinTypes},
+    graph_binary::{decode, Decode, Encode, GremlinValue},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
-    val_by_key_v3,
+    val_by_key_v2, val_by_key_v3,
 };
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -276,26 +276,26 @@ impl Pop {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum P {
-    Eq(Box<GremlinTypes>),
-    Neq(Box<GremlinTypes>),
-    Lt(Box<GremlinTypes>),
-    Lte(Box<GremlinTypes>),
-    Gt(Box<GremlinTypes>),
-    Gte(Box<GremlinTypes>),
-    Inside(Box<(GremlinTypes, GremlinTypes)>),
-    Outside(Box<(GremlinTypes, GremlinTypes)>),
-    Between(Box<(GremlinTypes, GremlinTypes)>),
-    Within(Vec<GremlinTypes>),
-    Without(Vec<GremlinTypes>),
+    Eq(Box<GremlinValue>),
+    Neq(Box<GremlinValue>),
+    Lt(Box<GremlinValue>),
+    Lte(Box<GremlinValue>),
+    Gt(Box<GremlinValue>),
+    Gte(Box<GremlinValue>),
+    Inside(Box<(GremlinValue, GremlinValue)>),
+    Outside(Box<(GremlinValue, GremlinValue)>),
+    Between(Box<(GremlinValue, GremlinValue)>),
+    Within(Vec<GremlinValue>),
+    Without(Vec<GremlinValue>),
 }
 
-pub struct PublicP<T: Into<GremlinTypes> + Clone> {
+pub struct PublicP<T: Into<GremlinValue> + Clone> {
     p: P,
     marker: PhantomData<T>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum PublicP2<V: Into<GremlinTypes>> {
+pub enum PublicP2<V: Into<GremlinValue>> {
     Eq(T),
     Neq(T),
     Lt(T),
@@ -309,7 +309,7 @@ pub enum PublicP2<V: Into<GremlinTypes>> {
     Without(Vec<V>),
 }
 
-impl<V: Into<GremlinTypes>> PublicP2<V> {
+impl<V: Into<GremlinValue>> PublicP2<V> {
     pub fn into_p(self) -> P {
         match self {
             PublicP2::Eq(val) => P::Eq(Box::new(val.into())),
@@ -327,13 +327,106 @@ impl<V: Into<GremlinTypes>> PublicP2<V> {
     }
 }
 
-impl<V: Into<GremlinTypes>> Display for PublicP2<V> {
+impl<V: Into<GremlinValue>> Display for PublicP2<V> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }
 
-impl<T: Into<GremlinTypes> + Clone> PublicP<T> {
+pub struct P2 {
+    predicate: String,
+    value: Box<GremlinValue>,
+}
+
+struct Test<T> {
+    predicate: String,
+    value: T,
+}
+
+impl<T> Test<T> {
+    pub fn gte<A>(a: A) -> Test<A> {
+        Test {
+            predicate: "lte".to_string(),
+            value: a,
+        }
+    }
+    pub fn lte<A>(a: A) -> Test<A> {
+        Test {
+            predicate: "lte".to_string(),
+            value: a,
+        }
+    }
+    pub fn and(mut self, f: Test<T>) -> Test<Vec<Test<T>>> {
+        let t = Self::gte(1i32).and(Self::lte(2i32));
+        Test {
+            predicate: "and".to_string(),
+            value: vec![self, f],
+        }
+    }
+}
+impl P2 {
+    fn new(p: &str, v: GremlinValue) -> Self {
+        P2 {
+            predicate: p.to_string(),
+            value: Box::new(v),
+        }
+    }
+    pub fn eq<T: Into<GremlinValue>>(val: T) -> P2 {
+        P2::new("eq", val.into())
+    }
+    pub fn neq<T: Into<GremlinValue>>(val: T) -> P2 {
+        P2::new("neq", val.into())
+    }
+    pub fn gt<T: Into<GremlinValue>>(val: T) -> P2 {
+        P2::new("gt", val.into())
+    }
+    pub fn gte<T: Into<GremlinValue>>(val: T) -> P2 {
+        P2::new("gte", val.into())
+    }
+    pub fn lt<T: Into<GremlinValue>>(val: T) -> P2 {
+        P2::new("le", val.into())
+    }
+    pub fn lte<T: Into<GremlinValue>>(val: T) -> P2 {
+        P2::new("lte", val.into())
+    }
+    pub fn inside<T: Into<GremlinValue>>(first: T, second: T) -> P2 {
+        P2::new("inside", [first, second].into())
+    }
+    pub fn outside<T: Into<GremlinValue>>(first: T, second: T) -> P2 {
+        P2::new("outside", [first, second].into())
+    }
+    pub fn between<T: Into<GremlinValue>>(first: T, second: T) -> P2 {
+        P2::new("between", [first, second].into())
+    }
+    pub fn within<T: Into<GremlinValue> + Clone>(values: impl IntoIterator<Item = T>) -> P2 {
+        P2::new(
+            "within",
+            values
+                .into_iter()
+                .map(Into::into)
+                .collect::<Vec<GremlinValue>>()
+                .into(),
+        )
+    }
+    pub fn without<T: Into<GremlinValue> + Clone>(values: impl IntoIterator<Item = T>) -> P2 {
+        P2::new(
+            "without",
+            values
+                .into_iter()
+                .map(Into::into)
+                .collect::<Vec<GremlinValue>>()
+                .into(),
+        )
+    }
+    // pub fn and<F, T: Into<GremlinTypes>>(mut self, f: F) -> P2
+    // where
+    //     F: FnOnce(T) -> P2,
+    // {
+    //     P2::new("and", vec![self.into(), p.into()].into())
+    // }
+}
+
+impl<T: Into<GremlinValue> + Clone> PublicP<T> {
     pub fn eq(val: T) -> P {
         P::Eq(Box::new(val.into()))
     }
@@ -378,9 +471,9 @@ impl<T: Into<GremlinTypes> + Clone> PublicP<T> {
     }
 }
 
-impl From<P> for GremlinTypes {
+impl From<P> for GremlinValue {
     fn from(p: P) -> Self {
-        GremlinTypes::P(p)
+        GremlinValue::P(p)
     }
 }
 impl P {
@@ -400,7 +493,7 @@ impl P {
         }
     }
 
-    fn single_value(&self) -> &GremlinTypes {
+    fn single_value(&self) -> &GremlinValue {
         match self {
             P::Eq(val) => val,
             P::Neq(val) => val,
@@ -411,7 +504,7 @@ impl P {
             _ => panic!(),
         }
     }
-    fn tuple_value(&self) -> &(GremlinTypes, GremlinTypes) {
+    fn tuple_value(&self) -> &(GremlinValue, GremlinValue) {
         match self {
             P::Inside(val) => val,
             P::Outside(val) => val,
@@ -420,7 +513,7 @@ impl P {
         }
     }
 
-    fn list_value(&self) -> &Vec<GremlinTypes> {
+    fn list_value(&self) -> &Vec<GremlinValue> {
         match self {
             P::Within(val) => val,
             P::Without(val) => val,
@@ -428,46 +521,46 @@ impl P {
         }
     }
 
-    pub fn eq<T: Into<GremlinTypes> + PartialEq>(val: T) -> Self {
+    pub fn eq<T: Into<GremlinValue> + PartialEq>(val: T) -> Self {
         P::Eq(Box::new(val.into()))
     }
-    pub fn neq<T: Into<GremlinTypes> + PartialEq>(val: T) -> Self {
+    pub fn neq<T: Into<GremlinValue> + PartialEq>(val: T) -> Self {
         P::Neq(Box::new(val.into()))
     }
 
-    pub fn lt<T: Into<GremlinTypes> + PartialOrd>(val: T) -> Self {
+    pub fn lt<T: Into<GremlinValue> + PartialOrd>(val: T) -> Self {
         P::Lt(Box::new(val.into()))
     }
 
-    pub fn lte<T: Into<GremlinTypes> + PartialOrd>(val: T) -> Self {
+    pub fn lte<T: Into<GremlinValue> + PartialOrd>(val: T) -> Self {
         P::Lte(Box::new(val.into()))
     }
 
-    pub fn gt<T: Into<GremlinTypes> + PartialOrd>(val: T) -> Self {
+    pub fn gt<T: Into<GremlinValue> + PartialOrd>(val: T) -> Self {
         P::Gt(Box::new(val.into()))
     }
 
-    pub fn gte<T: Into<GremlinTypes> + PartialOrd>(val: T) -> Self {
+    pub fn gte<T: Into<GremlinValue> + PartialOrd>(val: T) -> Self {
         P::Gte(Box::new(val.into()))
     }
 
-    pub fn between<T: Into<GremlinTypes> + PartialOrd>(lower: T, upper: T) -> Self {
+    pub fn between<T: Into<GremlinValue> + PartialOrd>(lower: T, upper: T) -> Self {
         P::Between(Box::new((lower.into(), upper.into())))
     }
 
-    pub fn inside<T: Into<GremlinTypes> + PartialOrd>(lower: T, upper: T) -> Self {
+    pub fn inside<T: Into<GremlinValue> + PartialOrd>(lower: T, upper: T) -> Self {
         P::Inside(Box::new((lower.into(), upper.into())))
     }
 
-    pub fn outside<T: Into<GremlinTypes> + PartialOrd>(lower: T, upper: T) -> Self {
+    pub fn outside<T: Into<GremlinValue> + PartialOrd>(lower: T, upper: T) -> Self {
         P::Outside(Box::new((lower.into(), upper.into())))
     }
 
-    pub fn within<T: Into<GremlinTypes> + Clone + PartialOrd>(val: &[T]) -> Self {
+    pub fn within<T: Into<GremlinValue> + Clone + PartialOrd>(val: &[T]) -> Self {
         P::Within(val.iter().map(Into::into).collect())
     }
 
-    pub fn without<T: Into<GremlinTypes> + Clone + PartialOrd>(val: &[T]) -> Self {
+    pub fn without<T: Into<GremlinValue> + Clone + PartialOrd>(val: &[T]) -> Self {
         P::Without(val.iter().map(Into::into).collect())
     }
 
@@ -514,7 +607,7 @@ impl P {
 
 fn write_name_value<W: std::io::Write>(
     name: &str,
-    value: &GremlinTypes,
+    value: &GremlinValue,
     writer: &mut W,
 ) -> Result<(), crate::error::EncodeError> {
     name.partial_encode(writer)?;
@@ -603,7 +696,7 @@ impl Decode for P {
 
     fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError> {
         let mut len = String::get_len(bytes)?;
-        len += Vec::<GremlinTypes>::get_partial_len(&bytes[len..])?;
+        len += Vec::<GremlinValue>::get_partial_len(&bytes[len..])?;
         Ok(len)
     }
 }
@@ -794,41 +887,41 @@ impl DecodeGraphSON for P {
             "eq" => Ok(P::Eq(Box::new(val_by_key_v3!(
                 object,
                 "value",
-                GremlinTypes,
+                GremlinValue,
                 "P"
             )?))),
             "neq" => Ok(P::Neq(Box::new(val_by_key_v3!(
                 object,
                 "value",
-                GremlinTypes,
+                GremlinValue,
                 "P"
             )?))),
             "gt" => Ok(P::Gt(Box::new(val_by_key_v3!(
                 object,
                 "value",
-                GremlinTypes,
+                GremlinValue,
                 "P"
             )?))),
             "gte" => Ok(P::Gte(Box::new(val_by_key_v3!(
                 object,
                 "value",
-                GremlinTypes,
+                GremlinValue,
                 "P"
             )?))),
             "lt" => Ok(P::Lt(Box::new(val_by_key_v3!(
                 object,
                 "value",
-                GremlinTypes,
+                GremlinValue,
                 "P"
             )?))),
             "lte" => Ok(P::Lte(Box::new(val_by_key_v3!(
                 object,
                 "value",
-                GremlinTypes,
+                GremlinValue,
                 "P"
             )?))),
             "inside" => {
-                let value = val_by_key_v3!(object, "value", Vec<GremlinTypes>, "P")?;
+                let value = val_by_key_v3!(object, "value", Vec<GremlinValue>, "P")?;
                 let tupel = value.get(0..2).ok_or_else(|| {
                     DecodeError::DecodeError("inside predicate has let than two values".to_string())
                 })?;
@@ -836,7 +929,7 @@ impl DecodeGraphSON for P {
             }
 
             "outside" => {
-                let value = val_by_key_v3!(object, "value", Vec<GremlinTypes>, "P")?;
+                let value = val_by_key_v3!(object, "value", Vec<GremlinValue>, "P")?;
                 let tupel = value.get(0..2).ok_or_else(|| {
                     DecodeError::DecodeError(
                         "outside predicate has let than two values".to_string(),
@@ -845,7 +938,7 @@ impl DecodeGraphSON for P {
                 Ok(P::Outside(Box::new((tupel[0].clone(), tupel[1].clone()))))
             }
             "between" => {
-                let value = val_by_key_v3!(object, "value", Vec<GremlinTypes>, "P")?;
+                let value = val_by_key_v3!(object, "value", Vec<GremlinValue>, "P")?;
                 let tupel = value.get(0..2).ok_or_else(|| {
                     DecodeError::DecodeError(
                         "between predicate has let than two values".to_string(),
@@ -856,13 +949,13 @@ impl DecodeGraphSON for P {
             "within" => Ok(P::Within(val_by_key_v3!(
                 object,
                 "value",
-                Vec<GremlinTypes>,
+                Vec<GremlinValue>,
                 "P"
             )?)),
             "without" => Ok(P::Without(val_by_key_v3!(
                 object,
                 "value",
-                Vec<GremlinTypes>,
+                Vec<GremlinValue>,
                 "P"
             )?)),
             error => Err(DecodeError::DecodeError(format!(
@@ -875,7 +968,94 @@ impl DecodeGraphSON for P {
     where
         Self: std::marker::Sized,
     {
-        todo!()
+        let object = j_val
+            .as_object()
+            .filter(|map| validate_type_entry(*map, "g:P"))
+            .and_then(|m| m.get("@value"))
+            .and_then(|m| m.as_object());
+
+        let predicate = val_by_key_v2!(object, "predicate", String, "P")?;
+        match predicate.as_str() {
+            "eq" => Ok(P::Eq(Box::new(val_by_key_v2!(
+                object,
+                "value",
+                GremlinValue,
+                "P"
+            )?))),
+            "neq" => Ok(P::Neq(Box::new(val_by_key_v2!(
+                object,
+                "value",
+                GremlinValue,
+                "P"
+            )?))),
+            "gt" => Ok(P::Gt(Box::new(val_by_key_v2!(
+                object,
+                "value",
+                GremlinValue,
+                "P"
+            )?))),
+            "gte" => Ok(P::Gte(Box::new(val_by_key_v2!(
+                object,
+                "value",
+                GremlinValue,
+                "P"
+            )?))),
+            "lt" => Ok(P::Lt(Box::new(val_by_key_v2!(
+                object,
+                "value",
+                GremlinValue,
+                "P"
+            )?))),
+            "lte" => Ok(P::Lte(Box::new(val_by_key_v2!(
+                object,
+                "value",
+                GremlinValue,
+                "P"
+            )?))),
+            "inside" => {
+                let value = val_by_key_v2!(object, "value", Vec<GremlinValue>, "P")?;
+                let tupel = value.get(0..2).ok_or_else(|| {
+                    DecodeError::DecodeError(
+                        "inside predicate has less than two values".to_string(),
+                    )
+                })?;
+                Ok(P::Inside(Box::new((tupel[0].clone(), tupel[1].clone()))))
+            }
+
+            "outside" => {
+                let value = val_by_key_v2!(object, "value", Vec<GremlinValue>, "P")?;
+                let tupel = value.get(0..2).ok_or_else(|| {
+                    DecodeError::DecodeError(
+                        "outside predicate has less than two values".to_string(),
+                    )
+                })?;
+                Ok(P::Outside(Box::new((tupel[0].clone(), tupel[1].clone()))))
+            }
+            "between" => {
+                let value = val_by_key_v2!(object, "value", Vec<GremlinValue>, "P")?;
+                let tupel = value.get(0..2).ok_or_else(|| {
+                    DecodeError::DecodeError(
+                        "between predicate has less than two values".to_string(),
+                    )
+                })?;
+                Ok(P::Between(Box::new((tupel[0].clone(), tupel[1].clone()))))
+            }
+            "within" => Ok(P::Within(val_by_key_v2!(
+                object,
+                "value",
+                Vec<GremlinValue>,
+                "P"
+            )?)),
+            "without" => Ok(P::Without(val_by_key_v2!(
+                object,
+                "value",
+                Vec<GremlinValue>,
+                "P"
+            )?)),
+            error => Err(DecodeError::DecodeError(format!(
+                "found predicate {error} in decoding P v2"
+            ))),
+        }
     }
 
     fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
@@ -966,19 +1146,19 @@ impl TryFrom<&str> for T {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TextP {
-    StartingWith(Vec<GremlinTypes>),
-    EndingWith(Vec<GremlinTypes>),
-    NotStartingWith(Vec<GremlinTypes>),
-    NotEndingWith(Vec<GremlinTypes>),
-    Containing(Vec<GremlinTypes>),
-    NotContaining(Vec<GremlinTypes>),
-    Regex(Vec<GremlinTypes>),
-    NotRegex(Vec<GremlinTypes>),
+    StartingWith(Vec<GremlinValue>),
+    EndingWith(Vec<GremlinValue>),
+    NotStartingWith(Vec<GremlinValue>),
+    NotEndingWith(Vec<GremlinValue>),
+    Containing(Vec<GremlinValue>),
+    NotContaining(Vec<GremlinValue>),
+    Regex(Vec<GremlinValue>),
+    NotRegex(Vec<GremlinValue>),
 }
 
-impl From<TextP> for GremlinTypes {
+impl From<TextP> for GremlinValue {
     fn from(text_p: TextP) -> Self {
-        GremlinTypes::TextP(text_p)
+        GremlinValue::TextP(text_p)
     }
 }
 
@@ -1009,9 +1189,24 @@ impl TextP {
     }
 }
 
+impl TextP {
+    fn as_str(&self) -> &str {
+        match self {
+            TextP::StartingWith(_) => "startingWith",
+            TextP::EndingWith(_) => "endingWith",
+            TextP::NotStartingWith(_) => "notStartingWith",
+            TextP::NotEndingWith(_) => "notEndingWith",
+            TextP::Containing(_) => "containing",
+            TextP::NotContaining(_) => "notContaining",
+            TextP::Regex(_) => "regex",
+            TextP::NotRegex(_) => "notRegex",
+        }
+    }
+}
+
 fn combine_text_value<W: std::io::Write>(
     name: &str,
-    value: &[GremlinTypes],
+    value: &[GremlinValue],
     writer: &mut W,
 ) -> Result<(), crate::error::EncodeError> {
     name.partial_encode(writer)?;
@@ -1077,7 +1272,7 @@ impl Decode for TextP {
     }
     fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError> {
         let mut len = String::get_len(bytes)?;
-        len += Vec::<GremlinTypes>::get_partial_len(&bytes[len..])?;
+        len += Vec::<GremlinValue>::get_partial_len(&bytes[len..])?;
         Ok(len)
     }
 }
@@ -1085,7 +1280,7 @@ impl Decode for TextP {
 fn fmt_lists(
     f: &mut std::fmt::Formatter<'_>,
     name: &str,
-    list: &[GremlinTypes],
+    list: &[GremlinValue],
 ) -> std::fmt::Result {
     write!(f, "{name}([")?;
     if !list.is_empty() {
@@ -1109,6 +1304,155 @@ impl Display for TextP {
             TextP::Regex(val) => fmt_lists(f, "regex", val),
             TextP::NotRegex(val) => fmt_lists(f, "notRegex", val),
         }
+    }
+}
+
+impl EncodeGraphSON for TextP {
+    //FIXME need testing if values can be more than one
+    fn encode_v3(&self) -> serde_json::Value {
+        let val = match self {
+            TextP::StartingWith(v) => json!({
+              "predicate" : "startingWith",
+              "value" : v[0].encode_v3()
+            }),
+            TextP::EndingWith(v) => json!({
+              "predicate" : "endingWith",
+              "value" : v[0].encode_v3()
+            }),
+            TextP::NotStartingWith(v) => json!({
+              "predicate" : "notStartingWith",
+              "value" : v[0].encode_v3()
+            }),
+            TextP::NotEndingWith(v) => json!({
+              "predicate" : "notEndingWith",
+              "value" : v[0].encode_v3()
+            }),
+            TextP::Containing(v) => json!({
+              "predicate" : "containing",
+              "value" : v.encode_v3()
+            }),
+            TextP::NotContaining(v) => json!({
+              "predicate" : "notContaining",
+              "value" : v.encode_v3()
+            }),
+            TextP::Regex(v) => json!({
+              "predicate" : "Regex",
+              "value" : v[0].encode_v3()
+            }),
+            TextP::NotRegex(v) => json!({
+              "predicate" : "notRegex",
+              "value" : v[0].encode_v3()
+            }),
+        };
+        json!({
+          "@type" : "g:TextP",
+          "@value" : val
+        })
+    }
+
+    fn encode_v2(&self) -> serde_json::Value {
+        let val = match self {
+            TextP::StartingWith(v) => json!({
+              "predicate" : "startingWith",
+              "value" : v[0].encode_v2()
+            }),
+            TextP::EndingWith(v) => json!({
+              "predicate" : "endingWith",
+              "value" : v[0].encode_v2()
+            }),
+            TextP::NotStartingWith(v) => json!({
+              "predicate" : "notStartingWith",
+              "value" : v[0].encode_v2()
+            }),
+            TextP::NotEndingWith(v) => json!({
+              "predicate" : "notEndingWith",
+              "value" : v[0].encode_v2()
+            }),
+            TextP::Containing(v) => json!({
+              "predicate" : "containing",
+              "value" : v.encode_v2()
+            }),
+            TextP::NotContaining(v) => json!({
+              "predicate" : "notContaining",
+              "value" : v.encode_v2()
+            }),
+            TextP::Regex(v) => json!({
+              "predicate" : "regex",
+              "value" : v[0].encode_v2()
+            }),
+            TextP::NotRegex(v) => json!({
+              "predicate" : "notRegex",
+              "value" : v[0].encode_v2()
+            }),
+        };
+        json!({
+          "@type" : "g:TextP",
+          "@value" : val
+        })
+    }
+
+    fn encode_v1(&self) -> serde_json::Value {
+        todo!()
+    }
+}
+
+impl DecodeGraphSON for TextP {
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let object = j_val
+            .as_object()
+            .filter(|map| validate_type_entry(*map, "g:TextP"))
+            .and_then(|m| m.get("@value"))
+            .and_then(|m| m.as_object());
+
+        let predicate = val_by_key_v3!(object, "predicate", String, "TextP")?;
+        match predicate.as_str() {
+            "startingWith" => {
+                let v = val_by_key_v3!(object, "value", GremlinValue, "TextP")?;
+                Ok(TextP::StartingWith(vec![v]))
+            }
+            "endingWith" => {
+                let v = val_by_key_v3!(object, "value", GremlinValue, "TextP")?;
+                Ok(TextP::EndingWith(vec![v]))
+            }
+            "notEndingWith" => {
+                let v = val_by_key_v3!(object, "value", GremlinValue, "TextP")?;
+                Ok(TextP::NotEndingWith(vec![v]))
+            }
+            "containing" => {
+                let v = val_by_key_v3!(object, "value", GremlinValue, "TextP")?; // FIXME same as above
+                Ok(TextP::Containing(vec![v]))
+            }
+            "notContaining" => {
+                let v = val_by_key_v3!(object, "value", GremlinValue, "TextP")?;
+                Ok(TextP::StartingWith(vec![v]))
+            }
+            "regex" => {
+                let v = val_by_key_v3!(object, "value", GremlinValue, "TextP")?;
+                Ok(TextP::StartingWith(vec![v]))
+            }
+            "notRegex" => {
+                let v = val_by_key_v3!(object, "value", GremlinValue, "TextP")?;
+                Ok(TextP::StartingWith(vec![v]))
+            }
+            _ => todo!(),
+        }
+    }
+
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        todo!()
+    }
+
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        todo!()
     }
 }
 
@@ -1175,6 +1519,7 @@ macro_rules! enum_deserialize {
     };
 }
 
+#[cfg(feature = "graph_binary")]
 #[macro_export]
 macro_rules! de_serialize_impls {
     (  $(($t:ident,$v:ident)),* ) => {
@@ -1208,21 +1553,9 @@ macro_rules! de_serialize_impls {
             }
         }
 
-        impl serde::Serialize for $t {
-            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-            where
-                S: serde::Serializer,
-            {
-                let mut buf = Vec::with_capacity(16);
-                self.encode(&mut buf)
-                    .expect(concat!("error during write of ", stringify!($t)));
-                serializer.serialize_bytes(&buf[..])
-            }
-        }
-
-        impl From<$t> for GremlinTypes {
+        impl From<$t> for GremlinValue {
             fn from(val: $t) -> Self {
-                GremlinTypes::$t(val)
+                GremlinValue::$t(val)
             }
         }
 
@@ -1232,32 +1565,32 @@ macro_rules! de_serialize_impls {
             }
         }
 
-        impl TryFrom<GremlinTypes> for $t {
+        impl TryFrom<GremlinValue> for $t {
             type Error = crate::error::DecodeError;
 
-            fn try_from(value: GremlinTypes) -> Result<Self, Self::Error> {
+            fn try_from(value: GremlinValue) -> Result<Self, Self::Error> {
                 match value {
-                    GremlinTypes::$t(val) => Ok(val),
+                    GremlinValue::$t(val) => Ok(val),
                     _ => Err(crate::error::DecodeError::ConvertError(
-                        format!("cannot convert GraphBinary to {}",stringify!($t))
+                        format!("cannot convert GremlinValue to {}",stringify!($t))
                     )),
                 }
             }
         }
 
         impl crate::macros::TryBorrowFrom for $t {
-            fn try_borrow_from(graph_binary: &GremlinTypes) -> Option<&Self> {
+            fn try_borrow_from(graph_binary: &GremlinValue) -> Option<&Self> {
                 match graph_binary {
-                    GremlinTypes::$t(val) => Some(val),
+                    GremlinValue::$t(val) => Some(val),
                     _ => None
                 }
             }
         }
 
         impl crate::macros::TryMutBorrowFrom for $t {
-            fn try_mut_borrow_from(graph_binary: &mut GremlinTypes) -> Option<&mut Self> {
+            fn try_mut_borrow_from(graph_binary: &mut GremlinValue) -> Option<&mut Self> {
                 match graph_binary {
-                    GremlinTypes::$t(val) => Some(val),
+                    GremlinValue::$t(val) => Some(val),
                     _ => None
                 }
             }
@@ -1398,7 +1731,7 @@ fn text_p_fq_decode_test() {
     ];
 
     let p = TextP::decode(&mut &reader[..]);
-    let t = GremlinTypes::TextP(TextP::StartingWith(vec!["test".into()]));
+    let t = GremlinValue::TextP(TextP::StartingWith(vec!["test".into()]));
     println!("{t}");
     assert_eq!(TextP::StartingWith(vec!["test".into()]), p.unwrap());
 }

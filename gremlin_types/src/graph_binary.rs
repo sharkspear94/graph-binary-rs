@@ -1,12 +1,12 @@
 use std::collections::{BTreeSet, HashMap};
 use std::fmt::Display;
 use std::io::{Read, Write};
-use std::str::FromStr;
 
 use crate::error::{DecodeError, EncodeError};
 use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
 use crate::macros::{TryBorrowFrom, TryMutBorrowFrom};
 use crate::structure::bulkset::BulkSet;
+use crate::structure::bytebuffer::ByteBuffer;
 use crate::structure::bytecode::Bytecode;
 use crate::structure::enums::{
     Barrier, Cardinality, Column, Direction, Merge, Operator, Order, Pick, Pop, Scope, TextP, P, T,
@@ -28,18 +28,18 @@ use uuid::Uuid;
 
 /// All possible Values supported in the [GraphBinary serialization format](https://tinkerpop.apache.org/docs/current/dev/io/#graphbinary)
 #[derive(Debug, PartialEq, Clone)]
-pub enum GremlinTypes {
+pub enum GremlinValue {
     Int(i32),
     Long(i64),
     String(String),
-    // Date(Date),
-    // Timestamp(Date),
+    Date(i64),
+    Timestamp(i64),
     Class(String),
     Double(f64),
     Float(f32),
-    List(Vec<GremlinTypes>),
-    Set(Vec<GremlinTypes>),
-    Map(HashMap<MapKeys, GremlinTypes>),
+    List(Vec<GremlinValue>),
+    Set(Vec<GremlinValue>),
+    Map(HashMap<MapKeys, GremlinValue>),
     Uuid(Uuid),
     Edge(Edge),
     Path(Path),
@@ -65,36 +65,51 @@ pub enum GremlinTypes {
     // BigDecimal(BigDecimal),
     // BigInteger(BigInteger),
     Byte(u8),
-    ByteBuffer(Vec<u8>),
+    ByteBuffer(ByteBuffer),
     Short(i16),
     Boolean(bool),
     TextP(TextP),
     TraversalStrategy(TraversalStrategy),
     BulkSet(BulkSet),
-    Tree(BTreeSet<GremlinTypes>),
+    Tree(BTreeSet<GremlinValue>),
     Metrics(Metrics),
     TraversalMetrics(TraversalMetrics),
     Merge(Merge),
     UnspecifiedNullObject,
     // Custom
+    #[cfg(feature = "extended")]
     Char(char),
-    // Duration(),
-    // InetAddress(std::net::IpAddr),
-    // Instant(),
-    // LocalDate(),
-    // LocalDateTime(),
-    // LocalTime(),
-    // MonthDay(),
-    // OffsetDateTime(),
-    // OffsetTime(),
-    // Period(),
-    // Year(),
-    // YearMonth(),
-    // ZonedDateTime(),
-    // ZoneOffset,
-
+    #[cfg(feature = "extended")]
+    Duration(),
+    #[cfg(feature = "extended")]
+    InetAddress(std::net::IpAddr),
+    #[cfg(feature = "extended")]
+    Instant(),
+    #[cfg(feature = "extended")]
+    LocalDate(),
+    #[cfg(feature = "extended")]
+    LocalDateTime(),
+    #[cfg(feature = "extended")]
+    LocalTime(),
+    #[cfg(feature = "extended")]
+    MonthDay(),
+    #[cfg(feature = "extended")]
+    OffsetDateTime(),
+    #[cfg(feature = "extended")]
+    OffsetTime(),
+    #[cfg(feature = "extended")]
+    Period(),
+    #[cfg(feature = "extended")]
+    Year(),
+    #[cfg(feature = "extended")]
+    YearMonth(),
+    #[cfg(feature = "extended")]
+    ZonedDateTime(),
+    #[cfg(feature = "extended")]
+    ZoneOffset(),
 }
 
+#[cfg(feature = "graph_binary")]
 pub fn encode_null_object<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
     writer.write_all(&[
         CoreType::UnspecifiedNullObject.into(),
@@ -103,6 +118,7 @@ pub fn encode_null_object<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
     Ok(())
 }
 
+#[cfg(feature = "graph_binary")]
 fn encode_byte_buffer<W: Write>(writer: &mut W, buf: &[u8]) -> Result<(), EncodeError> {
     writer.write_all(&[CoreType::ByteBuffer.into(), ValueFlag::Null.into()])?;
     let len = (buf.len() as i32).to_be_bytes();
@@ -111,47 +127,47 @@ fn encode_byte_buffer<W: Write>(writer: &mut W, buf: &[u8]) -> Result<(), Encode
     Ok(())
 }
 
-impl GremlinTypes {
-    /// Returns an Option of an owned value if the Type was the GremlinTypes variant.
-    /// Returns None if GremlinTypes enum holds another Type
+impl GremlinValue {
+    /// Returns an Option of an owned value if the Type was the GremlinValue variant.
+    /// Returns None if GremlinValue enum holds another Type
     ///
     /// ```
-    /// # use gremlin_types::graph_binary::GremlinTypes;
+    /// # use gremlin_types::graph_binary::GremlinValue;
     ///
-    /// let gb1 = GremlinTypes::Boolean(true);
+    /// let gb1 = GremlinValue::Boolean(true);
     /// assert_eq!(Some(true),gb1.get());
     ///
-    /// let gb2 = GremlinTypes::Boolean(true);
+    /// let gb2 = GremlinValue::Boolean(true);
     /// assert_eq!(None, gb2.get::<String>());
     ///
     /// ```
-    pub fn get<T: TryFrom<GremlinTypes>>(self) -> Option<T> {
+    pub fn get<T: TryFrom<GremlinValue>>(self) -> Option<T> {
         T::try_from(self).ok()
     }
 
-    /// Returns an Option of an cloned value if the Type was the GremlinTypes variant.
-    /// Returns None if GremlinTypes enum holds another Type
+    /// Returns an Option of an cloned value if the Type was the GremlinValue variant.
+    /// Returns None if GremlinValue enum holds another Type
     ///
     /// ```
-    /// # use gremlin_types::graph_binary::GremlinTypes;
+    /// # use gremlin_types::graph_binary::GremlinValue;
     ///
-    /// let gb1 = GremlinTypes::Boolean(true);
+    /// let gb1 = GremlinValue::Boolean(true);
     /// assert_eq!(Some(true),gb1.get());
     ///
-    /// let gb2 = GremlinTypes::Boolean(true);
+    /// let gb2 = GremlinValue::Boolean(true);
     /// assert_eq!(None, gb2.get::<String>());
     ///
     /// ```
-    pub fn get_cloned<T: TryFrom<GremlinTypes>>(&self) -> Option<T> {
+    pub fn get_cloned<T: TryFrom<GremlinValue>>(&self) -> Option<T> {
         T::try_from(self.clone()).ok()
     }
-    /// Returns an Option of the borrowed value if the Type was the GremlinTypes variant.
-    /// Returns None if GremlinTypes enum holds another Type
+    /// Returns an Option of the borrowed value if the Type was the GremlinValue variant.
+    /// Returns None if GremlinValue enum holds another Type
     ///
     /// ```
-    /// # use gremlin_types::graph_binary::GremlinTypes;
+    /// # use gremlin_types::graph_binary::GremlinValue;
     ///
-    /// let gb = GremlinTypes::String("Janus".to_string());
+    /// let gb = GremlinValue::String("Janus".to_string());
     ///
     /// assert_eq!(Some("Janus"),gb.get_ref());
     /// assert_eq!(Some(&String::from("Janus")),gb.get_ref());
@@ -162,225 +178,229 @@ impl GremlinTypes {
         T::try_borrow_from(self)
     }
 
-    /// Returns an Option of the mutable borrowed value if the Type was the GremlinTypes variant.
-    /// Returns None if GremlinTypes enum holds another Type
+    /// Returns an Option of the mutable borrowed value if the Type was the GremlinValue variant.
+    /// Returns None if GremlinValue enum holds another Type
     ///
     /// ```
-    /// # use gremlin_types::graph_binary::GremlinTypes;
+    /// # use gremlin_types::graph_binary::GremlinValue;
     ///
-    /// let mut gb = GremlinTypes::String("Janus".to_string());
+    /// let mut gb = GremlinValue::String("Janus".to_string());
     ///
-    /// let s = gb.get_mut_ref::<String>().unwrap();
+    /// let s = gb.get_ref_mut::<String>().unwrap();
     /// s.push_str("Graph");
     ///
     /// assert_eq!(Some(&String::from("JanusGraph")),gb.get_ref());
     /// assert_eq!(None, gb.get_ref::<bool>());
     ///
     /// ```
-    pub fn get_mut_ref<T: TryMutBorrowFrom + ?Sized>(&mut self) -> Option<&mut T> {
+    pub fn get_ref_mut<T: TryMutBorrowFrom + ?Sized>(&mut self) -> Option<&mut T> {
         T::try_mut_borrow_from(self)
-    }
-
-    pub fn exceptions(&self) -> Option<&str> {
-        if let Some(l) = self.get_ref::<Vec<_>>() {
-            l.iter().filter_map(|s| s.get_ref()).next()
-        } else {
-            None
-        }
-    }
-
-    pub fn display_results(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Results: ")
     }
 
     pub fn build_fq_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         match self {
-            GremlinTypes::Int(val) => val.encode(writer),
-            GremlinTypes::Long(val) => val.encode(writer),
-            GremlinTypes::String(val) => val.encode(writer),
-            // CoreType::Date(_) => todo!(),
-            // CoreType::Timestamp(_) => todo!(),
-            GremlinTypes::Class(val) => val.encode(writer),
-            GremlinTypes::Double(val) => val.encode(writer),
-            GremlinTypes::Float(val) => val.encode(writer),
-            GremlinTypes::List(val) => val.encode(writer),
-            GremlinTypes::Set(val) => val.encode(writer),
-            GremlinTypes::Map(val) => val.encode(writer),
-            GremlinTypes::Uuid(val) => val.encode(writer),
-            GremlinTypes::Edge(val) => val.encode(writer),
-            GremlinTypes::Path(val) => val.encode(writer),
-            GremlinTypes::Property(val) => val.encode(writer),
-            GremlinTypes::Graph(val) => val.encode(writer),
-            GremlinTypes::Vertex(val) => val.encode(writer),
-            GremlinTypes::VertexProperty(val) => val.encode(writer),
-            GremlinTypes::Barrier(val) => val.encode(writer),
-            GremlinTypes::Binding(val) => val.encode(writer),
-            GremlinTypes::Bytecode(val) => val.encode(writer),
-            GremlinTypes::Cardinality(val) => val.encode(writer),
-            GremlinTypes::Column(val) => val.encode(writer),
-            GremlinTypes::Direction(val) => val.encode(writer),
-            GremlinTypes::Operator(val) => val.encode(writer),
-            GremlinTypes::Order(val) => val.encode(writer),
-            GremlinTypes::Pick(val) => val.encode(writer),
-            GremlinTypes::Pop(val) => val.encode(writer),
-            GremlinTypes::Lambda(val) => val.encode(writer),
-            GremlinTypes::P(val) => val.encode(writer),
-            GremlinTypes::Scope(val) => val.encode(writer),
-            GremlinTypes::T(val) => val.encode(writer),
-            GremlinTypes::Traverser(val) => val.encode(writer),
+            GremlinValue::Int(val) => val.encode(writer),
+            GremlinValue::Long(val) => val.encode(writer),
+            GremlinValue::String(val) => val.encode(writer),
+            GremlinValue::Date(_) => todo!(),
+            GremlinValue::Timestamp(_) => todo!(),
+            GremlinValue::Class(val) => val.encode(writer),
+            GremlinValue::Double(val) => val.encode(writer),
+            GremlinValue::Float(val) => val.encode(writer),
+            GremlinValue::List(val) => val.encode(writer),
+            GremlinValue::Set(val) => val.encode(writer),
+            GremlinValue::Map(val) => val.encode(writer),
+            GremlinValue::Uuid(val) => val.encode(writer),
+            GremlinValue::Edge(val) => val.encode(writer),
+            GremlinValue::Path(val) => val.encode(writer),
+            GremlinValue::Property(val) => val.encode(writer),
+            GremlinValue::Graph(val) => val.encode(writer),
+            GremlinValue::Vertex(val) => val.encode(writer),
+            GremlinValue::VertexProperty(val) => val.encode(writer),
+            GremlinValue::Barrier(val) => val.encode(writer),
+            GremlinValue::Binding(val) => val.encode(writer),
+            GremlinValue::Bytecode(val) => val.encode(writer),
+            GremlinValue::Cardinality(val) => val.encode(writer),
+            GremlinValue::Column(val) => val.encode(writer),
+            GremlinValue::Direction(val) => val.encode(writer),
+            GremlinValue::Operator(val) => val.encode(writer),
+            GremlinValue::Order(val) => val.encode(writer),
+            GremlinValue::Pick(val) => val.encode(writer),
+            GremlinValue::Pop(val) => val.encode(writer),
+            GremlinValue::Lambda(val) => val.encode(writer),
+            GremlinValue::P(val) => val.encode(writer),
+            GremlinValue::Scope(val) => val.encode(writer),
+            GremlinValue::T(val) => val.encode(writer),
+            GremlinValue::Traverser(val) => val.encode(writer),
             // GraphBinary::BigDecimal(_) => todo!(),
             // GraphBinary::BigInteger(_) => todo!(),
-            GremlinTypes::Byte(val) => val.encode(writer),
-            GremlinTypes::ByteBuffer(buf) => encode_byte_buffer(writer, buf),
-            GremlinTypes::Short(val) => val.encode(writer),
-            GremlinTypes::Boolean(val) => val.encode(writer),
-            GremlinTypes::TextP(val) => val.encode(writer),
-            GremlinTypes::TraversalStrategy(val) => val.encode(writer),
-            GremlinTypes::BulkSet(_) => todo!(),
-            GremlinTypes::Tree(_) => todo!(),
-            GremlinTypes::Metrics(val) => val.encode(writer),
-            GremlinTypes::TraversalMetrics(val) => val.encode(writer),
-            GremlinTypes::Merge(val) => val.encode(writer),
-            GremlinTypes::UnspecifiedNullObject => encode_null_object(writer),
-            GremlinTypes::Char(val) => val.encode(writer),
+            GremlinValue::Byte(val) => val.encode(writer),
+            GremlinValue::ByteBuffer(val) => val.encode(writer),
+            GremlinValue::Short(val) => val.encode(writer),
+            GremlinValue::Boolean(val) => val.encode(writer),
+            GremlinValue::TextP(val) => val.encode(writer),
+            GremlinValue::TraversalStrategy(val) => val.encode(writer),
+            GremlinValue::BulkSet(_) => todo!(),
+            GremlinValue::Tree(_) => todo!(),
+            GremlinValue::Metrics(val) => val.encode(writer),
+            GremlinValue::TraversalMetrics(val) => val.encode(writer),
+            GremlinValue::Merge(val) => val.encode(writer),
+            GremlinValue::UnspecifiedNullObject => encode_null_object(writer),
+            #[cfg(feature = "extended")]
+            GremlinValue::Char(val) => val.encode(writer),
+            #[cfg(feature = "extended")]
+            GremlinValue::Char(char) => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::Duration() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::InetAddress(_) => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::Instant() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::LocalDate() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::LocalDateTime() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::LocalTime() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::MonthDay() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::OffsetDateTime() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::OffsetTime() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::Period() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::Year() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::YearMonth() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::ZonedDateTime() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::ZoneOffset() => unimplemented!(),
             // GraphBinary::Custom => todo!(),
             // _ =>  Bytes::new()
         }
     }
 
-    pub fn type_info(&self) -> CoreType {
+    pub fn to_option(self) -> Option<GremlinValue> {
         match self {
-            GremlinTypes::Int(_) => CoreType::Int32,
-            GremlinTypes::Long(_) => CoreType::Long,
-            GremlinTypes::String(_) => CoreType::String,
-            GremlinTypes::Class(_) => CoreType::Class,
-            GremlinTypes::Double(_) => CoreType::Double,
-            GremlinTypes::Float(_) => CoreType::Float,
-            GremlinTypes::List(_) => CoreType::List,
-            GremlinTypes::Set(_) => CoreType::Set,
-            GremlinTypes::Map(_) => CoreType::Map,
-            GremlinTypes::Uuid(_) => CoreType::Uuid,
-            GremlinTypes::Edge(_) => CoreType::Edge,
-            GremlinTypes::Path(_) => CoreType::Path,
-            GremlinTypes::Property(_) => CoreType::Property,
-            GremlinTypes::Graph(_) => CoreType::Graph,
-            GremlinTypes::Vertex(_) => CoreType::Vertex,
-            GremlinTypes::VertexProperty(_) => CoreType::VertexProperty,
-            GremlinTypes::Barrier(_) => CoreType::Barrier,
-            GremlinTypes::Binding(_) => CoreType::Binding,
-            GremlinTypes::Bytecode(_) => CoreType::ByteCode,
-            GremlinTypes::Cardinality(_) => CoreType::Cardinality,
-            GremlinTypes::Column(_) => CoreType::Column,
-            GremlinTypes::Direction(_) => CoreType::Direction,
-            GremlinTypes::Operator(_) => CoreType::Operator,
-            GremlinTypes::Order(_) => CoreType::Order,
-            GremlinTypes::Pick(_) => CoreType::Pick,
-            GremlinTypes::Pop(_) => CoreType::Pop,
-            GremlinTypes::Lambda(_) => CoreType::Lambda,
-            GremlinTypes::P(_) => CoreType::P,
-            GremlinTypes::Scope(_) => CoreType::Scope,
-            GremlinTypes::T(_) => CoreType::T,
-            GremlinTypes::Traverser(_) => CoreType::Traverser,
-            GremlinTypes::Byte(_) => CoreType::Byte,
-            GremlinTypes::ByteBuffer(_) => CoreType::ByteBuffer,
-            GremlinTypes::Short(_) => CoreType::Short,
-            GremlinTypes::Boolean(_) => CoreType::Boolean,
-            GremlinTypes::TextP(_) => CoreType::TextP,
-            GremlinTypes::TraversalStrategy(_) => CoreType::TraversalStrategy,
-            GremlinTypes::Tree(_) => CoreType::Tree,
-            GremlinTypes::Metrics(_) => CoreType::Metrics,
-            GremlinTypes::TraversalMetrics(_) => CoreType::TraversalMetrics,
-            GremlinTypes::BulkSet(_) => CoreType::BulkSet,
-            GremlinTypes::UnspecifiedNullObject => CoreType::UnspecifiedNullObject,
-            GremlinTypes::Merge(_) => CoreType::Merge,
-            GremlinTypes::Char(_) => todo!(),
-        }
-    }
-
-    pub fn to_option(self) -> Option<GremlinTypes> {
-        match self {
-            GremlinTypes::UnspecifiedNullObject => None,
+            GremlinValue::UnspecifiedNullObject => None,
             graph_binary => Some(graph_binary),
         }
     }
 }
 
-impl Display for GremlinTypes {
+impl Display for GremlinValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GremlinTypes::Int(val) => write!(f, "{val}_i32"),
-            GremlinTypes::Long(val) => write!(f, "{val}_i64"),
-            GremlinTypes::String(val) => write!(f, "\"{val}\""),
-            GremlinTypes::Class(val) => write!(f, "Class:{val}"),
-            GremlinTypes::Double(val) => write!(f, "{val}_f64"),
-            GremlinTypes::Float(val) => write!(f, "{val}_f32"),
-            GremlinTypes::List(val) => {
+            GremlinValue::Int(val) => write!(f, "{val}_i32"),
+            GremlinValue::Long(val) => write!(f, "{val}_i64"),
+            GremlinValue::String(val) => write!(f, "\"{val}\""),
+            GremlinValue::Class(val) => write!(f, "Class:{val}"),
+            GremlinValue::Double(val) => write!(f, "{val}_f64"),
+            GremlinValue::Float(val) => write!(f, "{val}_f32"),
+            GremlinValue::List(val) => {
                 write!(f, "List::[")?;
                 for i in val {
                     write!(f, " {i},")?;
                 }
                 write!(f, "]")
             }
-            GremlinTypes::Set(val) => {
+            GremlinValue::Set(val) => {
                 write!(f, "Set::[")?;
                 for i in val {
                     writeln!(f, " {i},")?;
                 }
                 write!(f, "]")
             }
-            GremlinTypes::Map(val) => {
+            GremlinValue::Map(val) => {
                 write!(f, "Map::[")?;
                 for (key, value) in val {
                     writeln!(f, "{{{key}:{value}}},")?;
                 }
                 write!(f, "]")
             }
-            GremlinTypes::Uuid(val) => write!(f, "Uuid::{val}"),
-            GremlinTypes::Edge(val) => write!(f, "Edge::{val}"),
-            GremlinTypes::Path(val) => write!(f, "Path::{val}"),
-            GremlinTypes::Property(val) => write!(f, "Property::{val}"),
-            GremlinTypes::Graph(val) => write!(f, "Graph::{val}"),
-            GremlinTypes::Vertex(val) => write!(f, "Vertex::{val}"),
-            GremlinTypes::VertexProperty(val) => write!(f, "VertexProperty::{val}"),
-            GremlinTypes::Barrier(val) => write!(f, "Barrier::{val}"),
-            GremlinTypes::Binding(val) => write!(f, "Binding::{val}"),
-            GremlinTypes::Bytecode(val) => write!(f, "Bytecode::{val}"),
-            GremlinTypes::Cardinality(val) => write!(f, "Cardinality::{val}"),
-            GremlinTypes::Column(val) => write!(f, "Column::{val}"),
-            GremlinTypes::Direction(val) => write!(f, "Direction::{val}"),
-            GremlinTypes::Operator(val) => write!(f, "Operator::{val}"),
-            GremlinTypes::Order(val) => write!(f, "Order::{val}"),
-            GremlinTypes::Pick(val) => write!(f, "Pick::{val}"),
-            GremlinTypes::Pop(val) => write!(f, "Pop::{val}"),
-            GremlinTypes::Lambda(val) => write!(f, "Lambda::{val}"),
-            GremlinTypes::P(val) => write!(f, "P::{val}"),
-            GremlinTypes::Scope(val) => write!(f, "Scope::{val}"),
-            GremlinTypes::T(val) => write!(f, "T::{val}"),
-            GremlinTypes::Traverser(val) => write!(f, "Traverser::{val}"),
-            GremlinTypes::Byte(val) => write!(f, "{val}_u8"),
-            GremlinTypes::ByteBuffer(val) => todo!(),
-            GremlinTypes::Short(val) => write!(f, "{val}_i16"),
-            GremlinTypes::Boolean(val) => write!(f, "{val}"),
-            GremlinTypes::TextP(val) => write!(f, "TextP::{val}"),
-            GremlinTypes::TraversalStrategy(val) => write!(f, "TraversalStrategy::{val}"),
-            GremlinTypes::BulkSet(val) => todo!(),
-            GremlinTypes::Tree(val) => todo!(),
-            GremlinTypes::Metrics(val) => write!(f, "{val}"),
-            GremlinTypes::TraversalMetrics(val) => write!(f, "{val}"),
-            GremlinTypes::Merge(val) => write!(f, "Merge::{val}"),
-            GremlinTypes::UnspecifiedNullObject => write!(f, "UnspecifiedNullObject"),
-            GremlinTypes::Char(val) => write!(f, "\'{val}\'"),
+            GremlinValue::Uuid(val) => write!(f, "Uuid::{val}"),
+            GremlinValue::Edge(val) => write!(f, "Edge::{val}"),
+            GremlinValue::Path(val) => write!(f, "Path::{val}"),
+            GremlinValue::Property(val) => write!(f, "Property::{val}"),
+            GremlinValue::Graph(val) => write!(f, "Graph::{val}"),
+            GremlinValue::Vertex(val) => write!(f, "Vertex::{val}"),
+            GremlinValue::VertexProperty(val) => write!(f, "VertexProperty::{val}"),
+            GremlinValue::Barrier(val) => write!(f, "Barrier::{val}"),
+            GremlinValue::Binding(val) => write!(f, "Binding::{val}"),
+            GremlinValue::Bytecode(val) => write!(f, "Bytecode::{val}"),
+            GremlinValue::Cardinality(val) => write!(f, "Cardinality::{val}"),
+            GremlinValue::Column(val) => write!(f, "Column::{val}"),
+            GremlinValue::Direction(val) => write!(f, "Direction::{val}"),
+            GremlinValue::Operator(val) => write!(f, "Operator::{val}"),
+            GremlinValue::Order(val) => write!(f, "Order::{val}"),
+            GremlinValue::Pick(val) => write!(f, "Pick::{val}"),
+            GremlinValue::Pop(val) => write!(f, "Pop::{val}"),
+            GremlinValue::Lambda(val) => write!(f, "Lambda::{val}"),
+            GremlinValue::P(val) => write!(f, "P::{val}"),
+            GremlinValue::Scope(val) => write!(f, "Scope::{val}"),
+            GremlinValue::T(val) => write!(f, "T::{val}"),
+            GremlinValue::Traverser(val) => write!(f, "Traverser::{val}"),
+            GremlinValue::Byte(val) => write!(f, "{val}_u8"),
+            GremlinValue::ByteBuffer(val) => todo!(),
+            GremlinValue::Short(val) => write!(f, "{val}_i16"),
+            GremlinValue::Boolean(val) => write!(f, "{val}"),
+            GremlinValue::TextP(val) => write!(f, "TextP::{val}"),
+            GremlinValue::TraversalStrategy(val) => write!(f, "TraversalStrategy::{val}"),
+            GremlinValue::BulkSet(val) => todo!(),
+            GremlinValue::Tree(val) => todo!(),
+            GremlinValue::Metrics(val) => write!(f, "{val}"),
+            GremlinValue::TraversalMetrics(val) => write!(f, "{val}"),
+            GremlinValue::Merge(val) => write!(f, "Merge::{val}"),
+            GremlinValue::UnspecifiedNullObject => write!(f, "UnspecifiedNullObject"),
+            GremlinValue::Date(_) => todo!(),
+            GremlinValue::Timestamp(_) => todo!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::Char(val) => write!(f, "{val}"),
+            #[cfg(feature = "extended")]
+            GremlinValue::Char(char) => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::Duration() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::InetAddress(_) => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::Instant() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::LocalDate() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::LocalDateTime() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::LocalTime() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::MonthDay() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::OffsetDateTime() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::OffsetTime() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::Period() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::Year() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::YearMonth() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::ZonedDateTime() => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::ZoneOffset() => unimplemented!(),
         }
     }
 }
 
-impl Default for GremlinTypes {
+impl Default for GremlinValue {
     fn default() -> Self {
-        GremlinTypes::UnspecifiedNullObject
+        GremlinValue::UnspecifiedNullObject
     }
 }
 
-impl Decode for GremlinTypes {
+#[cfg(feature = "graph_binary")]
+impl Decode for GremlinValue {
     fn partial_decode<R: Read>(_reader: &mut R) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -411,9 +431,9 @@ impl Decode for GremlinTypes {
             CoreType::Class => String::get_len(bytes),
             CoreType::Double => f64::get_len(bytes),
             CoreType::Float => f32::get_len(bytes),
-            CoreType::List => Vec::<GremlinTypes>::get_len(bytes),
-            CoreType::Set => Vec::<GremlinTypes>::get_len(bytes),
-            CoreType::Map => HashMap::<MapKeys, GremlinTypes>::get_len(bytes),
+            CoreType::List => Vec::<GremlinValue>::get_len(bytes),
+            CoreType::Set => Vec::<GremlinValue>::get_len(bytes),
+            CoreType::Map => HashMap::<MapKeys, GremlinValue>::get_len(bytes),
             CoreType::Uuid => Uuid::get_len(bytes),
             CoreType::Edge => Edge::get_len(bytes),
             CoreType::Path => Path::get_len(bytes),
@@ -448,28 +468,26 @@ impl Decode for GremlinTypes {
             CoreType::BulkSet => todo!(),
             CoreType::Merge => Merge::get_len(bytes),
             CoreType::UnspecifiedNullObject => Ok(2),
+            #[cfg(feature = "extended")]
             CoreType::Char => char::get_len(bytes),
         }
     }
 }
 
-impl Encode for GremlinTypes {
+#[cfg(feature = "graph_binary")]
+impl Encode for GremlinValue {
     fn type_code() -> u8 {
-        unimplemented!()
+        unimplemented!("")
     }
 
     fn partial_encode<W: Write>(&self, _writer: &mut W) -> Result<(), EncodeError> {
-        unimplemented!()
+        unimplemented!("partial decode is not supported for GraphBinary")
     }
 
     fn encode<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         self.build_fq_bytes(writer)
     }
 }
-
-pub struct BigDecimal {}
-
-pub struct BigInteger {}
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum MapKeys {
@@ -494,42 +512,42 @@ impl Display for MapKeys {
     }
 }
 
-impl From<MapKeys> for GremlinTypes {
-    fn from(keys: MapKeys) -> GremlinTypes {
+impl From<MapKeys> for GremlinValue {
+    fn from(keys: MapKeys) -> GremlinValue {
         match keys {
-            MapKeys::Int(val) => GremlinTypes::Int(val),
-            MapKeys::String(val) => GremlinTypes::String(val),
-            MapKeys::Long(val) => GremlinTypes::Long(val),
-            MapKeys::Uuid(val) => GremlinTypes::Uuid(val),
-            MapKeys::T(val) => GremlinTypes::T(val),
-            MapKeys::Direction(val) => GremlinTypes::Direction(val),
+            MapKeys::Int(val) => GremlinValue::Int(val),
+            MapKeys::String(val) => GremlinValue::String(val),
+            MapKeys::Long(val) => GremlinValue::Long(val),
+            MapKeys::Uuid(val) => GremlinValue::Uuid(val),
+            MapKeys::T(val) => GremlinValue::T(val),
+            MapKeys::Direction(val) => GremlinValue::Direction(val),
         }
     }
 }
 
-impl<T: Into<GremlinTypes> + Clone> From<&T> for GremlinTypes {
+impl<T: Into<GremlinValue> + Clone> From<&T> for GremlinValue {
     fn from(t: &T) -> Self {
         t.clone().into()
     }
 }
 
-impl<T: Into<GremlinTypes>, const N: usize> From<[T; N]> for GremlinTypes {
+impl<T: Into<GremlinValue>, const N: usize> From<[T; N]> for GremlinValue {
     fn from(array: [T; N]) -> Self {
-        GremlinTypes::List(array.into_iter().map(Into::into).collect())
+        GremlinValue::List(array.into_iter().map(Into::into).collect())
     }
 }
 
-impl TryFrom<GremlinTypes> for MapKeys {
+impl TryFrom<GremlinValue> for MapKeys {
     type Error = DecodeError;
 
-    fn try_from(value: GremlinTypes) -> Result<Self, Self::Error> {
+    fn try_from(value: GremlinValue) -> Result<Self, Self::Error> {
         match value {
-            GremlinTypes::Int(val) => Ok(MapKeys::Int(val)),
-            GremlinTypes::Long(val) => Ok(MapKeys::Long(val)),
-            GremlinTypes::String(val) => Ok(MapKeys::String(val)),
-            GremlinTypes::Uuid(val) => Ok(MapKeys::Uuid(val)),
-            GremlinTypes::T(val) => Ok(MapKeys::T(val)),
-            GremlinTypes::Direction(val) => Ok(MapKeys::Direction(val)),
+            GremlinValue::Int(val) => Ok(MapKeys::Int(val)),
+            GremlinValue::Long(val) => Ok(MapKeys::Long(val)),
+            GremlinValue::String(val) => Ok(MapKeys::String(val)),
+            GremlinValue::Uuid(val) => Ok(MapKeys::Uuid(val)),
+            GremlinValue::T(val) => Ok(MapKeys::T(val)),
+            GremlinValue::Direction(val) => Ok(MapKeys::Direction(val)),
             rest => Err(DecodeError::ConvertError(format!(
                 "cannot convert from {:?} to MapKeys",
                 rest
@@ -587,6 +605,7 @@ impl From<Uuid> for MapKeys {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for MapKeys {
     fn type_code() -> u8 {
         unimplemented!()
@@ -608,6 +627,7 @@ impl Encode for MapKeys {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for MapKeys {
     fn expected_type_code() -> u8 {
         unimplemented!("MapKeys is a collection of different GrapBinary Keys")
@@ -624,7 +644,7 @@ impl Decode for MapKeys {
     where
         Self: std::marker::Sized,
     {
-        let key = GremlinTypes::decode(reader)?;
+        let key = GremlinValue::decode(reader)?;
         MapKeys::try_from(key)
     }
 
@@ -633,10 +653,11 @@ impl Decode for MapKeys {
     }
 
     fn get_len(bytes: &[u8]) -> Result<usize, DecodeError> {
-        GremlinTypes::get_len(bytes)
+        GremlinValue::get_len(bytes)
     }
 }
 
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for MapKeys {
     fn encode_v3(&self) -> serde_json::Value {
         match self {
@@ -680,12 +701,13 @@ impl EncodeGraphSON for MapKeys {
     }
 }
 
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for MapKeys {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
-        let g_key = GremlinTypes::decode_v3(j_val)?;
+        let g_key = GremlinValue::decode_v3(j_val)?;
         MapKeys::try_from(g_key)
     }
 
@@ -782,7 +804,8 @@ impl serde::ser::Serialize for MapKeys {
     }
 }
 
-pub fn decode<R: Read>(reader: &mut R) -> Result<GremlinTypes, DecodeError> {
+#[cfg(feature = "graph_binary")]
+pub fn decode<R: Read>(reader: &mut R) -> Result<GremlinValue, DecodeError> {
     let mut buf = [255_u8; 2];
     reader.read_exact(&mut buf)?;
 
@@ -790,73 +813,69 @@ pub fn decode<R: Read>(reader: &mut R) -> Result<GremlinTypes, DecodeError> {
     let value_flag = ValueFlag::try_from(buf[1])?;
 
     match (identifier, value_flag) {
-        (_, ValueFlag::Null) => Ok(GremlinTypes::UnspecifiedNullObject),
-        (CoreType::Int32, _) => Ok(GremlinTypes::Int(i32::partial_decode(reader)?)),
-        (CoreType::Long, _) => Ok(GremlinTypes::Long(i64::partial_decode(reader)?)),
-        (CoreType::String, _) => Ok(GremlinTypes::String(String::partial_decode(reader)?)),
-        (CoreType::Class, _) => Ok(GremlinTypes::Class(String::partial_decode(reader)?)),
-        (CoreType::Double, _) => Ok(GremlinTypes::Double(f64::partial_decode(reader)?)),
-        (CoreType::Float, _) => Ok(GremlinTypes::Float(f32::partial_decode(reader)?)),
-        (CoreType::List, _) => Ok(GremlinTypes::List(Vec::partial_decode(reader)?)),
-        (CoreType::Set, _) => Ok(GremlinTypes::Set(Vec::partial_decode(reader)?)),
-        (CoreType::Map, _) => Ok(GremlinTypes::Map(
-            HashMap::<MapKeys, GremlinTypes>::partial_decode(reader)?,
+        (_, ValueFlag::Null) => Ok(GremlinValue::UnspecifiedNullObject),
+        (CoreType::Int32, _) => Ok(GremlinValue::Int(i32::partial_decode(reader)?)),
+        (CoreType::Long, _) => Ok(GremlinValue::Long(i64::partial_decode(reader)?)),
+        (CoreType::String, _) => Ok(GremlinValue::String(String::partial_decode(reader)?)),
+        (CoreType::Class, _) => Ok(GremlinValue::Class(String::partial_decode(reader)?)),
+        (CoreType::Double, _) => Ok(GremlinValue::Double(f64::partial_decode(reader)?)),
+        (CoreType::Float, _) => Ok(GremlinValue::Float(f32::partial_decode(reader)?)),
+        (CoreType::List, _) => Ok(GremlinValue::List(Vec::partial_decode(reader)?)),
+        (CoreType::Set, _) => Ok(GremlinValue::Set(Vec::partial_decode(reader)?)),
+        (CoreType::Map, _) => Ok(GremlinValue::Map(
+            HashMap::<MapKeys, GremlinValue>::partial_decode(reader)?,
         )),
-        (CoreType::Uuid, _) => Ok(GremlinTypes::Uuid(Uuid::partial_decode(reader)?)),
-        (CoreType::Edge, _) => Ok(GremlinTypes::Edge(Edge::partial_decode(reader)?)),
-        (CoreType::Path, _) => Ok(GremlinTypes::Path(Path::partial_decode(reader)?)),
-        (CoreType::Property, _) => Ok(GremlinTypes::Property(Property::partial_decode(reader)?)),
-        (CoreType::Graph, _) => Ok(GremlinTypes::Graph(Graph::partial_decode(reader)?)),
-        (CoreType::Vertex, _) => Ok(GremlinTypes::Vertex(Vertex::partial_decode(reader)?)),
-        (CoreType::VertexProperty, _) => Ok(GremlinTypes::VertexProperty(
+        (CoreType::Uuid, _) => Ok(GremlinValue::Uuid(Uuid::partial_decode(reader)?)),
+        (CoreType::Edge, _) => Ok(GremlinValue::Edge(Edge::partial_decode(reader)?)),
+        (CoreType::Path, _) => Ok(GremlinValue::Path(Path::partial_decode(reader)?)),
+        (CoreType::Property, _) => Ok(GremlinValue::Property(Property::partial_decode(reader)?)),
+        (CoreType::Graph, _) => Ok(GremlinValue::Graph(Graph::partial_decode(reader)?)),
+        (CoreType::Vertex, _) => Ok(GremlinValue::Vertex(Vertex::partial_decode(reader)?)),
+        (CoreType::VertexProperty, _) => Ok(GremlinValue::VertexProperty(
             VertexProperty::partial_decode(reader)?,
         )),
-        (CoreType::Short, _) => Ok(GremlinTypes::Short(i16::partial_decode(reader)?)),
-        (CoreType::Boolean, _) => Ok(GremlinTypes::Boolean(bool::partial_decode(reader)?)),
+        (CoreType::Short, _) => Ok(GremlinValue::Short(i16::partial_decode(reader)?)),
+        (CoreType::Boolean, _) => Ok(GremlinValue::Boolean(bool::partial_decode(reader)?)),
 
-        (CoreType::Cardinality, _) => Ok(GremlinTypes::Cardinality(Cardinality::partial_decode(
+        (CoreType::Cardinality, _) => Ok(GremlinValue::Cardinality(Cardinality::partial_decode(
             reader,
         )?)),
-        (CoreType::Column, _) => Ok(GremlinTypes::Column(Column::partial_decode(reader)?)),
-        (CoreType::Direction, _) => Ok(GremlinTypes::Direction(Direction::partial_decode(reader)?)),
-        (CoreType::Operator, _) => Ok(GremlinTypes::Operator(Operator::partial_decode(reader)?)),
-        (CoreType::Order, _) => Ok(GremlinTypes::Order(Order::partial_decode(reader)?)),
-        (CoreType::Pick, _) => Ok(GremlinTypes::Pick(Pick::partial_decode(reader)?)),
-        (CoreType::Pop, _) => Ok(GremlinTypes::Pop(Pop::partial_decode(reader)?)),
-        (CoreType::P, _) => Ok(GremlinTypes::P(P::partial_decode(reader)?)),
-        (CoreType::Scope, _) => Ok(GremlinTypes::Scope(Scope::partial_decode(reader)?)),
-        (CoreType::T, _) => Ok(GremlinTypes::T(T::partial_decode(reader)?)),
-        (CoreType::Barrier, _) => Ok(GremlinTypes::Barrier(Barrier::partial_decode(reader)?)),
-        (CoreType::Binding, _) => Ok(GremlinTypes::Binding(Binding::partial_decode(reader)?)),
-        (CoreType::ByteCode, _) => Ok(GremlinTypes::Bytecode(Bytecode::partial_decode(reader)?)),
-        (CoreType::Lambda, _) => Ok(GremlinTypes::Lambda(Lambda::partial_decode(reader)?)),
-        (CoreType::Traverser, _) => Ok(GremlinTypes::Traverser(Traverser::partial_decode(reader)?)),
-        (CoreType::Byte, _) => Ok(GremlinTypes::Byte(u8::partial_decode(reader)?)),
-        (CoreType::ByteBuffer, _) => partial_decode_byte_buffer(reader),
-        (CoreType::TextP, _) => Ok(GremlinTypes::TextP(TextP::partial_decode(reader)?)),
-        (CoreType::TraversalStrategy, _) => Ok(GremlinTypes::TraversalStrategy(
+        (CoreType::Column, _) => Ok(GremlinValue::Column(Column::partial_decode(reader)?)),
+        (CoreType::Direction, _) => Ok(GremlinValue::Direction(Direction::partial_decode(reader)?)),
+        (CoreType::Operator, _) => Ok(GremlinValue::Operator(Operator::partial_decode(reader)?)),
+        (CoreType::Order, _) => Ok(GremlinValue::Order(Order::partial_decode(reader)?)),
+        (CoreType::Pick, _) => Ok(GremlinValue::Pick(Pick::partial_decode(reader)?)),
+        (CoreType::Pop, _) => Ok(GremlinValue::Pop(Pop::partial_decode(reader)?)),
+        (CoreType::P, _) => Ok(GremlinValue::P(P::partial_decode(reader)?)),
+        (CoreType::Scope, _) => Ok(GremlinValue::Scope(Scope::partial_decode(reader)?)),
+        (CoreType::T, _) => Ok(GremlinValue::T(T::partial_decode(reader)?)),
+        (CoreType::Barrier, _) => Ok(GremlinValue::Barrier(Barrier::partial_decode(reader)?)),
+        (CoreType::Binding, _) => Ok(GremlinValue::Binding(Binding::partial_decode(reader)?)),
+        (CoreType::ByteCode, _) => Ok(GremlinValue::Bytecode(Bytecode::partial_decode(reader)?)),
+        (CoreType::Lambda, _) => Ok(GremlinValue::Lambda(Lambda::partial_decode(reader)?)),
+        (CoreType::Traverser, _) => Ok(GremlinValue::Traverser(Traverser::partial_decode(reader)?)),
+        (CoreType::Byte, _) => Ok(GremlinValue::Byte(u8::partial_decode(reader)?)),
+        (CoreType::ByteBuffer, _) => Ok(GremlinValue::ByteBuffer(ByteBuffer::partial_decode(
+            reader,
+        )?)),
+        (CoreType::TextP, _) => Ok(GremlinValue::TextP(TextP::partial_decode(reader)?)),
+        (CoreType::TraversalStrategy, _) => Ok(GremlinValue::TraversalStrategy(
             TraversalStrategy::partial_decode(reader)?,
         )),
         (CoreType::Tree, _) => todo!(),
-        (CoreType::Metrics, _) => Ok(GremlinTypes::Metrics(Metrics::partial_decode(reader)?)),
+        (CoreType::Metrics, _) => Ok(GremlinValue::Metrics(Metrics::partial_decode(reader)?)),
 
-        (CoreType::TraversalMetrics, _) => Ok(GremlinTypes::TraversalMetrics(
+        (CoreType::TraversalMetrics, _) => Ok(GremlinValue::TraversalMetrics(
             TraversalMetrics::partial_decode(reader)?,
         )),
-        (CoreType::Merge, _) => Ok(GremlinTypes::Merge(Merge::partial_decode(reader)?)),
-        (CoreType::BulkSet, _) => Ok(GremlinTypes::BulkSet(BulkSet::partial_decode(reader)?)),
+        (CoreType::Merge, _) => Ok(GremlinValue::Merge(Merge::partial_decode(reader)?)),
+        (CoreType::BulkSet, _) => Ok(GremlinValue::BulkSet(BulkSet::partial_decode(reader)?)),
         (CoreType::UnspecifiedNullObject, _) => Err(DecodeError::DecodeError(
             "UnspecifiedNullObject wrong valueflag".to_string(),
         )),
-        (CoreType::Char, _) => Ok(GremlinTypes::Char(char::partial_decode(reader)?)),
+        #[cfg(feature = "extended")]
+        (CoreType::Char, _) => Ok(GremlinValue::Char(char::partial_decode(reader)?)),
     }
-}
-
-fn partial_decode_byte_buffer<R: Read>(reader: &mut R) -> Result<GremlinTypes, DecodeError> {
-    let len = i32::partial_decode(reader)?;
-    let mut buf = vec![0; len as usize];
-    reader.read_exact(&mut buf)?;
-    Ok(GremlinTypes::ByteBuffer(buf))
 }
 
 #[repr(u8)]
@@ -921,6 +940,7 @@ impl<'de> Deserialize<'de> for ValueFlag {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 pub trait Decode {
     fn expected_type_code() -> u8;
 
@@ -969,6 +989,7 @@ pub trait Decode {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 pub trait Encode {
     fn type_code() -> u8;
 
@@ -1005,30 +1026,12 @@ fn testing() {
 }
 
 #[test]
-fn test_byte_buffer_decode() {
-    let buf = [
-        CoreType::ByteBuffer.into(),
-        0x0,
-        0x0,
-        0x0,
-        0x0,
-        0x6,
-        100,
-        101,
-        102,
-        103,
-        104,
-        105,
-    ];
+fn testqdeasd() {
+    let mut buf: Vec<u8> = vec![];
+    15_i32.partial_encode(&mut buf).unwrap();
+    assert_eq!([0x00, 0x00, 0x00, 0x0F], buf.as_slice());
 
-    let gb = GremlinTypes::decode(&mut &buf[..]);
-    assert_eq!(
-        GremlinTypes::ByteBuffer(vec![100, 101, 102, 103, 104, 105]),
-        gb.unwrap()
-    );
-
-    let buf_0 = [CoreType::ByteBuffer.into(), 0x0, 0x0, 0x0, 0x0, 0x0];
-
-    let gb = GremlinTypes::decode(&mut &buf_0[..]);
-    assert_eq!(GremlinTypes::ByteBuffer(vec![]), gb.unwrap())
+    buf.clear();
+    15_i32.encode(&mut buf).unwrap();
+    assert_eq!([0x01, 0x00, 0x00, 0x00, 0x00, 0x0F], buf.as_slice());
 }

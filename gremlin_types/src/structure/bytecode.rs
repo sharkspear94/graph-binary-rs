@@ -3,8 +3,8 @@ use std::fmt::Display;
 use serde_json::json;
 
 use crate::{
-    conversions,
-    graph_binary::{Decode, Encode, GremlinTypes},
+    conversion,
+    graph_binary::{Decode, Encode, GremlinValue},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
     struct_de_serialize,
@@ -21,7 +21,7 @@ pub struct Bytecode {
 #[derive(Debug, PartialEq, Clone)]
 struct Step {
     pub name: String,
-    pub values: Vec<GremlinTypes>,
+    pub values: Vec<GremlinValue>,
 }
 
 impl Display for Step {
@@ -37,7 +37,7 @@ impl Display for Step {
 #[derive(Debug, PartialEq, Clone)]
 struct Source {
     name: String,
-    values: Vec<GremlinTypes>,
+    values: Vec<GremlinValue>,
 }
 
 impl Display for Source {
@@ -54,20 +54,20 @@ impl Bytecode {
     pub fn new() -> Self {
         Bytecode::default()
     }
-    pub fn push_new_step(&mut self, name: &str, values: Vec<GremlinTypes>) {
+    pub fn push_new_step(&mut self, name: &str, values: Vec<GremlinValue>) {
         self.steps.push(Step {
             name: name.to_string(),
             values,
         });
     }
-    pub fn push_new_source(&mut self, name: &str, values: Vec<GremlinTypes>) {
+    pub fn push_new_source(&mut self, name: &str, values: Vec<GremlinValue>) {
         self.sources.push(Source {
             name: name.to_string(),
             values,
         });
     }
 
-    pub fn extend_last_step(&mut self, values: impl Iterator<Item = impl Into<GremlinTypes>>) {
+    pub fn extend_last_step(&mut self, values: impl Iterator<Item = impl Into<GremlinValue>>) {
         let last = self
             .steps
             .last_mut()
@@ -75,7 +75,7 @@ impl Bytecode {
         last.values.extend(values.map(Into::into))
     }
 
-    pub fn add_to_last_step(&mut self, value: impl Into<GremlinTypes>) {
+    pub fn add_to_last_step(&mut self, value: impl Into<GremlinValue>) {
         let last = self
             .steps
             .last_mut()
@@ -83,7 +83,7 @@ impl Bytecode {
         last.values.push(value.into())
     }
 
-    pub fn extend_last_source(&mut self, values: impl Iterator<Item = impl Into<GremlinTypes>>) {
+    pub fn extend_last_source(&mut self, values: impl Iterator<Item = impl Into<GremlinValue>>) {
         let last = self
             .sources
             .last_mut()
@@ -91,7 +91,7 @@ impl Bytecode {
         last.values.extend(values.map(Into::into))
     }
 
-    pub fn add_to_last_source(&mut self, value: impl Into<GremlinTypes>) {
+    pub fn add_to_last_source(&mut self, value: impl Into<GremlinValue>) {
         let last = self
             .sources
             .last_mut()
@@ -159,7 +159,7 @@ impl Decode for Bytecode {
         let mut steps = Vec::with_capacity(len);
         for _ in 0..len {
             let name = String::partial_decode(reader)?;
-            let values = Vec::<GremlinTypes>::partial_decode(reader)?;
+            let values = Vec::<GremlinValue>::partial_decode(reader)?;
             steps.push(Step { name, values });
         }
 
@@ -168,7 +168,7 @@ impl Decode for Bytecode {
         let mut sources = Vec::with_capacity(len);
         for _ in 0..len {
             let name = String::partial_decode(reader)?;
-            let values = Vec::<GremlinTypes>::partial_decode(reader)?;
+            let values = Vec::<GremlinValue>::partial_decode(reader)?;
             sources.push(Source { name, values });
         }
 
@@ -181,14 +181,14 @@ impl Decode for Bytecode {
         let mut len = 4;
         for _ in 0..steps_len {
             len += String::get_partial_len(&bytes[len..])?;
-            len += Vec::<GremlinTypes>::get_partial_len(&bytes[len..])?;
+            len += Vec::<GremlinValue>::get_partial_len(&bytes[len..])?;
         }
         let t: [u8; 4] = bytes[len..len + 4].try_into()?;
         let sources_len = i32::from_be_bytes(t);
         len += 4;
         for _ in 0..sources_len {
             len += String::get_partial_len(&bytes[len..])?;
-            len += Vec::<GremlinTypes>::get_partial_len(&bytes[len..])?;
+            len += Vec::<GremlinValue>::get_partial_len(&bytes[len..])?;
         }
         Ok(len)
     }
@@ -240,7 +240,7 @@ impl DecodeGraphSON for Bytecode {
 
         if let Some(iter) = steps_iter {
             for inner in iter.iter().flat_map(|v| v.as_array()) {
-                let mut step_args = Vec::<GremlinTypes>::new();
+                let mut step_args = Vec::<GremlinValue>::new();
                 let name = inner
                     .first()
                     .and_then(|v| String::decode_v3(v).ok())
@@ -250,7 +250,7 @@ impl DecodeGraphSON for Bytecode {
                         )
                     })?;
                 for i in &inner[1..] {
-                    step_args.push(GremlinTypes::decode_v3(i)?)
+                    step_args.push(GremlinValue::decode_v3(i)?)
                 }
                 steps.push(Step {
                     name,
@@ -265,7 +265,7 @@ impl DecodeGraphSON for Bytecode {
 
         if let Some(iter) = source_iter {
             for inner in iter.iter().flat_map(|v| v.as_array()) {
-                let mut source_args = Vec::<GremlinTypes>::new();
+                let mut source_args = Vec::<GremlinValue>::new();
                 let name = inner
                     .first()
                     .and_then(|v| String::decode_v3(v).ok())
@@ -275,7 +275,7 @@ impl DecodeGraphSON for Bytecode {
                         )
                     })?;
                 for i in &inner[1..] {
-                    source_args.push(GremlinTypes::decode_v3(i)?)
+                    source_args.push(GremlinValue::decode_v3(i)?)
                 }
                 sources.push(Source {
                     name,
@@ -302,7 +302,7 @@ impl DecodeGraphSON for Bytecode {
 }
 
 struct_de_serialize!((Bytecode, ByteCodeVisitor, 32));
-conversions!((Bytecode, Bytecode));
+conversion!(Bytecode, Bytecode);
 
 #[test]
 fn test_display() {

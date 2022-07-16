@@ -3,9 +3,9 @@ use std::{collections::HashMap, fmt::Display};
 use serde_json::json;
 
 use crate::{
-    conversions,
+    conversion,
     error::DecodeError,
-    graph_binary::{Decode, Encode, GremlinTypes},
+    graph_binary::{Decode, Encode, GremlinValue},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::{self, CoreType},
     struct_de_serialize,
@@ -17,13 +17,13 @@ use super::{validate_type_entry, vertex_property::VertexProperty};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Vertex {
-    pub id: Box<GremlinTypes>,
+    pub id: Box<GremlinValue>,
     pub label: String,
     pub properties: Option<Vec<VertexProperty>>,
 }
 
 impl Vertex {
-    pub fn new<ID: Into<GremlinTypes>>(
+    pub fn new<ID: Into<GremlinValue>>(
         id: ID,
         label: &str,
         properties: Option<Vec<VertexProperty>>,
@@ -48,6 +48,7 @@ impl Display for Vertex {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for Vertex {
     fn type_code() -> u8 {
         specs::CoreType::Vertex.into()
@@ -63,6 +64,7 @@ impl Encode for Vertex {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for Vertex {
     fn expected_type_code() -> u8 {
         CoreType::Vertex.into()
@@ -72,7 +74,7 @@ impl Decode for Vertex {
     where
         Self: std::marker::Sized,
     {
-        let id = Box::new(GremlinTypes::decode(reader)?);
+        let id = Box::new(GremlinValue::decode(reader)?);
         let label = String::partial_decode(reader)?;
         let properties = Option::<Vec<VertexProperty>>::decode(reader)?;
 
@@ -84,9 +86,9 @@ impl Decode for Vertex {
     }
 
     fn get_partial_len(bytes: &[u8]) -> Result<usize, DecodeError> {
-        let mut len = GremlinTypes::get_len(bytes)?;
+        let mut len = GremlinValue::get_len(bytes)?;
         len += String::get_partial_len(&bytes[len..])?;
-        len += GremlinTypes::get_len(&bytes[len..])?;
+        len += GremlinValue::get_len(&bytes[len..])?;
         Ok(len)
     }
 }
@@ -164,7 +166,7 @@ impl DecodeGraphSON for Vertex {
             .and_then(|map| map.get("@value"))
             .and_then(|o| o.as_object());
 
-        let id = val_by_key_v3!(type_value_object, "id", GremlinTypes, "Vertex")?;
+        let id = val_by_key_v3!(type_value_object, "id", GremlinValue, "Vertex")?;
 
         let label = val_by_key_v3!(type_value_object, "label", String, "Vertex")?;
 
@@ -205,7 +207,7 @@ impl DecodeGraphSON for Vertex {
             .filter(|map| validate_type_entry(*map, "g:Vertex"))
             .and_then(|map| map.get("@value"));
 
-        let id = val_by_key_v2!(type_value_object, "id", GremlinTypes, "Vertex")?;
+        let id = val_by_key_v2!(type_value_object, "id", GremlinValue, "Vertex")?;
         let label = val_by_key_v2!(type_value_object, "label", String, "Vertex")?;
 
         let mut properties = None;
@@ -245,7 +247,7 @@ impl DecodeGraphSON for Vertex {
 }
 
 struct_de_serialize!((Vertex, VertexVisitor, 32));
-conversions!((Vertex, Vertex));
+conversion!(Vertex, Vertex);
 
 #[test]
 fn test_vertex_none_encode() {

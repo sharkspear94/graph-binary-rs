@@ -59,7 +59,6 @@ impl serde::de::Error for DecodeError {
     }
 }
 
-
 // #[derive(Error, Debug)]
 // pub enum GraphSonError {
 //     Json{}

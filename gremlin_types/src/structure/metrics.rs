@@ -5,8 +5,8 @@ use serde_json::json;
 use crate::error::DecodeError;
 use crate::val_by_key_v2;
 use crate::{
-    conversions,
-    graph_binary::{Decode, Encode, GremlinTypes},
+    conversion,
+    graph_binary::{Decode, Encode, GremlinValue},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     insertion_sort,
     specs::CoreType,
@@ -21,7 +21,7 @@ pub struct Metrics {
     name: String,
     duration: i64,
     counts: HashMap<String, i64>,
-    annotations: HashMap<String, GremlinTypes>,
+    annotations: HashMap<String, GremlinValue>,
     nested_metrics: Vec<Metrics>,
 }
 
@@ -31,6 +31,7 @@ impl Display for Metrics {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for Metrics {
     fn type_code() -> u8 {
         CoreType::Metrics.into()
@@ -49,6 +50,7 @@ impl Encode for Metrics {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for Metrics {
     fn expected_type_code() -> u8 {
         CoreType::Metrics.into()
@@ -62,7 +64,7 @@ impl Decode for Metrics {
         let name = String::partial_decode(reader)?;
         let duration = i64::partial_decode(reader)?;
         let counts = HashMap::<String, i64>::partial_decode(reader)?;
-        let annotation = HashMap::<String, GremlinTypes>::partial_decode(reader)?;
+        let annotation = HashMap::<String, GremlinValue>::partial_decode(reader)?;
         let nested_metrics = Vec::<Metrics>::partial_decode(reader)?;
 
         Ok(Metrics {
@@ -80,7 +82,7 @@ impl Decode for Metrics {
         len += String::get_partial_len(&bytes[len..])?;
         len += i64::get_partial_len(&bytes[len..])?;
         len += HashMap::<String, i64>::get_partial_len(&bytes[len..])?;
-        len += HashMap::<String, GremlinTypes>::get_partial_len(&bytes[len..])?;
+        len += HashMap::<String, GremlinValue>::get_partial_len(&bytes[len..])?;
         len += Vec::<Metrics>::get_partial_len(&bytes[len..])?;
         Ok(len)
     }
@@ -296,7 +298,7 @@ impl DecodeGraphSON for Metrics {
             .as_object()
             .filter(|map| validate_type_entry(*map, "g:Metrics"));
 
-        let metrics = val_by_key_v3!(object, "@value", HashMap<String,GremlinTypes>, "Metrics")?;
+        let metrics = val_by_key_v3!(object, "@value", HashMap<String,GremlinValue>, "Metrics")?;
 
         let duration = metrics
             .get("dur")
@@ -315,7 +317,7 @@ impl DecodeGraphSON for Metrics {
             .ok_or_else(|| DecodeError::DecodeError("decoding name in Metrics v3".to_string()))?;
         let annotations = metrics
             .get("annotations")
-            .and_then(|v| v.get_cloned::<HashMap<String, GremlinTypes>>())
+            .and_then(|v| v.get_cloned::<HashMap<String, GremlinValue>>())
             .ok_or_else(|| {
                 DecodeError::DecodeError("decoding annotation in Metrics v3".to_string())
             })?;
@@ -356,7 +358,7 @@ impl DecodeGraphSON for Metrics {
             .as_object()
             .filter(|map| validate_type_entry(*map, "g:Metrics"));
 
-        let metrics = val_by_key_v2!(object, "@value", HashMap<String,GremlinTypes>, "Metrics")?;
+        let metrics = val_by_key_v2!(object, "@value", HashMap<String,GremlinValue>, "Metrics")?;
 
         let duration = metrics
             .get("dur")
@@ -377,7 +379,7 @@ impl DecodeGraphSON for Metrics {
             .ok_or_else(|| DecodeError::DecodeError("decoding name in Metrics v32".to_string()))?;
         let annotations = metrics
             .get("annotations")
-            .and_then(|v| v.get_cloned::<HashMap<String, GremlinTypes>>())
+            .and_then(|v| v.get_cloned::<HashMap<String, GremlinValue>>())
             .ok_or_else(|| {
                 DecodeError::DecodeError("decoding annotation in Metrics v32".to_string())
             })?;
@@ -454,7 +456,7 @@ impl DecodeGraphSON for TraversalMetrics {
             .filter(|map| validate_type_entry(*map, "g:TraversalMetrics"));
 
         let metrics =
-            val_by_key_v3!(object, "@value", HashMap<String,GremlinTypes>, "TraversalMetrics")?;
+            val_by_key_v3!(object, "@value", HashMap<String,GremlinValue>, "TraversalMetrics")?;
 
         let duration = metrics
             .get("dur")
@@ -481,7 +483,7 @@ impl DecodeGraphSON for TraversalMetrics {
             .filter(|map| validate_type_entry(*map, "g:TraversalMetrics"));
 
         let metrics =
-            val_by_key_v2!(object, "@value", HashMap<String,GremlinTypes>, "TraversalMetrics")?;
+            val_by_key_v2!(object, "@value", HashMap<String,GremlinValue>, "TraversalMetrics")?;
 
         let duration = metrics
             .get("dur")
@@ -512,7 +514,8 @@ struct_de_serialize!(
     (Metrics, MetricsVisitor, 64)
 );
 
-conversions!((TraversalMetrics, TraversalMetrics), (Metrics, Metrics));
+conversion!(TraversalMetrics, TraversalMetrics);
+conversion!(Metrics, Metrics);
 
 #[test]
 fn metric_encode_test() {

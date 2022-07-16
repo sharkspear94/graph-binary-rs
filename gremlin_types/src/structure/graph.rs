@@ -3,8 +3,8 @@ use std::fmt::Display;
 use serde_json::{json, Map};
 
 use crate::{
-    conversions,
-    graph_binary::{Decode, Encode, GremlinTypes},
+    conversion,
+    graph_binary::{Decode, Encode, GremlinValue},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::{self, CoreType},
     struct_de_serialize,
@@ -42,11 +42,11 @@ impl Display for Graph {
 
 #[derive(Debug, PartialEq, Clone)]
 struct GraphEdge {
-    id: GremlinTypes,
+    id: GremlinValue,
     label: String,
-    in_v_id: GremlinTypes,
+    in_v_id: GremlinValue,
     in_v_label: Option<String>,
-    out_v_id: GremlinTypes,
+    out_v_id: GremlinValue,
     out_v_label: Option<String>,
     parent: Option<Vertex>,
     properties: Vec<Property>,
@@ -100,6 +100,7 @@ impl Display for GraphEdge {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for GraphEdge {
     fn expected_type_code() -> u8 {
         unimplemented!("GraphEdge is not a valid GraphBinary Type")
@@ -109,11 +110,11 @@ impl Decode for GraphEdge {
     where
         Self: std::marker::Sized,
     {
-        let id = GremlinTypes::decode(reader)?;
+        let id = GremlinValue::decode(reader)?;
         let label = String::partial_decode(reader)?;
-        let in_v_id = GremlinTypes::decode(reader)?;
+        let in_v_id = GremlinValue::decode(reader)?;
         let in_v_label = Option::<String>::decode(reader)?;
-        let out_v_id = GremlinTypes::decode(reader)?;
+        let out_v_id = GremlinValue::decode(reader)?;
         let out_v_label = Option::<String>::decode(reader)?;
         let parent = Option::<Vertex>::decode(reader)?;
         let properties = Vec::<Property>::partial_decode(reader)?;
@@ -131,11 +132,11 @@ impl Decode for GraphEdge {
     }
 
     fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = GremlinTypes::get_len(bytes)?;
+        let mut len = GremlinValue::get_len(bytes)?;
         len += String::get_partial_len(&bytes[len..])?;
-        len += GremlinTypes::get_len(&bytes[len..])?;
+        len += GremlinValue::get_len(&bytes[len..])?;
         len += Option::<String>::get_len(&bytes[len..])?; //TODO not sure if correct
-        len += GremlinTypes::get_len(&bytes[len..])?;
+        len += GremlinValue::get_len(&bytes[len..])?;
         len += Option::<String>::get_len(&bytes[len..])?; //TODO not sure if correct
         len += Option::<Vertex>::get_len(&bytes[len..])?;
         len += Vec::<Property>::get_partial_len(&bytes[len..])?;
@@ -144,6 +145,7 @@ impl Decode for GraphEdge {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for Graph {
     fn type_code() -> u8 {
         specs::CoreType::Graph.into()
@@ -207,14 +209,14 @@ impl Decode for Graph {
         let v_len = i32::partial_decode(reader)? as usize;
         let mut v_vec = Vec::with_capacity(v_len);
         for _ in 0..v_len {
-            let v_id = GremlinTypes::decode(reader)?;
+            let v_id = GremlinValue::decode(reader)?;
             let v_label = String::partial_decode(reader)?;
             let p_len = i32::partial_decode(reader)? as usize;
             let mut p_vec = Vec::with_capacity(p_len);
             for _ in 0..p_len {
-                let p_id = GremlinTypes::decode(reader)?;
+                let p_id = GremlinValue::decode(reader)?;
                 let p_label = String::partial_decode(reader)?;
-                let p_value = GremlinTypes::decode(reader)?;
+                let p_value = GremlinValue::decode(reader)?;
                 let p_parent = Option::<Vertex>::decode(reader)?;
                 let p_properties = Option::<Vec<Property>>::partial_decode(reader)?;
                 p_vec.push(VertexProperty {
@@ -247,7 +249,7 @@ impl Decode for Graph {
         let v_len = i32::from_be_bytes(t);
         let mut len = 4;
         for _ in 0..v_len {
-            len += GremlinTypes::get_len(&bytes[len..])?;
+            len += GremlinValue::get_len(&bytes[len..])?;
             len += String::get_partial_len(&bytes[len..])?;
 
             let t: [u8; 4] = bytes[len..len + 4].try_into()?;
@@ -255,9 +257,9 @@ impl Decode for Graph {
             len += 4;
 
             for _ in 0..p_len {
-                len += GremlinTypes::get_len(&bytes[len..])?;
+                len += GremlinValue::get_len(&bytes[len..])?;
                 len += String::get_partial_len(&bytes[len..])?;
-                len += GremlinTypes::get_len(&bytes[len..])?;
+                len += GremlinValue::get_len(&bytes[len..])?;
                 len += 2; //parent is always null
                 len += Vec::<Property>::get_partial_len(&bytes[len..])?;
             }
@@ -425,7 +427,7 @@ impl DecodeGraphSON for Graph {
 }
 
 struct_de_serialize!((Graph, GraphVisitor, 254));
-conversions!((Graph, Graph));
+conversion!(Graph, Graph);
 
 #[test]
 fn encode_graph_test() {

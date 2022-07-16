@@ -5,9 +5,9 @@ use serde_json::json;
 use super::validate_type_entry;
 use super::{edge::Edge, vertex_property::VertexProperty};
 use crate::{
-    conversions,
+    conversion,
     error::DecodeError,
-    graph_binary::{Decode, Encode, GremlinTypes, ValueFlag},
+    graph_binary::{Decode, Encode, GremlinValue, ValueFlag},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::{self, CoreType},
     struct_de_serialize, val_by_key_v1, val_by_key_v2, val_by_key_v3,
@@ -16,12 +16,12 @@ use crate::{
 #[derive(Debug, PartialEq, Clone)]
 pub struct Property {
     pub key: String,
-    pub value: Box<GremlinTypes>,
+    pub value: Box<GremlinValue>,
     pub parent: EitherParent,
 }
 
 impl Property {
-    pub fn new(key: &str, value: impl Into<GremlinTypes>, parent: EitherParent) -> Self {
+    pub fn new(key: &str, value: impl Into<GremlinValue>, parent: EitherParent) -> Self {
         Property {
             key: key.to_string(),
             value: Box::new(value.into()),
@@ -53,6 +53,7 @@ impl Display for EitherParent {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for EitherParent {
     fn type_code() -> u8 {
         unimplemented!()
@@ -69,11 +70,12 @@ impl Encode for EitherParent {
         match self {
             EitherParent::Edge(e) => e.encode(writer),
             EitherParent::VertexProperty(v) => v.encode(writer),
-            EitherParent::None => GremlinTypes::UnspecifiedNullObject.encode(writer),
+            EitherParent::None => GremlinValue::UnspecifiedNullObject.encode(writer),
         }
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for Property {
     fn type_code() -> u8 {
         specs::CoreType::Property.into()
@@ -89,16 +91,17 @@ impl Encode for Property {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for EitherParent {
     fn expected_type_code() -> u8 {
-        todo!()
+        unreachable!()
     }
 
     fn partial_decode<R: std::io::Read>(_reader: &mut R) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
     {
-        unimplemented!()
+        unreachable!()
     }
 
     fn get_partial_len(_bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
@@ -129,6 +132,7 @@ impl Decode for EitherParent {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for Property {
     fn expected_type_code() -> u8 {
         CoreType::Property.into()
@@ -139,7 +143,7 @@ impl Decode for Property {
         Self: std::marker::Sized,
     {
         let key = String::partial_decode(reader)?;
-        let value = Box::new(GremlinTypes::decode(reader)?);
+        let value = Box::new(GremlinValue::decode(reader)?);
         let parent = EitherParent::decode(reader)?;
 
         Ok(Property { key, value, parent })
@@ -147,8 +151,8 @@ impl Decode for Property {
 
     fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
         let mut len = String::get_partial_len(bytes)?;
-        len += GremlinTypes::get_len(&bytes[len..])?;
-        len += GremlinTypes::get_len(&bytes[len..])?; //FIXME
+        len += GremlinValue::get_len(&bytes[len..])?;
+        len += GremlinValue::get_len(&bytes[len..])?; //FIXME
         Ok(len)
     }
 }
@@ -195,7 +199,7 @@ impl DecodeGraphSON for Property {
             .and_then(|v| v.as_object());
 
         let key = val_by_key_v3!(object, "key", String, "Property")?;
-        let value = val_by_key_v3!(object, "value", GremlinTypes, "Property")?;
+        let value = val_by_key_v3!(object, "value", GremlinValue, "Property")?;
 
         Ok(Property {
             key,
@@ -215,7 +219,7 @@ impl DecodeGraphSON for Property {
             .and_then(|v| v.as_object());
 
         let key = val_by_key_v2!(object, "key", String, "Property")?;
-        let value = val_by_key_v2!(object, "value", GremlinTypes, "Property")?;
+        let value = val_by_key_v2!(object, "value", GremlinValue, "Property")?;
 
         let parent = val_by_key_v2!(object, "element", EitherParent, "Property")?;
 
@@ -232,7 +236,7 @@ impl DecodeGraphSON for Property {
     {
         let object = j_val.as_object();
         let key = val_by_key_v1!(object, "key", String, "Property")?;
-        let value = val_by_key_v1!(object, "value", GremlinTypes, "Property")?;
+        let value = val_by_key_v1!(object, "value", GremlinValue, "Property")?;
 
         Ok(Property {
             key,
@@ -286,10 +290,10 @@ impl DecodeGraphSON for EitherParent {
             .is_some()
         {
             let obj = j_val.get("@value");
-            let id = val_by_key_v2!(obj, "id", GremlinTypes, "EitherParent")?;
+            let id = val_by_key_v2!(obj, "id", GremlinValue, "EitherParent")?;
             let label = val_by_key_v2!(obj, "label", String, "EitherParent")?;
-            let out_v_id = val_by_key_v2!(obj, "outV", GremlinTypes, "EitherParent")?;
-            let in_v_id = val_by_key_v2!(obj, "inV", GremlinTypes, "EitherParent")?;
+            let out_v_id = val_by_key_v2!(obj, "outV", GremlinValue, "EitherParent")?;
+            let in_v_id = val_by_key_v2!(obj, "inV", GremlinValue, "EitherParent")?;
 
             Ok(EitherParent::Edge(Edge {
                 id: Box::new(id),
@@ -329,7 +333,7 @@ impl DecodeGraphSON for EitherParent {
 }
 
 struct_de_serialize!((Property, PropertyVisitor, 32));
-conversions!((Property, Property));
+conversion!(Property, Property);
 
 #[test]
 fn decode_v3() {

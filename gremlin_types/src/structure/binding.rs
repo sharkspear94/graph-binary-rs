@@ -3,9 +3,9 @@ use std::fmt::Display;
 use serde_json::json;
 
 use crate::{
-    conversions,
+    conversion,
     error::DecodeError,
-    graph_binary::{Decode, Encode, GremlinTypes},
+    graph_binary::{Decode, Encode, GremlinValue},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
     struct_de_serialize,
@@ -16,11 +16,11 @@ use super::validate_type_entry;
 #[derive(Debug, PartialEq, Clone)]
 pub struct Binding {
     key: String,
-    value: Box<GremlinTypes>,
+    value: Box<GremlinValue>,
 }
 
 impl Binding {
-    pub fn new(key: &str, value: impl Into<GremlinTypes>) -> Self {
+    pub fn new(key: &str, value: impl Into<GremlinValue>) -> Self {
         Binding {
             key: key.to_owned(),
             value: Box::new(value.into()),
@@ -31,12 +31,12 @@ impl Binding {
         &self.key
     }
 
-    pub fn value(&self) -> &GremlinTypes {
+    pub fn value(&self) -> &GremlinValue {
         &self.value
     }
 }
 
-impl<S: ToString, I: Into<GremlinTypes>> From<(S, I)> for Binding {
+impl<S: ToString, I: Into<GremlinValue>> From<(S, I)> for Binding {
     fn from(pair: (S, I)) -> Self {
         Binding {
             key: pair.0.to_string(),
@@ -51,6 +51,7 @@ impl Display for Binding {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for Binding {
     fn type_code() -> u8 {
         CoreType::Binding.into()
@@ -65,6 +66,7 @@ impl Encode for Binding {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for Binding {
     fn expected_type_code() -> u8 {
         CoreType::Binding.into()
@@ -75,14 +77,14 @@ impl Decode for Binding {
         Self: std::marker::Sized,
     {
         let key = String::partial_decode(reader)?;
-        let value = Box::new(GremlinTypes::decode(reader)?);
+        let value = Box::new(GremlinValue::decode(reader)?);
 
         Ok(Binding { key, value })
     }
 
     fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
         let mut len = String::get_partial_len(bytes)?;
-        len += GremlinTypes::get_len(&bytes[len..])?;
+        len += GremlinValue::get_len(&bytes[len..])?;
         Ok(len)
     }
 }
@@ -123,7 +125,7 @@ impl DecodeGraphSON for Binding {
                 map
             })
             .and_then(|m| m.get("value"))
-            .and_then(|v| GremlinTypes::decode_v3(v).ok())
+            .and_then(|v| GremlinValue::decode_v3(v).ok())
             .ok_or_else(|| DecodeError::DecodeError("json error f32 v3 in error".to_string()))?;
         Ok(Binding {
             key,
@@ -146,7 +148,7 @@ impl DecodeGraphSON for Binding {
     }
 }
 struct_de_serialize!((Binding, BindingVisitor, 16));
-conversions!((Binding, Binding));
+conversion!(Binding, Binding);
 
 #[test]
 fn test_binding_encode() {

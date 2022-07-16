@@ -1,11 +1,12 @@
 use crate::{
-    graph_binary::{Decode, Encode, GremlinTypes},
+    graph_binary::{Decode, Encode, GremlinValue},
     specs::CoreType,
 };
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct BulkSet(Vec<(GremlinTypes, i64)>);
+pub struct BulkSet(Vec<(GremlinValue, i64)>);
 
+#[cfg(feature = "graph_binary")]
 impl Encode for BulkSet {
     fn type_code() -> u8 {
         CoreType::BulkSet.into()
@@ -25,6 +26,7 @@ impl Encode for BulkSet {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for BulkSet {
     fn expected_type_code() -> u8 {
         CoreType::BulkSet.into()
@@ -38,7 +40,7 @@ impl Decode for BulkSet {
         let len = usize::try_from(len)?;
         let mut items = Vec::with_capacity(len);
         for _ in 0..len {
-            let gb = GremlinTypes::decode(reader)?;
+            let gb = GremlinValue::decode(reader)?;
             let bulk = i64::partial_decode(reader)?;
             items.push((gb, bulk));
         }
@@ -50,7 +52,7 @@ impl Decode for BulkSet {
         let bulkset_len = i32::from_be_bytes(t);
         let mut len = 4;
         for _ in 0..bulkset_len {
-            len += GremlinTypes::get_len(&bytes[len..])?;
+            len += GremlinValue::get_len(&bytes[len..])?;
             len += i64::get_partial_len(&bytes[len..])?;
         }
         Ok(len)

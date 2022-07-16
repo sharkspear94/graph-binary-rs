@@ -3,9 +3,9 @@ use std::{collections::HashMap, fmt::Display};
 use serde_json::{json, Map};
 
 use crate::{
-    conversions,
+    conversion,
     error::DecodeError,
-    graph_binary::{Decode, Encode, GremlinTypes},
+    graph_binary::{Decode, Encode, GremlinValue},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::{self, CoreType},
     struct_de_serialize, val_by_key_v2, val_by_key_v3,
@@ -19,11 +19,11 @@ use super::{
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Edge {
-    pub id: Box<GremlinTypes>,
+    pub id: Box<GremlinValue>,
     pub label: String,
-    pub in_v_id: Box<GremlinTypes>,
+    pub in_v_id: Box<GremlinValue>,
     pub in_v_label: String,
-    pub out_v_id: Box<GremlinTypes>,
+    pub out_v_id: Box<GremlinValue>,
     pub out_v_label: String,
     pub parent: Option<Vertex>,
     pub properties: Option<Vec<Property>>,
@@ -32,18 +32,18 @@ pub struct Edge {
 impl Edge {
     pub fn new(label: &str) -> Self {
         Edge {
-            id: Box::new(GremlinTypes::UnspecifiedNullObject),
+            id: Box::new(GremlinValue::UnspecifiedNullObject),
             label: label.to_string(),
-            in_v_id: Box::new(GremlinTypes::UnspecifiedNullObject),
+            in_v_id: Box::new(GremlinValue::UnspecifiedNullObject),
             in_v_label: Default::default(),
-            out_v_id: Box::new(GremlinTypes::UnspecifiedNullObject),
+            out_v_id: Box::new(GremlinValue::UnspecifiedNullObject),
             out_v_label: Default::default(),
             parent: None,
             properties: None,
         }
     }
 
-    pub fn out_v<T: Into<GremlinTypes>>(&mut self, id: T, out_label: &str) -> &mut Self {
+    pub fn out_v<T: Into<GremlinValue>>(&mut self, id: T, out_label: &str) -> &mut Self {
         self.out_v_id = Box::new(id.into());
         self.out_v_label = out_label.to_string();
         self
@@ -54,7 +54,7 @@ impl Edge {
         self.out_v_label = v.label;
         self
     }
-    pub fn in_v<T: Into<GremlinTypes>>(&mut self, id: T, in_label: &str) -> &mut Self {
+    pub fn in_v<T: Into<GremlinValue>>(&mut self, id: T, in_label: &str) -> &mut Self {
         self.in_v_id = Box::new(id.into());
         self.in_v_label = in_label.to_string();
         self
@@ -86,6 +86,7 @@ impl Display for Edge {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for Edge {
     fn type_code() -> u8 {
         specs::CoreType::Edge.into()
@@ -106,6 +107,7 @@ impl Encode for Edge {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for Edge {
     fn expected_type_code() -> u8 {
         CoreType::Edge.into()
@@ -115,11 +117,11 @@ impl Decode for Edge {
     where
         Self: std::marker::Sized,
     {
-        let id = GremlinTypes::decode(reader)?;
+        let id = GremlinValue::decode(reader)?;
         let label = String::partial_decode(reader)?;
-        let in_v_id = GremlinTypes::decode(reader)?;
+        let in_v_id = GremlinValue::decode(reader)?;
         let in_v_label = String::partial_decode(reader)?;
-        let out_v_id = GremlinTypes::decode(reader)?;
+        let out_v_id = GremlinValue::decode(reader)?;
         let out_v_label = String::partial_decode(reader)?;
         let parent = Option::<Vertex>::decode(reader)?;
         let properties = Option::<Vec<Property>>::decode(reader)?;
@@ -137,14 +139,14 @@ impl Decode for Edge {
     }
 
     fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
-        let mut len = GremlinTypes::get_len(bytes)?;
+        let mut len = GremlinValue::get_len(bytes)?;
         len += String::get_partial_len(&bytes[len..])?;
-        len += GremlinTypes::get_len(&bytes[len..])?;
+        len += GremlinValue::get_len(&bytes[len..])?;
         len += String::get_partial_len(&bytes[len..])?;
-        len += GremlinTypes::get_len(&bytes[len..])?;
+        len += GremlinValue::get_len(&bytes[len..])?;
         len += String::get_partial_len(&bytes[len..])?;
         len += Option::<Vertex>::get_len(&bytes[len..])?;
-        len += Option::<Vec<GremlinTypes>>::get_len(&bytes[len..])?;
+        len += Option::<Vec<GremlinValue>>::get_len(&bytes[len..])?;
         Ok(len)
     }
 }
@@ -220,11 +222,11 @@ impl DecodeGraphSON for Edge {
             .filter(|map| validate_type_entry(*map, "g:Edge"))
             .and_then(|map| map.get("@value"));
 
-        let id = val_by_key_v3!(object, "id", GremlinTypes, "Edge")?;
+        let id = val_by_key_v3!(object, "id", GremlinValue, "Edge")?;
         let label = val_by_key_v3!(object, "label", String, "Edge")?;
-        let in_v_id = val_by_key_v3!(object, "inV", GremlinTypes, "Edge")?;
+        let in_v_id = val_by_key_v3!(object, "inV", GremlinValue, "Edge")?;
         let in_v_label = val_by_key_v3!(object, "inVLabel", String, "Edge")?;
-        let out_v_id = val_by_key_v3!(object, "outV", GremlinTypes, "Edge")?;
+        let out_v_id = val_by_key_v3!(object, "outV", GremlinValue, "Edge")?;
         let out_v_label = val_by_key_v3!(object, "outVLabel", String, "Edge")?;
 
         let mut properties_vec = None;
@@ -262,11 +264,11 @@ impl DecodeGraphSON for Edge {
             .and_then(|map| map.get("@value"))
             .and_then(|v| v.as_object());
 
-        let id = val_by_key_v2!(object, "id", GremlinTypes, "Edge")?;
+        let id = val_by_key_v2!(object, "id", GremlinValue, "Edge")?;
         let label = val_by_key_v2!(object, "label", String, "Edge")?;
-        let in_v_id = val_by_key_v2!(object, "inV", GremlinTypes, "Edge")?;
+        let in_v_id = val_by_key_v2!(object, "inV", GremlinValue, "Edge")?;
         let in_v_label = val_by_key_v2!(object, "inVLabel", String, "Edge")?;
-        let out_v_id = val_by_key_v2!(object, "outV", GremlinTypes, "Edge")?;
+        let out_v_id = val_by_key_v2!(object, "outV", GremlinValue, "Edge")?;
         let out_v_label = val_by_key_v2!(object, "outVLabel", String, "Edge")?;
 
         let mut properties_vec = None;
@@ -279,7 +281,7 @@ impl DecodeGraphSON for Edge {
             for (k, v) in props {
                 vec.push(Property {
                     key: k.clone(),
-                    value: Box::new(GremlinTypes::decode_v2(v)?),
+                    value: Box::new(GremlinValue::decode_v2(v)?),
                     parent: property::EitherParent::None,
                 });
             }
@@ -307,7 +309,7 @@ impl DecodeGraphSON for Edge {
 }
 
 struct_de_serialize!((Edge, EdgeVisitor, 64));
-conversions!((Edge, Edge));
+conversion!(Edge, Edge);
 
 #[test]
 fn edge_none_encode_test() {

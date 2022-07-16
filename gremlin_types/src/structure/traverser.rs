@@ -7,8 +7,8 @@ use serde_json::json;
 
 use super::validate_type_entry;
 use crate::{
-    conversions,
-    graph_binary::{Decode, Encode, GremlinTypes},
+    conversion,
+    graph_binary::{Decode, Encode, GremlinValue},
     graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
     struct_de_serialize,
@@ -23,7 +23,7 @@ use crate::{
 #[derive(Debug, PartialEq, Clone)]
 pub struct Traverser {
     pub bulk: i64,
-    pub value: Box<GremlinTypes>,
+    pub value: Box<GremlinValue>,
 }
 
 impl Display for Traverser {
@@ -34,7 +34,7 @@ impl Display for Traverser {
 
 pub struct TraverserIter<'a> {
     bulk: usize,
-    val: &'a GremlinTypes,
+    val: &'a GremlinValue,
 }
 
 impl Traverser {
@@ -47,7 +47,7 @@ impl Traverser {
 }
 
 impl<'a> Iterator for TraverserIter<'a> {
-    type Item = &'a GremlinTypes;
+    type Item = &'a GremlinValue;
     fn next(&mut self) -> Option<Self::Item> {
         if self.bulk > 0 {
             self.bulk -= 1;
@@ -64,11 +64,11 @@ impl<'a> Iterator for TraverserIter<'a> {
 
 pub struct IntoTraverserIter {
     bulk: usize,
-    val: GremlinTypes,
+    val: GremlinValue,
 }
 
 impl Iterator for IntoTraverserIter {
-    type Item = GremlinTypes;
+    type Item = GremlinValue;
     fn next(&mut self) -> Option<Self::Item> {
         if self.bulk > 0 {
             self.bulk -= 1;
@@ -80,7 +80,7 @@ impl Iterator for IntoTraverserIter {
 }
 
 impl IntoIterator for Traverser {
-    type Item = GremlinTypes;
+    type Item = GremlinValue;
 
     type IntoIter = IntoTraverserIter;
 
@@ -92,6 +92,7 @@ impl IntoIterator for Traverser {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for Traverser {
     fn type_code() -> u8 {
         CoreType::Traverser.into()
@@ -106,6 +107,7 @@ impl Encode for Traverser {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for Traverser {
     fn expected_type_code() -> u8 {
         CoreType::Traverser.into()
@@ -116,14 +118,14 @@ impl Decode for Traverser {
         Self: std::marker::Sized,
     {
         let bulk = i64::partial_decode(reader)?;
-        let value = Box::new(GremlinTypes::decode(reader)?);
+        let value = Box::new(GremlinValue::decode(reader)?);
 
         Ok(Traverser { bulk, value })
     }
 
     fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
         let mut len = i64::get_partial_len(bytes)?;
-        len += GremlinTypes::get_len(&bytes[len..])?;
+        len += GremlinValue::get_len(&bytes[len..])?;
         Ok(len)
     }
 }
@@ -164,7 +166,7 @@ impl DecodeGraphSON for Traverser {
             .and_then(|v| v.as_object());
 
         let bulk = val_by_key_v3!(object, "bulk", i64, "Traverser")?;
-        let value = val_by_key_v3!(object, "value", GremlinTypes, "Traverser")?;
+        let value = val_by_key_v3!(object, "value", GremlinValue, "Traverser")?;
 
         Ok(Traverser {
             bulk,
@@ -183,7 +185,7 @@ impl DecodeGraphSON for Traverser {
             .and_then(|v| v.as_object());
 
         let bulk = val_by_key_v2!(object, "bulk", i64, "Traverser")?;
-        let value = val_by_key_v2!(object, "value", GremlinTypes, "Traverser")?;
+        let value = val_by_key_v2!(object, "value", GremlinValue, "Traverser")?;
 
         Ok(Traverser {
             bulk,
@@ -202,7 +204,7 @@ impl DecodeGraphSON for Traverser {
 #[derive(Debug, PartialEq, Clone)]
 pub struct TraversalStrategy {
     pub strategy_class: String,                       // class
-    pub configuration: HashMap<String, GremlinTypes>, // not sure if key is correct
+    pub configuration: HashMap<String, GremlinValue>, // not sure if key is correct
 }
 
 impl Display for TraversalStrategy {
@@ -215,6 +217,7 @@ impl Display for TraversalStrategy {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for TraversalStrategy {
     fn type_code() -> u8 {
         CoreType::TraversalStrategy.into()
@@ -229,6 +232,7 @@ impl Encode for TraversalStrategy {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for TraversalStrategy {
     fn expected_type_code() -> u8 {
         CoreType::TraversalStrategy.into()
@@ -239,7 +243,7 @@ impl Decode for TraversalStrategy {
         Self: std::marker::Sized,
     {
         let strategy_class = String::partial_decode(reader)?;
-        let configuration = HashMap::<String, GremlinTypes>::partial_decode(reader)?;
+        let configuration = HashMap::<String, GremlinValue>::partial_decode(reader)?;
 
         Ok(TraversalStrategy {
             strategy_class,
@@ -249,7 +253,7 @@ impl Decode for TraversalStrategy {
 
     fn get_partial_len(bytes: &[u8]) -> Result<usize, crate::error::DecodeError> {
         let mut len = String::get_partial_len(bytes)?;
-        len += HashMap::<String, GremlinTypes>::get_partial_len(&bytes[len..])?;
+        len += HashMap::<String, GremlinValue>::get_partial_len(&bytes[len..])?;
         Ok(len)
     }
 }
@@ -258,10 +262,8 @@ struct_de_serialize!(
     (Traverser, TraverserVisitor, 32),
     (TraversalStrategy, TraversalStrategyVisitor, 32)
 );
-conversions!(
-    (Traverser, Traverser),
-    (TraversalStrategy, TraversalStrategy)
-);
+conversion!(Traverser, Traverser);
+conversion!(TraversalStrategy, TraversalStrategy);
 
 #[test]
 fn encode_traverser() {
@@ -422,7 +424,7 @@ fn decode_v3() {
     let mut res = Traverser::decode_v3(&res).unwrap();
 
     res.value
-        .get_mut_ref::<Vertex>()
+        .get_ref_mut::<Vertex>()
         .unwrap()
         .properties
         .as_mut()
@@ -438,7 +440,7 @@ fn decode_v3() {
             }
         });
     res.value
-        .get_mut_ref::<Vertex>()
+        .get_ref_mut::<Vertex>()
         .unwrap()
         .properties
         .as_mut()
@@ -635,7 +637,7 @@ fn decode_v2() {
     let mut res = Traverser::decode_v2(&res).unwrap();
 
     res.value
-        .get_mut_ref::<Vertex>()
+        .get_ref_mut::<Vertex>()
         .unwrap()
         .properties
         .as_mut()
@@ -651,7 +653,7 @@ fn decode_v2() {
             }
         });
     res.value
-        .get_mut_ref::<Vertex>()
+        .get_ref_mut::<Vertex>()
         .unwrap()
         .properties
         .as_mut()
