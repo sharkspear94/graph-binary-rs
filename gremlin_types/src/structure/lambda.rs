@@ -1,16 +1,18 @@
 use std::fmt::Display;
 
-use serde_json::json;
 
-use super::validate_type_entry;
 use crate::error::DecodeError;
-use crate::{
-    conversion,
-    graph_binary::{Decode, Encode},
-    graphson::{DecodeGraphSON, EncodeGraphSON},
-    specs::CoreType,
-    val_by_key_v3,
-};
+use crate::{conversion, specs::CoreType, val_by_key_v3};
+
+#[cfg(feature = "graph_binary")]
+use crate::graph_binary::{Decode, Encode};
+
+#[cfg(feature = "graph_son")]
+use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+#[cfg(feature = "graph_son")]
+use serde_json::json;
+#[cfg(feature = "graph_son")]
+use super::validate_type_entry;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Lambda {
@@ -67,9 +69,9 @@ impl Decode for Lambda {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for Lambda {
-    #[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+    
     fn encode_v3(&self) -> serde_json::Value {
         json!({
           "@type" : "g:Lambda",
@@ -81,7 +83,7 @@ impl EncodeGraphSON for Lambda {
         })
     }
 
-    #[cfg(feature = "graph_son_v2")]
+    
     fn encode_v2(&self) -> serde_json::Value {
         self.encode_v3()
     }
@@ -91,6 +93,7 @@ impl EncodeGraphSON for Lambda {
     }
 }
 
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Lambda {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -125,7 +128,7 @@ impl DecodeGraphSON for Lambda {
         Lambda::decode_v3(j_val)
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -156,7 +159,6 @@ fn encode_v3() {
     let s = l.encode_v3();
     let res = serde_json::to_string(&s).unwrap();
     let v: serde_json::Value = serde_json::from_str(&res).unwrap();
-    let expected = r#"{"@type":"g:Lambda","@value":{"script":"{ it.get()}","language":"gremlin-groovy","arguments":1}}"#;
 
     assert_eq!(s, v);
 }

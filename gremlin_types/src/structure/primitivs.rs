@@ -1,18 +1,23 @@
-use super::validate_type_entry;
 use crate::error::DecodeError;
-use crate::graph_binary::{encode_null_object, Decode};
-use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+use crate::error::EncodeError;
 use crate::macros::{TryBorrowFrom, TryMutBorrowFrom};
 use crate::specs::CoreType;
 use crate::{conversion, GremlinValue};
-use crate::{error::EncodeError, graph_binary::Encode};
-use serde::Deserialize;
-use serde_json::json;
 use uuid::Uuid;
 
 use std::io::Read;
 use std::slice;
 use std::str::FromStr;
+
+#[cfg(feature = "graph_binary")]
+use crate::graph_binary::{encode_null_object, Decode, Encode};
+
+#[cfg(feature = "graph_son")]
+use super::validate_type_entry;
+#[cfg(feature = "graph_son")]
+use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+#[cfg(feature = "graph_son")]
+use serde_json::json;
 
 #[cfg(feature = "graph_binary")]
 impl Encode for String {
@@ -59,13 +64,12 @@ impl Decode for String {
         }
     }
 }
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for String {
     fn encode_v3(&self) -> serde_json::Value {
         json!(self)
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         self.encode_v3()
     }
@@ -74,7 +78,7 @@ impl EncodeGraphSON for String {
         self.encode_v3()
     }
 }
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for String {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -85,7 +89,7 @@ impl DecodeGraphSON for String {
             .ok_or_else(|| DecodeError::DecodeError("json error in String".to_string()))
             .map(ToString::to_string)
     }
-    #[cfg(feature = "graph_son_v2")]
+
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -132,12 +136,12 @@ impl Encode for &str {
         Ok(())
     }
 }
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for &str {
     fn encode_v3(&self) -> serde_json::Value {
         json!(self)
     }
-    #[cfg(feature = "graph_son_v2")]
+
     fn encode_v2(&self) -> serde_json::Value {
         self.encode_v3()
     }
@@ -219,9 +223,8 @@ impl Decode for char {
         }
     }
 }
-#[cfg(feature = "extended")]
+#[cfg(all(feature = "extended", feature = "graph_son"))]
 impl DecodeGraphSON for char {
-    #[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -235,7 +238,6 @@ impl DecodeGraphSON for char {
             .ok_or_else(|| DecodeError::DecodeError("json error in char".to_string()))
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -280,7 +282,7 @@ impl Decode for u8 {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for u8 {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -295,7 +297,6 @@ impl DecodeGraphSON for u8 {
             .map(|val| val as u8)
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -341,7 +342,7 @@ impl Decode for i16 {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for i16 {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -356,7 +357,6 @@ impl DecodeGraphSON for i16 {
             .map(|val| val as i16)
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -399,7 +399,7 @@ impl Decode for i32 {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for i32 {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -413,7 +413,7 @@ impl DecodeGraphSON for i32 {
             .ok_or_else(|| DecodeError::DecodeError("json error i32 v3 in error".to_string()))
             .map(|t| t as i32)
     }
-    #[cfg(feature = "graph_son_v2")]
+
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -456,7 +456,7 @@ impl Decode for i64 {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for i64 {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -470,7 +470,6 @@ impl DecodeGraphSON for i64 {
             .ok_or_else(|| DecodeError::DecodeError("json error in i64".to_string()))
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -513,7 +512,7 @@ impl Decode for f32 {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for f32 {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -544,7 +543,6 @@ impl DecodeGraphSON for f32 {
         }
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -590,7 +588,7 @@ impl Decode for f64 {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for f64 {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -621,7 +619,6 @@ impl DecodeGraphSON for f64 {
         }
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -666,7 +663,25 @@ impl Decode for Uuid {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
+impl EncodeGraphSON for Uuid {
+    fn encode_v3(&self) -> serde_json::Value {
+        json!({
+          "@type" : "g:UUID",
+          "@value" : self.to_string()
+        })
+    }
+
+    fn encode_v2(&self) -> serde_json::Value {
+        self.encode_v3()
+    }
+
+    fn encode_v1(&self) -> serde_json::Value {
+        todo!()
+    }
+}
+
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Uuid {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -681,7 +696,6 @@ impl DecodeGraphSON for Uuid {
             .ok_or_else(|| DecodeError::DecodeError("json error Uuid v3 in error".to_string()))
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -750,13 +764,12 @@ impl Decode for bool {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for bool {
     fn encode_v3(&self) -> serde_json::Value {
         json!(self)
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         self.encode_v3()
     }
@@ -766,7 +779,7 @@ impl EncodeGraphSON for bool {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for bool {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -777,7 +790,6 @@ impl DecodeGraphSON for bool {
             .ok_or_else(|| DecodeError::DecodeError("json error bool".to_string()))
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -867,9 +879,8 @@ impl<T: Decode> Decode for Option<T> {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl<T: EncodeGraphSON> EncodeGraphSON for Option<T> {
-    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         match self {
             Some(val) => val.encode_v3(), // not sure if correct
@@ -877,7 +888,6 @@ impl<T: EncodeGraphSON> EncodeGraphSON for Option<T> {
         }
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         match self {
             Some(val) => val.encode_v2(),
@@ -893,9 +903,8 @@ impl<T: EncodeGraphSON> EncodeGraphSON for Option<T> {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl<T: DecodeGraphSON> DecodeGraphSON for Option<T> {
-    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -906,7 +915,6 @@ impl<T: DecodeGraphSON> DecodeGraphSON for Option<T> {
         }
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -931,16 +939,16 @@ impl<T: DecodeGraphSON> DecodeGraphSON for Option<T> {
 macro_rules! graphson_impl {
     ($(($t:ty,$type_sig:literal)),*$(,)?) => {
         $(
-        #[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+        #[cfg(feature = "graph_son")]
         impl EncodeGraphSON for $t {
-            #[cfg(feature = "graph_son_v3")]
+
             fn encode_v3(&self) -> serde_json::Value {
                 json!({
                     "@type" : $type_sig,
                     "@value" : self
                 })
             }
-            #[cfg(feature = "graph_son_v2")]
+
             fn encode_v2(&self) -> serde_json::Value {
                 json!({
                     "@type" : $type_sig,
@@ -964,7 +972,6 @@ graphson_impl!(
     (i64, "g:Int64"),
     (f32, "g:Float"),
     (f64, "g:Double"),
-    (Uuid, "g:UUID"),
 );
 
 conversion!(String, String);
@@ -1178,4 +1185,14 @@ fn f64_neg_infinity() {
     let v = serde_json::from_str(f).unwrap();
     let a = f64::decode_v3(&v).unwrap();
     assert_eq!(a, f64::NEG_INFINITY)
+}
+
+#[test]
+fn uuid_encode_v3() {
+    let uuid = Uuid::from_str("41d2e28a-20a4-4ab0-b379-d810dede3786").unwrap();
+    let v = uuid.encode_v3();
+    let res = serde_json::to_string(&v).unwrap();
+
+    let expected = r#"{"@type":"g:UUID","@value":"41d2e28a-20a4-4ab0-b379-d810dede3786"}"#;
+    assert_eq!(res,expected)
 }

@@ -1,14 +1,8 @@
-use serde_json::json;
 use uuid::Uuid;
 
-use super::{
-    enums::{Direction, T},
-    validate_type_entry,
-};
+use super::enums::{Direction, T};
 use crate::{
     error::{DecodeError, EncodeError},
-    graph_binary::{Decode, Encode},
-    graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
     GremlinValue,
 };
@@ -18,6 +12,16 @@ use std::{
     hash::{BuildHasher, Hash},
     io::{Read, Write},
 };
+
+#[cfg(feature = "graph_binary")]
+use crate::graph_binary::{Decode, Encode};
+
+#[cfg(feature = "graph_son")]
+use super::validate_type_entry;
+#[cfg(feature = "graph_son")]
+use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+#[cfg(feature = "graph_son")]
+use serde_json::json;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum MapKeys {
@@ -179,7 +183,7 @@ impl Decode for MapKeys {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v3"))]
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for MapKeys {
     fn encode_v3(&self) -> serde_json::Value {
         match self {
@@ -223,7 +227,7 @@ impl EncodeGraphSON for MapKeys {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v3"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for MapKeys {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -241,7 +245,7 @@ impl DecodeGraphSON for MapKeys {
         Ok(MapKeys::String(s))
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -347,6 +351,7 @@ where
     }
 }
 
+#[cfg(feature = "graph_son")]
 impl<K, V> EncodeGraphSON for HashMap<K, V>
 where
     K: EncodeGraphSON + ToString + std::cmp::Eq + std::hash::Hash,
@@ -381,6 +386,7 @@ where
     }
 }
 
+#[cfg(feature = "graph_son")]
 impl<K, V> DecodeGraphSON for HashMap<K, V>
 where
     K: DecodeGraphSON + ToString + std::cmp::Eq + std::hash::Hash,
@@ -608,8 +614,8 @@ fn map_decode_graphson_v2() {
     let s = serde_json::from_str(str).unwrap();
     let s: HashMap<String, i32> = HashMap::decode_v2(&s).unwrap();
     let mut map = HashMap::new();
-    map.insert("dur".to_string(), 1.into());
-    map.insert("test".to_string(), 2.into());
+    map.insert("dur".to_string(), 1);
+    map.insert("test".to_string(), 2);
     println!("{s:?}");
 
     assert_eq!(s, map);

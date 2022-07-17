@@ -1,8 +1,16 @@
-use crate::{
-    graph_binary::{Decode, Encode},
-    specs::CoreType,
-    GremlinValue,
-};
+use std::fmt::Display;
+
+use crate::{error::DecodeError, specs::CoreType, GremlinValue};
+
+#[cfg(feature = "graph_binary")]
+use crate::graph_binary::{Decode, Encode};
+
+#[cfg(feature = "graph_son")]
+use super::validate_type_entry;
+#[cfg(feature = "graph_son")]
+use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+#[cfg(feature = "graph_son")]
+use serde_json::json;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct BulkSet(Vec<(GremlinValue, i64)>);
@@ -47,4 +55,103 @@ impl Decode for BulkSet {
         }
         Ok(BulkSet(items))
     }
+}
+
+#[cfg(feature = "graph_son")]
+impl EncodeGraphSON for BulkSet {
+    fn encode_v3(&self) -> serde_json::Value {
+        let mut j_vec = Vec::with_capacity(self.0.len() * 2);
+        for (value, bulk) in &self.0 {
+            j_vec.push(value.encode_v3());
+            j_vec.push(bulk.encode_v3())
+        }
+
+        json!(
+            {
+                "@type" : "g:BulkSet",
+                "@value" : j_vec
+            }
+        )
+    }
+
+    fn encode_v2(&self) -> serde_json::Value {
+        unimplemented!("not supported in GraphSON V2")
+    }
+
+    fn encode_v1(&self) -> serde_json::Value {
+        unimplemented!("not supported in GraphSON V1")
+    }
+}
+
+#[cfg(feature = "graph_son")]
+impl DecodeGraphSON for BulkSet {
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let value_object = j_val
+            .as_object()
+            .filter(|map| validate_type_entry(*map, "g:BulkSet"))
+            .and_then(|m| m.get("@value"))
+            .and_then(|m| m.as_array())
+            .ok_or_else(|| DecodeError::DecodeError("".to_string()))?;
+
+        let mut bulk_set = Vec::with_capacity(value_object.len() / 2);
+        for (value, bulk) in value_object
+            .iter()
+            .zip(value_object.iter().skip(1))
+            .step_by(2)
+        {
+            let value = GremlinValue::decode_v3(value)?;
+            let bulk = i64::decode_v3(bulk)?;
+            bulk_set.push((value, bulk));
+        }
+        Ok(BulkSet(bulk_set))
+    }
+
+    fn decode_v2(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        unimplemented!("BulkSet in not supported in GraphSON V2")
+    }
+
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        unimplemented!("not supported in GraphSON V1")
+    }
+}
+
+impl Display for BulkSet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[")?;
+        for (val, bulk) in &self.0 {
+            write!(f, "bulk: {bulk},value: {val}",)?;
+        }
+        write!(f, "]")
+    }
+}
+
+#[test]
+fn encode_v3() {
+    let expected = r#"{"@type":"g:BulkSet","@value":["marko",{"@type":"g:Int64","@value":1},"josh",{"@type":"g:Int64","@value":2}]}"#;
+
+    let bulk_set = BulkSet(vec![("marko".into(), 1), ("josh".into(), 2)]).encode_v3();
+
+    let res = serde_json::to_string(&bulk_set).unwrap();
+
+    assert_eq!(res, expected)
+}
+
+#[test]
+fn decode_v3() {
+    let s = r#"{"@type":"g:BulkSet","@value":["marko",{"@type":"g:Int64","@value":1},"josh",{"@type":"g:Int64","@value":2}]}"#;
+
+    let expected = BulkSet(vec![("marko".into(), 1), ("josh".into(), 2)]);
+
+    let v = serde_json::from_str(s).unwrap();
+    let res = BulkSet::decode_v3(&v).unwrap();
+    assert_eq!(res, expected)
 }

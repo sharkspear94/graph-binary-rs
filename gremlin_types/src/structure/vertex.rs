@@ -1,18 +1,23 @@
 use std::{collections::HashMap, fmt::Display};
 
-use serde_json::json;
-
 use crate::{
     conversion,
     error::DecodeError,
-    graph_binary::{Decode, Encode},
-    graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::{self, CoreType},
-    structure::property::{EitherParent, Property},
     val_by_key_v2, val_by_key_v3, GremlinValue,
 };
 
-use super::{validate_type_entry, vertex_property::VertexProperty};
+use super::vertex_property::VertexProperty;
+
+#[cfg(feature = "graph_binary")]
+use crate::graph_binary::{Decode, Encode};
+
+#[cfg(feature = "graph_son")]
+use super::validate_type_entry;
+#[cfg(feature = "graph_son")]
+use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+#[cfg(feature = "graph_son")]
+use serde_json::json;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Vertex {
@@ -85,9 +90,8 @@ impl Decode for Vertex {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for Vertex {
-    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         if let Some(properties) = &self.properties {
             let mut map = HashMap::<String, Vec<serde_json::Value>>::new();
@@ -116,7 +120,6 @@ impl EncodeGraphSON for Vertex {
         }
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         if let Some(properties) = &self.properties {
             let mut map = HashMap::<String, Vec<serde_json::Value>>::new();
@@ -150,9 +153,8 @@ impl EncodeGraphSON for Vertex {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Vertex {
-    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -195,7 +197,6 @@ impl DecodeGraphSON for Vertex {
         })
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -236,7 +237,7 @@ impl DecodeGraphSON for Vertex {
         })
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -283,7 +284,9 @@ fn test_vertex_decode_none() {
 }
 
 #[test]
-fn test_vertex_v3_encode() {
+fn encode_v3() {
+    use super::property::{EitherParent, Property};
+
     let v = Vertex {
         id: Box::new(1_i32.into()),
         label: String::from("person"),
@@ -339,6 +342,8 @@ fn test_vertex_v3_encode() {
 
 #[test]
 fn decode_v3() {
+    use super::property::{EitherParent, Property};
+
     let str = r#"{
         "@type" : "g:Vertex",
         "@value" : {
@@ -487,7 +492,7 @@ fn decode_v3() {
 
     let value = serde_json::from_str(str).unwrap();
     let mut v = Vertex::decode_v3(&value).unwrap();
-    for p in v.properties.as_mut() {
+    v.properties.as_mut().into_iter().for_each(|p| {
         for i in p {
             if i.properties.is_some() {
                 i.properties
@@ -496,7 +501,7 @@ fn decode_v3() {
                     .sort_by(|p1, p2| p1.key.cmp(&p2.key).reverse())
             }
         }
-    }
+    });
 
     v.properties.as_mut().unwrap().sort_by(|p1, p2| {
         p1.id
@@ -527,11 +532,13 @@ fn decode_v3_without_props() {
     };
 
     let value = serde_json::from_str(str).unwrap();
-    let mut v = Vertex::decode_v3(&value).unwrap();
+    let v = Vertex::decode_v3(&value).unwrap();
     assert_eq!(v, expected)
 }
 #[test]
-fn test_vertex_v2_encode() {
+fn encode_v2() {
+    use super::property::{EitherParent, Property};
+
     let v = Vertex {
         id: Box::new(1_i32.into()),
         label: String::from("person"),
@@ -587,6 +594,7 @@ fn test_vertex_v2_encode() {
 
 #[test]
 fn decode_v2() {
+    use super::property::{EitherParent, Property};
     let str = r#"{
         "@type" : "g:Vertex",
         "@value" : {
@@ -755,7 +763,7 @@ fn decode_v2() {
 
     let value = serde_json::from_str(str).unwrap();
     let mut v = Vertex::decode_v2(&value).unwrap();
-    for p in v.properties.as_mut() {
+    v.properties.as_mut().into_iter().for_each(|p| {
         for i in p {
             if i.properties.is_some() {
                 i.properties
@@ -764,7 +772,7 @@ fn decode_v2() {
                     .sort_by(|p1, p2| p1.key.cmp(&p2.key).reverse())
             }
         }
-    }
+    });
 
     v.properties.as_mut().unwrap().sort_by(|p1, p2| {
         p1.id

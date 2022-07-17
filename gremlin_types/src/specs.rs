@@ -168,8 +168,6 @@ impl From<CoreType> for u8 {
     }
 }
 
-use serde::{de::Visitor, Deserialize};
-
 use crate::error::DecodeError;
 
 impl TryFrom<u8> for CoreType {
@@ -257,37 +255,5 @@ impl TryFrom<u8> for CoreType {
             EXTENDED_TYPE_ZONED_OFFSET => unimplemented!("extended Types are not yet supported"),
             rest => Err(DecodeError::ConvertError(format!("found {rest}"))),
         }
-    }
-}
-
-impl<'de> Deserialize<'de> for CoreType {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct CoreTypeVisitor;
-
-        impl<'de> Visitor<'de> for CoreTypeVisitor {
-            type Value = CoreType;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                write!(formatter, "a enum CoreType")
-            }
-
-            fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                match CoreType::try_from(v) {
-                    Ok(v) => Ok(v),
-                    Err(e) => Err(E::custom(format!(
-                        "conversion of Coretype in Deserialize failed: Error Message: {}",
-                        e
-                    ))),
-                }
-            }
-        }
-
-        deserializer.deserialize_u8(CoreTypeVisitor)
     }
 }

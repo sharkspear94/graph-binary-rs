@@ -1,27 +1,22 @@
 use std::collections::hash_map::IntoIter;
-use std::io::Read;
 use std::vec;
 
-mod error;
-
-use serde::de::{DeserializeOwned, MapAccess, SeqAccess, Visitor};
+use serde::de::{MapAccess, SeqAccess, Visitor};
 use serde::Deserialize;
 
 use crate::error::DecodeError;
-use crate::graph_binary::ValueFlag;
 use crate::GremlinValue;
 
 use crate::structure::map::MapKeys;
-use crate::{graph_binary::Decode, specs::CoreType};
 
-fn from_gremlin<'de, T: Deserialize<'de>>(g: GremlinValue) -> Result<T, DecodeError> {
-    let de = GraphBinaryDeserializer(g);
+pub fn from_gremlin<'de, T: Deserialize<'de>>(g: GremlinValue) -> Result<T, DecodeError> {
+    let de = Deserializer(g);
     T::deserialize(de)
 }
 
-struct GraphBinaryDeserializer(GremlinValue);
+struct Deserializer(GremlinValue);
 
-impl<'de> serde::de::Deserializer<'de> for GraphBinaryDeserializer {
+impl<'de> serde::de::Deserializer<'de> for Deserializer {
     type Error = DecodeError;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -108,7 +103,7 @@ impl<'de> SeqAccess<'de> for SeqDeser {
         T: serde::de::DeserializeSeed<'de>,
     {
         if let Some(element) = self.iter.next() {
-            let de = GraphBinaryDeserializer(element);
+            let de = Deserializer(element);
             seed.deserialize(de).map(Some)
         } else {
             Ok(None)
@@ -133,7 +128,7 @@ impl<'de> MapAccess<'de> for MapDeser {
             self.value = Some(value);
             self.size -= 1;
 
-            let de = GraphBinaryDeserializer(key.into());
+            let de = Deserializer(key.into());
             seed.deserialize(de).map(Some)
         } else {
             Ok(None)
@@ -148,7 +143,7 @@ impl<'de> MapAccess<'de> for MapDeser {
             .value
             .take()
             .ok_or_else(|| DecodeError::DecodeError("value without key".to_string()))?;
-        let de = GraphBinaryDeserializer(val);
+        let de = Deserializer(val);
         seed.deserialize(de)
     }
 

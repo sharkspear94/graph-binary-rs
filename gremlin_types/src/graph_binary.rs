@@ -1,15 +1,13 @@
-use std::collections::{BTreeSet, HashMap};
-use std::fmt::Display;
+use std::collections::HashMap;
 use std::io::{Read, Write};
 
 use crate::error::{DecodeError, EncodeError};
-use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
-use crate::macros::{TryBorrowFrom, TryMutBorrowFrom};
+
 use crate::structure::bulkset::BulkSet;
 use crate::structure::bytebuffer::ByteBuffer;
 use crate::structure::bytecode::Bytecode;
 use crate::structure::enums::{
-    Barrier, Cardinality, Column, Direction, Merge, Operator, Order, Pick, Pop, Scope, TextP, P, T,
+    Barrier, Cardinality, Column, Direction, Merge, Operator, Order, Pick, Pop, Scope, TextP, T,
 };
 use crate::structure::graph::Graph;
 use crate::structure::lambda::Lambda;
@@ -22,8 +20,6 @@ use crate::structure::vertex_property::VertexProperty;
 use crate::Binding;
 use crate::GremlinValue;
 use crate::{specs::CoreType, structure::edge::Edge};
-use serde::de::Visitor;
-use serde::Deserialize;
 use uuid::Uuid;
 
 #[cfg(feature = "graph_binary")]
@@ -36,14 +32,6 @@ pub fn encode_null_object<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
 }
 
 #[cfg(feature = "graph_binary")]
-fn encode_byte_buffer<W: Write>(writer: &mut W, buf: &[u8]) -> Result<(), EncodeError> {
-    writer.write_all(&[CoreType::ByteBuffer.into(), ValueFlag::Null.into()])?;
-    let len = (buf.len() as i32).to_be_bytes();
-    writer.write_all(&len)?;
-    writer.write_all(buf)?;
-    Ok(())
-}
-
 impl GremlinValue {
     pub fn build_fq_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         match self {
@@ -96,8 +84,6 @@ impl GremlinValue {
             GremlinValue::UnspecifiedNullObject => encode_null_object(writer),
             #[cfg(feature = "extended")]
             GremlinValue::Char(val) => val.encode(writer),
-            #[cfg(feature = "extended")]
-            GremlinValue::Char(char) => unimplemented!(),
             #[cfg(feature = "extended")]
             GremlinValue::Duration() => unimplemented!(),
             #[cfg(feature = "extended")]
@@ -170,7 +156,7 @@ impl Encode for GremlinValue {
 
 #[cfg(feature = "graph_binary")]
 pub fn decode<R: Read>(reader: &mut R) -> Result<GremlinValue, DecodeError> {
-    use crate::structure::map::MapKeys;
+    use crate::structure::{enums::P, map::MapKeys};
 
     let mut buf = [255_u8; 2];
     reader.read_exact(&mut buf)?;

@@ -22,8 +22,6 @@ pub mod traverser;
 pub mod tree;
 pub mod vertex_property;
 
-use crate::error::DecodeError;
-
 #[macro_export]
 macro_rules! val_by_key_v1 {
     ($obj:expr,$key:literal,$expected:ty,$context:literal) => {
@@ -72,6 +70,7 @@ macro_rules! val_by_key_v3 {
     };
 }
 
+#[cfg(feature = "graph_son")]
 pub fn validate_type_entry(
     map: &serde_json::Map<String, serde_json::Value>,
     type_value: &str,

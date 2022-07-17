@@ -23,7 +23,7 @@ macro_rules! conversion {
             fn try_from(value: $crate::GremlinValue) -> Result<Self, Self::Error> {
                 match value {
                     $crate::GremlinValue::$variant(val) => Ok(val),
-                    _ => Err(crate::error::DecodeError::ConvertError(format!(
+                    _ => Err($crate::error::DecodeError::ConvertError(format!(
                         "cannot convert Value to {}",
                         stringify!($t)
                     ))),
@@ -31,7 +31,7 @@ macro_rules! conversion {
             }
         }
 
-        impl crate::macros::TryBorrowFrom for $t {
+        impl $crate::macros::TryBorrowFrom for $t {
             fn try_borrow_from(graph_binary: &$crate::GremlinValue) -> Option<&Self> {
                 match graph_binary {
                     $crate::GremlinValue::$variant(val) => Some(val),
@@ -40,7 +40,7 @@ macro_rules! conversion {
             }
         }
 
-        impl crate::macros::TryMutBorrowFrom for $t {
+        impl $crate::macros::TryMutBorrowFrom for $t {
             fn try_mut_borrow_from(graph_binary: &mut $crate::GremlinValue) -> Option<&mut Self> {
                 match graph_binary {
                     $crate::GremlinValue::$variant(val) => Some(val),

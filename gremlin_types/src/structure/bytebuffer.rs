@@ -1,13 +1,17 @@
-use crate::{
-    error::DecodeError,
-    graph_binary::{Decode, Encode},
-    graphson::{DecodeGraphSON, EncodeGraphSON},
-    specs::CoreType,
-};
-use serde_json::json;
+use crate::{error::DecodeError, specs::CoreType};
+
 use std::ops::Deref;
 
+#[cfg(feature = "graph_binary")]
+use crate::graph_binary::{Decode, Encode};
+
+#[cfg(feature = "graph_son")]
 use super::validate_type_entry;
+#[cfg(feature = "graph_son")]
+use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+#[cfg(feature = "graph_son")]
+use serde_json::json;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ByteBuffer(Vec<u8>);
 
@@ -59,9 +63,8 @@ impl Decode for ByteBuffer {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for ByteBuffer {
-    #[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
     fn encode_v3(&self) -> serde_json::Value {
         json!({
           "@type" : "gx:ByteBuffer",
@@ -69,7 +72,6 @@ impl EncodeGraphSON for ByteBuffer {
         })
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         self.encode_v3()
     }
@@ -79,9 +81,8 @@ impl EncodeGraphSON for ByteBuffer {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for ByteBuffer {
-    #[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -97,7 +98,7 @@ impl DecodeGraphSON for ByteBuffer {
             })?;
         Ok(ByteBuffer(inner))
     }
-    #[cfg(feature = "graph_son_v2")]
+
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -105,7 +106,7 @@ impl DecodeGraphSON for ByteBuffer {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -134,9 +135,6 @@ fn decode_gb() {
 
 #[test]
 fn encode_v3() {
-    let expected = [
-        0x25, 0x0, 0x0, 0x0, 0x0, 0x6, b'a', b'b', b'c', b'd', 255, 128, 129, 130,
-    ];
     let byte_buffer = ByteBuffer(vec![b'a', b'b', b'c', b'd', 255, 128, 129, 130]);
 
     let v = byte_buffer.encode_v3();

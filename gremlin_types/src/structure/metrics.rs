@@ -1,18 +1,18 @@
-use std::{collections::HashMap, fmt::Display, ops::IndexMut};
-
-use serde_json::json;
+use std::{collections::HashMap, fmt::Display};
 
 use crate::error::DecodeError;
-use crate::{
-    conversion,
-    graph_binary::{Decode, Encode},
-    graphson::{DecodeGraphSON, EncodeGraphSON},
-    specs::CoreType,
-    val_by_key_v3,
-};
+use crate::{conversion, specs::CoreType, val_by_key_v3};
 use crate::{val_by_key_v2, GremlinValue};
 
+#[cfg(feature = "graph_binary")]
+use crate::graph_binary::{Decode, Encode};
+
+#[cfg(feature = "graph_son")]
 use super::validate_type_entry;
+#[cfg(feature = "graph_son")]
+use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+#[cfg(feature = "graph_son")]
+use serde_json::json;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Metrics {
@@ -176,9 +176,8 @@ fn build_string(metrics: &Metrics, start_offset: usize) -> String {
     result_string
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for Metrics {
-    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         let dur = self.duration as f64 / 1000. / 1000.;
         if !self.nested_metrics.is_empty() {
@@ -213,7 +212,6 @@ impl EncodeGraphSON for Metrics {
         }
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         let dur = self.duration as f64 / 1000. / 1000.;
         if !self.nested_metrics.is_empty() {
@@ -248,9 +246,8 @@ impl EncodeGraphSON for Metrics {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Metrics {
-    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -311,7 +308,6 @@ impl DecodeGraphSON for Metrics {
         }
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -374,7 +370,7 @@ impl DecodeGraphSON for Metrics {
         }
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -382,9 +378,8 @@ impl DecodeGraphSON for Metrics {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for TraversalMetrics {
-    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         json!({
             "@type" : "g:TraversalMetrics",
@@ -395,7 +390,6 @@ impl EncodeGraphSON for TraversalMetrics {
         })
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         json!({
             "@type" : "g:TraversalMetrics",
@@ -411,9 +405,8 @@ impl EncodeGraphSON for TraversalMetrics {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for TraversalMetrics {
-    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -441,7 +434,6 @@ impl DecodeGraphSON for TraversalMetrics {
         Ok(TraversalMetrics { duration, metrics })
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -469,7 +461,7 @@ impl DecodeGraphSON for TraversalMetrics {
         Ok(TraversalMetrics { duration, metrics })
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {

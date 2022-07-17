@@ -1,17 +1,16 @@
-use serde::ser;
 use std::{io, num::TryFromIntError, str::Utf8Error, string::FromUtf8Error};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum EncodeError {
     #[error("writing into Writer")]
-    IoError(#[from] io::Error),
+    Io(#[from] io::Error),
 
     #[error("serialiezing")]
-    SerilizationError(String),
+    Serilization(String),
 
     #[error("try from int error")]
-    TryError(#[from] TryFromIntError),
+    TryConvert(#[from] TryFromIntError),
 }
 
 #[derive(Error, Debug)]
@@ -41,15 +40,17 @@ pub enum DecodeError {
     TryError(#[from] TryFromIntError),
 }
 
-impl ser::Error for EncodeError {
+#[cfg(feature = "serde")]
+impl serde::ser::Error for EncodeError {
     fn custom<T>(msg: T) -> Self
     where
         T: std::fmt::Display,
     {
-        EncodeError::SerilizationError(msg.to_string())
+        EncodeError::Serilization(msg.to_string())
     }
 }
 
+#[cfg(feature = "serde")]
 impl serde::de::Error for DecodeError {
     fn custom<T>(msg: T) -> Self
     where

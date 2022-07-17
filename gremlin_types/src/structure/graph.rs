@@ -1,22 +1,24 @@
 use std::fmt::Display;
 
-use serde_json::{json, Map};
-
 use crate::{
     conversion,
-    graph_binary::{Decode, Encode},
-    graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::{self, CoreType},
-    structure::property::EitherParent,
     val_by_key_v2, val_by_key_v3, GremlinValue,
 };
 
 use crate::error::DecodeError;
 
-use super::{
-    edge::Edge, property::Property, validate_type_entry, vertex::Vertex,
-    vertex_property::VertexProperty,
-};
+use super::{edge::Edge, property::Property, vertex::Vertex, vertex_property::VertexProperty};
+
+#[cfg(feature = "graph_binary")]
+use crate::graph_binary::{Decode, Encode};
+
+#[cfg(feature = "graph_son")]
+use super::validate_type_entry;
+#[cfg(feature = "graph_son")]
+use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+#[cfg(feature = "graph_son")]
+use serde_json::{json, Map};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Graph {
@@ -183,6 +185,7 @@ impl Encode for Graph {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for Graph {
     fn expected_type_code() -> u8 {
         CoreType::Graph.into()
@@ -231,9 +234,8 @@ impl Decode for Graph {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for GraphEdge {
-    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         let properties_map = self
             .properties
@@ -261,7 +263,6 @@ impl EncodeGraphSON for GraphEdge {
         json_value
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         let properties_map = self
             .properties
@@ -294,16 +295,15 @@ impl EncodeGraphSON for GraphEdge {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for GraphEdge {
-    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
     {
         Ok(Edge::decode_v3(j_val)?.into())
     }
-    #[cfg(feature = "graph_son_v2")]
+
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -311,7 +311,7 @@ impl DecodeGraphSON for GraphEdge {
         Ok(Edge::decode_v2(j_val)?.into())
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -319,9 +319,8 @@ impl DecodeGraphSON for GraphEdge {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for Graph {
-    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         json!({
             "@type" : "tinker:graph",
@@ -332,7 +331,6 @@ impl EncodeGraphSON for Graph {
         })
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         json!({
             "@type" : "tinker:graph",
@@ -348,9 +346,8 @@ impl EncodeGraphSON for Graph {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Graph {
-    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -367,7 +364,6 @@ impl DecodeGraphSON for Graph {
         Ok(Graph { vertices, edges })
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -384,7 +380,7 @@ impl DecodeGraphSON for Graph {
         Ok(Graph { vertices, edges })
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -395,7 +391,9 @@ impl DecodeGraphSON for Graph {
 conversion!(Graph, Graph);
 
 #[test]
-fn encode_graph_test() {
+fn encode_gb() {
+    use super::property::EitherParent;
+
     let expected = [
         0x10_u8, 0x0, 0x0, 0x0, 0x0, 0x2, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0,
         0x0, 0x0, 0x6, 0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e, 0x0, 0x0, 0x0, 0x2, 0x2, 0x0, 0x0, 0x0,
@@ -485,7 +483,9 @@ fn encode_graph_test() {
 }
 
 #[test]
-fn decode_graph_test() {
+fn decode_gb() {
+    use super::property::EitherParent;
+
     let reader = vec![
         0x10_u8, 0x0, 0x0, 0x0, 0x0, 0x2, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0,
         0x0, 0x0, 0x6, 0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e, 0x0, 0x0, 0x0, 0x2, 0x2, 0x0, 0x0, 0x0,

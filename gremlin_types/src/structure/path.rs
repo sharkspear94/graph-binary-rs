@@ -1,20 +1,21 @@
 use std::fmt::Display;
 
-use serde::de::value;
-use serde_json::json;
-
 use crate::error::DecodeError;
-use crate::structure::vertex_property::VertexProperty;
-use crate::{
-    conversion,
-    graph_binary::{Decode, Encode},
-    graphson::{DecodeGraphSON, EncodeGraphSON},
-    specs::CoreType,
-    val_by_key_v3,
-};
+
+use crate::{conversion, specs::CoreType, val_by_key_v3};
 use crate::{val_by_key_v2, GremlinValue};
 
-use super::{list::Set, validate_type_entry, vertex::Vertex};
+use super::{list::Set};
+
+#[cfg(feature = "graph_binary")]
+use crate::graph_binary::{Decode, Encode};
+
+#[cfg(feature = "graph_son")]
+use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+#[cfg(feature = "graph_son")]
+use serde_json::json;
+#[cfg(feature = "graph_son")]
+use super::validate_type_entry;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Path {
@@ -83,9 +84,8 @@ impl Display for Path {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for Path {
-    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         json!(
             {
@@ -97,7 +97,6 @@ impl EncodeGraphSON for Path {
             }
         )
     }
-    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         json!(
             {
@@ -118,9 +117,8 @@ impl EncodeGraphSON for Path {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Path {
-    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -136,7 +134,6 @@ impl DecodeGraphSON for Path {
 
         Ok(Path { labels, objects })
     }
-    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -153,7 +150,7 @@ impl DecodeGraphSON for Path {
         Ok(Path { labels, objects })
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -203,6 +200,7 @@ fn test_decode() {
 
 #[test]
 fn encode_v3() {
+    use super::vertex::Vertex;
     let p = Path {
         labels: vec![Set::new(vec![]), Set::new(vec![]), Set::new(vec![])],
         objects: vec![
@@ -219,6 +217,7 @@ fn encode_v3() {
 
 #[test]
 fn decode_v3() {
+    use super::vertex::Vertex;
     let s = r#"{"@type":"g:Path","@value":{"labels":{"@type":"g:List","@value":[{"@type":"g:Set","@value":[]},{"@type":"g:Set","@value":[]},{"@type":"g:Set","@value":[]}]},"objects":{"@type":"g:List","@value":[{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":1},"label":"person"}},{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":10},"label":"sofware"}},{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":11},"label":"software"}}]}}}"#;
     let expected = Path {
         labels: vec![Set::new(vec![]), Set::new(vec![]), Set::new(vec![])],
@@ -236,6 +235,8 @@ fn decode_v3() {
 
 #[test]
 fn encode_v2() {
+    use super::vertex::Vertex;
+    use crate::structure::vertex_property::VertexProperty;
     let p = Path {
         labels: vec![Set::new(vec![]), Set::new(vec![]), Set::new(vec![])],
         objects: vec![
@@ -276,6 +277,8 @@ fn encode_v2() {
 
 #[test]
 fn decode_v2() {
+    use super::vertex::Vertex;
+    use crate::structure::vertex_property::VertexProperty;
     let s = r#"{"@type":"g:Path","@value":{"labels":[[],[],[]],"objects":[{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":1},"label":"person"}},{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":10},"label":"software","properties":{"name":[{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":4},"value":"gremlin","vertex":{"@type":"g:Int32","@value":10},"label":"name"}}]}}},{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":11},"label":"software","properties":{"name":[{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":5},"value":"tinkergraph","vertex":{"@type":"g:Int32","@value":11},"label":"name"}}]}}}]}}"#;
     let expected = Path {
         labels: vec![Set::new(vec![]), Set::new(vec![]), Set::new(vec![])],

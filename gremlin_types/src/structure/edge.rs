@@ -1,21 +1,27 @@
-use std::{collections::HashMap, fmt::Display};
-
-use serde_json::{json, Map};
+use std::fmt::Display;
 
 use crate::{
     conversion,
     error::DecodeError,
-    graph_binary::{Decode, Encode},
-    graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::{self, CoreType},
     val_by_key_v2, val_by_key_v3, GremlinValue,
 };
 
 use super::{
     property::{self, Property},
-    validate_type_entry,
     vertex::Vertex,
 };
+
+#[cfg(feature = "graph_binary")]
+use crate::graph_binary::{Decode, Encode};
+
+
+#[cfg(feature = "graph_son")]
+use super::validate_type_entry;
+#[cfg(feature = "graph_son")]
+use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+#[cfg(feature = "graph_son")]
+use serde_json::{json, Map};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Edge {
@@ -139,9 +145,8 @@ impl Decode for Edge {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for Edge {
-    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         let properties_map = self.properties.as_ref().map(|vec| {
             vec.iter()
@@ -170,7 +175,6 @@ impl EncodeGraphSON for Edge {
         json_value
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         let properties_map = self.properties.as_ref().map(|vec| {
             vec.iter()
@@ -203,9 +207,8 @@ impl EncodeGraphSON for Edge {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Edge {
-    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -247,7 +250,6 @@ impl DecodeGraphSON for Edge {
         })
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -294,7 +296,7 @@ impl DecodeGraphSON for Edge {
         })
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -305,7 +307,7 @@ impl DecodeGraphSON for Edge {
 conversion!(Edge, Edge);
 
 #[test]
-fn edge_none_encode_test() {
+fn edge_none_encode_gb() {
     let expected = [
         0xd_u8, 0x0, 0x1, 0x0, 0x0, 0x0, 0x0, 0x9, 0x0, 0x0, 0x0, 0x7, 0x63, 0x72, 0x65, 0x61,
         0x74, 0x65, 0x64, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x8,
@@ -333,7 +335,7 @@ fn edge_none_encode_test() {
 }
 
 #[test]
-fn edge_decode_test() {
+fn edge_decode_gb() {
     let reader = vec![
         0xd, 0x0, 0x1, 0x0, 0x0, 0x0, 0x0, 0x9, 0x0, 0x0, 0x0, 0x7, 0x63, 0x72, 0x65, 0x61, 0x74,
         0x65, 0x64, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x8, 0x73,

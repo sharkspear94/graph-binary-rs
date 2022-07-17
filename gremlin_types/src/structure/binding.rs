@@ -1,16 +1,15 @@
 use std::fmt::Display;
 
+use crate::{conversion, error::DecodeError, specs::CoreType, GremlinValue};
+
+#[cfg(feature = "graph_binary")]
+use crate::graph_binary::{Decode, Encode};
+
+#[cfg(feature = "graph_son")]
+use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+#[cfg(feature = "graph_son")]
 use serde_json::json;
-
-use crate::{
-    conversion,
-    error::DecodeError,
-    graph_binary::{Decode, Encode},
-    graphson::{DecodeGraphSON, EncodeGraphSON},
-    specs::CoreType,
-    GremlinValue,
-};
-
+#[cfg(feature = "graph_son")]
 use super::validate_type_entry;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -83,7 +82,7 @@ impl Decode for Binding {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v3"))]
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for Binding {
     fn encode_v3(&self) -> serde_json::Value {
         json!({
@@ -104,7 +103,7 @@ impl EncodeGraphSON for Binding {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v3"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Binding {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -136,7 +135,7 @@ impl DecodeGraphSON for Binding {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -147,7 +146,7 @@ impl DecodeGraphSON for Binding {
 conversion!(Binding, Binding);
 
 #[test]
-fn test_binding_encode() {
+fn binding_encode_gb() {
     let expected = [
         0x14_u8, 0x0, 0x0, 0x00, 0x00, 0x04, 0x74, 0x65, 0x73, 0x74, 0x01, 0x00, 0x00, 0x0, 0x0,
         0x01,
@@ -162,7 +161,7 @@ fn test_binding_encode() {
 }
 
 #[test]
-fn test_binding_decode() {
+fn binding_decode_gb() {
     let buf = vec![
         0x14_u8, 0x0, 0x0, 0x00, 0x00, 0x04, 0x74, 0x65, 0x73, 0x74, 0x01, 0x00, 0x00, 0x0, 0x0,
         0x01,

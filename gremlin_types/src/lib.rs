@@ -1,16 +1,10 @@
-// #![feature(generic_const_exprs)]
-
-use core::slice;
-use std::{collections::BinaryHeap, mem::size_of};
-#[macro_use]
-
 mod error;
 pub mod graph_binary;
 mod macros;
 mod specs;
 mod structure;
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 pub mod graphson;
 
 #[cfg(feature = "serde")]
@@ -18,21 +12,20 @@ pub mod de;
 #[cfg(feature = "serde")]
 pub mod ser;
 
+use structure::enums::P;
 use structure::map::MapKeys;
 pub use structure::Binding;
 
 use std::collections::{BTreeSet, HashMap};
 use std::fmt::Display;
-use std::io::{Read, Write};
 
-use crate::error::{DecodeError, EncodeError};
-use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
 use crate::macros::{TryBorrowFrom, TryMutBorrowFrom};
 use crate::structure::bulkset::BulkSet;
 use crate::structure::bytebuffer::ByteBuffer;
 use crate::structure::bytecode::Bytecode;
+use crate::structure::edge::Edge;
 use crate::structure::enums::{
-    Barrier, Cardinality, Column, Direction, Merge, Operator, Order, Pick, Pop, Scope, TextP, P, T,
+    Barrier, Cardinality, Column, Direction, Merge, Operator, Order, Pick, Pop, Scope, TextP, T,
 };
 use crate::structure::graph::Graph;
 use crate::structure::lambda::Lambda;
@@ -42,9 +35,6 @@ use crate::structure::property::Property;
 use crate::structure::traverser::{TraversalStrategy, Traverser};
 use crate::structure::vertex::Vertex;
 use crate::structure::vertex_property::VertexProperty;
-use crate::{specs::CoreType, structure::edge::Edge};
-use serde::de::Visitor;
-use serde::Deserialize;
 use uuid::Uuid;
 
 /// All possible Values supported in the [GraphBinary serialization format](https://tinkerpop.apache.org/docs/current/dev/io/#graphbinary)
@@ -79,7 +69,7 @@ pub enum GremlinValue {
     Pick(Pick),
     Pop(Pop),
     Lambda(Lambda),
-    P(P),
+    P(P<GremlinValue>),
     Scope(Scope),
     T(T),
     Traverser(Traverser),
@@ -266,7 +256,7 @@ impl Display for GremlinValue {
             GremlinValue::Boolean(val) => write!(f, "{val}"),
             GremlinValue::TextP(val) => write!(f, "TextP::{val}"),
             GremlinValue::TraversalStrategy(val) => write!(f, "TraversalStrategy::{val}"),
-            GremlinValue::BulkSet(val) => todo!(),
+            GremlinValue::BulkSet(val) => write!(f, "BulkSet::{val}"),
             GremlinValue::Tree(val) => todo!(),
             GremlinValue::Metrics(val) => write!(f, "{val}"),
             GremlinValue::TraversalMetrics(val) => write!(f, "{val}"),
@@ -276,8 +266,6 @@ impl Display for GremlinValue {
             GremlinValue::Timestamp(_) => todo!(),
             #[cfg(feature = "extended")]
             GremlinValue::Char(val) => write!(f, "{val}"),
-            #[cfg(feature = "extended")]
-            GremlinValue::Char(char) => unimplemented!(),
             #[cfg(feature = "extended")]
             GremlinValue::Duration() => unimplemented!(),
             #[cfg(feature = "extended")]

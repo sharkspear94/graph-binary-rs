@@ -1,23 +1,17 @@
-use std::{
-    collections::HashMap,
-    fmt::{write, Display},
-};
+use std::{collections::HashMap, fmt::Display};
 
-use serde_json::json;
+use crate::error::DecodeError;
+use crate::{conversion, specs::CoreType, val_by_key_v2, val_by_key_v3, GremlinValue};
 
+#[cfg(feature = "graph_binary")]
+use crate::graph_binary::{Decode, Encode};
+
+#[cfg(feature = "graph_son")]
 use super::validate_type_entry;
-use crate::{
-    conversion,
-    graph_binary::{Decode, Encode},
-    graphson::{DecodeGraphSON, EncodeGraphSON},
-    specs::CoreType,
-    structure::property::{EitherParent, Property},
-    val_by_key_v2, val_by_key_v3, GremlinValue,
-};
-use crate::{
-    error::DecodeError,
-    structure::{vertex::Vertex, vertex_property::VertexProperty},
-};
+#[cfg(feature = "graph_son")]
+use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+#[cfg(feature = "graph_son")]
+use serde_json::json;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Traverser {
@@ -123,9 +117,8 @@ impl Decode for Traverser {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for Traverser {
-    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         json!({
         "@type" : "g:Traverser",
@@ -135,7 +128,6 @@ impl EncodeGraphSON for Traverser {
         }})
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         json!({
         "@type" : "g:Traverser",
@@ -150,9 +142,8 @@ impl EncodeGraphSON for Traverser {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Traverser {
-    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -172,7 +163,6 @@ impl DecodeGraphSON for Traverser {
         })
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -299,6 +289,9 @@ fn test_iter() {
 }
 #[test]
 fn encode_v3() {
+    use super::property::{EitherParent, Property};
+    use super::{vertex::Vertex, vertex_property::VertexProperty};
+
     let expected = r#"{"@type":"g:Traverser","@value":{"bulk":{"@type":"g:Int64","@value":1},"value":{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":1},"label":"person","properties":{"name":[{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":0},"value":"marko","label":"name"}}],"location":[{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":6},"value":"san diego","label":"location","properties":{"startTime":{"@type":"g:Int32","@value":1997},"endTime":{"@type":"g:Int32","@value":2001}}}},{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":7},"value":"santa cruz","label":"location","properties":{"startTime":{"@type":"g:Int32","@value":2001},"endTime":{"@type":"g:Int32","@value":2004}}}},{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":8},"value":"brussels","label":"location","properties":{"startTime":{"@type":"g:Int32","@value":2004},"endTime":{"@type":"g:Int32","@value":2005}}}},{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":9},"value":"santa fe","label":"location","properties":{"startTime":{"@type":"g:Int32","@value":2005}}}}]}}}}}"#;
     let t = Traverser {
         bulk: 1,
@@ -357,6 +350,9 @@ fn encode_v3() {
 
 #[test]
 fn decode_v3() {
+    use super::property::{EitherParent, Property};
+    use super::{vertex::Vertex, vertex_property::VertexProperty};
+
     let s = r#"{"@type":"g:Traverser","@value":{"bulk":{"@type":"g:Int64","@value":1},"value":{"@type":"g:Vertex","@value":{"id":{"@type":"g:Int32","@value":1},"label":"person","properties":{"name":[{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":0},"value":"marko","label":"name"}}],"location":[{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":6},"value":"san diego","label":"location","properties":{"startTime":{"@type":"g:Int32","@value":1997},"endTime":{"@type":"g:Int32","@value":2001}}}},{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":7},"value":"santa cruz","label":"location","properties":{"startTime":{"@type":"g:Int32","@value":2001},"endTime":{"@type":"g:Int32","@value":2004}}}},{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":8},"value":"brussels","label":"location","properties":{"startTime":{"@type":"g:Int32","@value":2004},"endTime":{"@type":"g:Int32","@value":2005}}}},{"@type":"g:VertexProperty","@value":{"id":{"@type":"g:Int64","@value":9},"value":"santa fe","label":"location","properties":{"startTime":{"@type":"g:Int32","@value":2005}}}}]}}}}}"#;
     let expected = Traverser {
         bulk: 1,
@@ -445,6 +441,9 @@ fn decode_v3() {
 
 #[test]
 fn decode_v2() {
+    use super::property::{EitherParent, Property};
+    use super::{vertex::Vertex, vertex_property::VertexProperty};
+
     let s = r#"{"@type":"g:Traverser","@value":{"bulk":{"@type":"g:Int64","@value":1},"value":{
         "@type" : "g:Vertex",
         "@value" : {

@@ -1,18 +1,21 @@
-use std::vec;
-
 use crate::{
     error::{DecodeError, EncodeError},
-    graph_binary::{Decode, Encode},
-    graphson::{DecodeGraphSON, EncodeGraphSON},
     macros::{TryBorrowFrom, TryMutBorrowFrom},
     specs::CoreType,
 };
-use serde_json::{json, Map};
 use std::ops::Deref;
 
 use crate::GremlinValue;
 
+#[cfg(feature = "graph_binary")]
+use crate::graph_binary::{Decode, Encode};
+
+#[cfg(feature = "graph_son")]
 use super::validate_type_entry;
+#[cfg(feature = "graph_son")]
+use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+#[cfg(feature = "graph_son")]
+use serde_json::json;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Set<T>(Vec<T>);
@@ -55,16 +58,15 @@ impl<T: Decode> Decode for Set<T> {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl<T: EncodeGraphSON> EncodeGraphSON for Set<T> {
-    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         json!({
           "@type" : "g:Set",
           "@value" : self.0.iter().map(|t| t.encode_v3()).collect::<Vec<serde_json::Value>>()
         })
     }
-    #[cfg(feature = "graph_son_v2")]
+
     fn encode_v2(&self) -> serde_json::Value {
         json!(self
             .0
@@ -82,9 +84,8 @@ impl<T: EncodeGraphSON> EncodeGraphSON for Set<T> {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl<T: DecodeGraphSON> DecodeGraphSON for Set<T> {
-    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -107,7 +108,6 @@ impl<T: DecodeGraphSON> DecodeGraphSON for Set<T> {
         Ok(Set(result_vec))
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -115,7 +115,7 @@ impl<T: DecodeGraphSON> DecodeGraphSON for Set<T> {
         Ok(Set(Vec::<T>::decode_v2(j_val)?))
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -225,9 +225,8 @@ impl<T: Decode> Decode for Vec<T> {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl<T: EncodeGraphSON> EncodeGraphSON for Vec<T> {
-    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         json!({
             "@type" : "g:List",
@@ -235,7 +234,6 @@ impl<T: EncodeGraphSON> EncodeGraphSON for Vec<T> {
         })
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         json!(self
             .iter()
@@ -251,16 +249,8 @@ impl<T: EncodeGraphSON> EncodeGraphSON for Vec<T> {
     }
 }
 
-fn extract_value(
-    val: &Map<String, serde_json::Value>,
-    f: impl Fn(&serde_json::Value) -> Option<serde_json::Value>,
-) -> Option<serde_json::Value> {
-    val.get("@value").and_then(f)
-}
-
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl<T: DecodeGraphSON> DecodeGraphSON for Vec<T> {
-    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -283,7 +273,6 @@ impl<T: DecodeGraphSON> DecodeGraphSON for Vec<T> {
         Ok(result_vec)
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -323,16 +312,15 @@ impl<T: DecodeGraphSON> DecodeGraphSON for Vec<T> {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl<T: EncodeGraphSON> EncodeGraphSON for &[T] {
-    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         json!({
             "@type" : "g:List",
             "@value" : self.iter().map(|t| t.encode_v3()).collect::<Vec<serde_json::Value>>(),
         })
     }
-    #[cfg(feature = "graph_son_v2")]
+
     fn encode_v2(&self) -> serde_json::Value {
         json!(self
             .iter()
@@ -348,9 +336,8 @@ impl<T: EncodeGraphSON> EncodeGraphSON for &[T] {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl<T: EncodeGraphSON, const N: usize> EncodeGraphSON for [T; N] {
-    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         json!({
             "@type" : "g:List",
@@ -358,7 +345,6 @@ impl<T: EncodeGraphSON, const N: usize> EncodeGraphSON for [T; N] {
         })
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         json!(self
             .iter()

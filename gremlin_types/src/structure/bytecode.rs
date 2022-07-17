@@ -1,16 +1,16 @@
 use std::fmt::Display;
 
-use serde_json::json;
+use crate::{conversion, specs::CoreType, GremlinValue};
 
-use crate::{
-    conversion,
-    graph_binary::{Decode, Encode},
-    graphson::{DecodeGraphSON, EncodeGraphSON},
-    specs::CoreType,
-    GremlinValue,
-};
+#[cfg(feature = "graph_binary")]
+use crate::graph_binary::{Decode, Encode};
 
+#[cfg(feature = "graph_son")]
 use super::validate_type_entry;
+#[cfg(feature = "graph_son")]
+use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+#[cfg(feature = "graph_son")]
+use serde_json::json;
 
 #[derive(Debug, PartialEq, Default, Clone)]
 pub struct Bytecode {
@@ -121,6 +121,7 @@ impl Display for Bytecode {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for Bytecode {
     fn type_code() -> u8 {
         CoreType::ByteCode.into()
@@ -145,7 +146,7 @@ impl Encode for Bytecode {
         Ok(())
     }
 }
-
+#[cfg(feature = "graph_binary")]
 impl Decode for Bytecode {
     fn expected_type_code() -> u8 {
         CoreType::ByteCode.into()
@@ -177,7 +178,7 @@ impl Decode for Bytecode {
 }
 
 //TODO impl sources in encoding Bytecode
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v3"))]
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for Bytecode {
     fn encode_v3(&self) -> serde_json::Value {
         let v: Vec<Vec<serde_json::Value>> = self
@@ -206,9 +207,8 @@ impl EncodeGraphSON for Bytecode {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Bytecode {
-    #[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -271,7 +271,6 @@ impl DecodeGraphSON for Bytecode {
         Ok(Bytecode { steps, sources })
     }
 
-    #[cfg(feature = "graph_son_v3")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -279,7 +278,7 @@ impl DecodeGraphSON for Bytecode {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -299,11 +298,12 @@ fn test_display() {
     bytecode.push_new_step("has", vec!["Person".into(), T::Id.into(), 500.into()]);
     bytecode.push_new_step("out", vec!["Person".into()]);
 
-    println!("{bytecode}")
+    let expected = "sources: [[\"withComputer\"]]\nsteps: [[\"V\"],[\"has\", \"Person\", T::id, 500_i32],[\"out\", \"Person\"]]";
+    assert_eq!(bytecode.to_string(), expected)
 }
 
 #[test]
-fn test_decode_v3() {
+fn decode_v3() {
     let string = r#"{
         "@type" : "g:Bytecode",
         "@value" : {
@@ -326,7 +326,7 @@ fn test_decode_v3() {
 }
 
 #[test]
-fn test_fail_decode_v3() {
+fn fail_decode_v3() {
     let string = r#"{
         "@type" : "g:Bytecode",
         "@value" : {
@@ -340,7 +340,7 @@ fn test_fail_decode_v3() {
 }
 
 #[test]
-fn test_fail2_decode_v3() {
+fn fail2_decode_v3() {
     let string = r#"{
         "@type" : "g:Bytecode",
         "@value" : {
@@ -354,7 +354,7 @@ fn test_fail2_decode_v3() {
 }
 
 #[test]
-fn test_decode_int_parameter_v3() {
+fn decode_int_parameter_v3() {
     let string = r#"{
         "@type" : "g:Bytecode",
         "@value" : {

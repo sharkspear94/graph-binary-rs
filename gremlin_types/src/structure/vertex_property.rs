@@ -1,21 +1,26 @@
-use std::{collections::HashMap, fmt::Display};
-
-use serde_json::{json, Map};
+use std::fmt::Display;
 
 use crate::{
     conversion,
     error::DecodeError,
-    graph_binary::{Decode, Encode},
-    graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::{self, CoreType},
     val_by_key_v2, val_by_key_v3, GremlinValue,
 };
 
 use super::{
     property::{EitherParent, Property},
-    validate_type_entry,
     vertex::Vertex,
 };
+
+#[cfg(feature = "graph_binary")]
+use crate::graph_binary::{Decode, Encode};
+
+#[cfg(feature = "graph_son")]
+use super::validate_type_entry;
+#[cfg(feature = "graph_son")]
+use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+#[cfg(feature = "graph_son")]
+use serde_json::{json, Map};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct VertexProperty {
@@ -109,9 +114,8 @@ impl Decode for VertexProperty {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for VertexProperty {
-    #[cfg(feature = "graph_son_v3")]
     fn encode_v3(&self) -> serde_json::Value {
         let mut jval_map = Map::new();
         if let Some(props) = &self.properties {
@@ -143,7 +147,6 @@ impl EncodeGraphSON for VertexProperty {
         }
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn encode_v2(&self) -> serde_json::Value {
         let mut jval_map = Map::new();
         if let Some(props) = &self.properties {
@@ -186,9 +189,8 @@ impl EncodeGraphSON for VertexProperty {
     }
 }
 
-#[cfg(any(feature = "graph_son_v3", feature = "graph_son_v2"))]
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for VertexProperty {
-    #[cfg(feature = "graph_son_v3")]
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -231,7 +233,6 @@ impl DecodeGraphSON for VertexProperty {
         })
     }
 
-    #[cfg(feature = "graph_son_v2")]
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
@@ -279,7 +280,7 @@ impl DecodeGraphSON for VertexProperty {
         })
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
     where
         Self: std::marker::Sized,
     {
