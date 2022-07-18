@@ -111,8 +111,37 @@ pub enum CoreType {
     Merge,
 
     UnspecifiedNullObject,
+    // extended types
     #[cfg(feature = "extended")]
     Char,
+    #[cfg(feature = "extended")]
+    Duration,
+    #[cfg(feature = "extended")]
+    InetAddress,
+    #[cfg(feature = "extended")]
+    Instant,
+    #[cfg(feature = "extended")]
+    LocalDate,
+    #[cfg(feature = "extended")]
+    LocalDateTime,
+    #[cfg(feature = "extended")]
+    LocalTime,
+    #[cfg(feature = "extended")]
+    MonthDay,
+    #[cfg(feature = "extended")]
+    OffsetDateTime,
+    #[cfg(feature = "extended")]
+    OffsetTime,
+    #[cfg(feature = "extended")]
+    Period,
+    #[cfg(feature = "extended")]
+    Year,
+    #[cfg(feature = "extended")]
+    YearMonth,
+    #[cfg(feature = "extended")]
+    ZonedDateTime,
+    #[cfg(feature = "extended")]
+    ZoneOffset,
 }
 
 impl From<CoreType> for u8 {
@@ -164,6 +193,34 @@ impl From<CoreType> for u8 {
             CoreType::UnspecifiedNullObject => CORE_TYPE_UNSPECIFIED_NULL,
             #[cfg(feature = "extended")]
             CoreType::Char => EXTENDED_TYPE_CHAR,
+            #[cfg(feature = "extended")]
+            CoreType::Duration => EXTENDED_TYPE_DURATION,
+            #[cfg(feature = "extended")]
+            CoreType::InetAddress => EXTENDED_TYPE_INET_ADDRESS,
+            #[cfg(feature = "extended")]
+            CoreType::Instant => EXTENDED_TYPE_INSTANT,
+            #[cfg(feature = "extended")]
+            CoreType::LocalDate => EXTENDED_TYPE_LOCAL_DATE,
+            #[cfg(feature = "extended")]
+            CoreType::LocalDateTime => EXTENDED_TYPE_LOCAL_DATETIME,
+            #[cfg(feature = "extended")]
+            CoreType::LocalTime => EXTENDED_TYPE_LOCAL_TIME,
+            #[cfg(feature = "extended")]
+            CoreType::MonthDay => EXTENDED_TYPE_MONTH_DAY,
+            #[cfg(feature = "extended")]
+            CoreType::OffsetDateTime => EXTENDED_TYPE_OFFSET_DATETIME,
+            #[cfg(feature = "extended")]
+            CoreType::OffsetTime => EXTENDED_TYPE_OFFSET_TIME,
+            #[cfg(feature = "extended")]
+            CoreType::Period => EXTENDED_TYPE_PERIOD,
+            #[cfg(feature = "extended")]
+            CoreType::Year => EXTENDED_TYPE_YEAR,
+            #[cfg(feature = "extended")]
+            CoreType::YearMonth => EXTENDED_TYPE_YEAR_MONTH,
+            #[cfg(feature = "extended")]
+            CoreType::ZonedDateTime => EXTENDED_TYPE_ZONED_DATETIME,
+            #[cfg(feature = "extended")]
+            CoreType::ZoneOffset => EXTENDED_TYPE_ZONED_OFFSET,
         }
     }
 }
