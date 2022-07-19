@@ -211,9 +211,7 @@ impl<T: Decode> Decode for Vec<T> {
     where
         Self: std::marker::Sized,
     {
-        let mut len_buf = [0_u8; 4];
-        reader.read_exact(&mut len_buf)?;
-        let len = i32::from_be_bytes(len_buf);
+        let len = i32::partial_decode(reader)?;
         if len.is_negative() {
             return Err(DecodeError::DecodeError("vec len negativ".to_string()));
         }
