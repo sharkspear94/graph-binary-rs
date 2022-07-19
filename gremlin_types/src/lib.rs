@@ -2,7 +2,10 @@ mod error;
 pub mod graph_binary;
 mod macros;
 mod specs;
-mod structure;
+pub mod structure;
+
+#[cfg(feature = "extended")]
+mod extended;
 
 #[cfg(feature = "graph_son")]
 pub mod graphson;
@@ -11,6 +14,12 @@ pub mod graphson;
 pub mod de;
 #[cfg(feature = "serde")]
 pub mod ser;
+
+#[cfg(feature = "extended")]
+use chrono::{DateTime, Duration, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
+use extended::chrono::Period;
+#[cfg(feature = "extended")]
+use extended::chrono::{MonthDay, OffsetTime, Year, YearMonth, ZonedDateTime};
 
 use structure::enums::P;
 use structure::map::MapKeys;
@@ -91,33 +100,33 @@ pub enum GremlinValue {
     #[cfg(feature = "extended")]
     Char(char),
     #[cfg(feature = "extended")]
-    Duration(),
+    Duration(Duration),
     #[cfg(feature = "extended")]
     InetAddress(std::net::IpAddr),
     #[cfg(feature = "extended")]
-    Instant(),
+    Instant(DateTime<FixedOffset>),
     #[cfg(feature = "extended")]
-    LocalDate(),
+    LocalDate(NaiveDate),
     #[cfg(feature = "extended")]
-    LocalDateTime(),
+    LocalDateTime(NaiveDateTime),
     #[cfg(feature = "extended")]
-    LocalTime(),
+    LocalTime(NaiveTime),
     #[cfg(feature = "extended")]
-    MonthDay(),
+    MonthDay(MonthDay),
     #[cfg(feature = "extended")]
-    OffsetDateTime(),
+    OffsetDateTime(DateTime<FixedOffset>),
     #[cfg(feature = "extended")]
-    OffsetTime(),
+    OffsetTime(OffsetTime),
     #[cfg(feature = "extended")]
-    Period(),
+    Period(Period),
     #[cfg(feature = "extended")]
-    Year(),
+    Year(Year),
     #[cfg(feature = "extended")]
-    YearMonth(),
+    YearMonth(YearMonth),
     #[cfg(feature = "extended")]
-    ZonedDateTime(),
+    ZonedDateTime(ZonedDateTime),
     #[cfg(feature = "extended")]
-    ZoneOffset(),
+    ZoneOffset(FixedOffset),
 }
 
 impl GremlinValue {
@@ -267,33 +276,33 @@ impl Display for GremlinValue {
             #[cfg(feature = "extended")]
             GremlinValue::Char(val) => write!(f, "{val}"),
             #[cfg(feature = "extended")]
-            GremlinValue::Duration() => unimplemented!(),
+            GremlinValue::Duration(val) => write!(f, "Duration::{val}"),
             #[cfg(feature = "extended")]
-            GremlinValue::InetAddress(_) => unimplemented!(),
+            GremlinValue::InetAddress(val) => write!(f, "InetAddress::{val}"),
             #[cfg(feature = "extended")]
-            GremlinValue::Instant() => unimplemented!(),
+            GremlinValue::Instant(val) => unimplemented!(),
             #[cfg(feature = "extended")]
-            GremlinValue::LocalDate() => unimplemented!(),
+            GremlinValue::LocalDate(val) => write!(f, "LocalDate::{val}"),
             #[cfg(feature = "extended")]
-            GremlinValue::LocalDateTime() => unimplemented!(),
+            GremlinValue::LocalDateTime(val) => write!(f, "LocalDateTime::{val}"),
             #[cfg(feature = "extended")]
-            GremlinValue::LocalTime() => unimplemented!(),
+            GremlinValue::LocalTime(val) => write!(f, "LocalTime::{val}"),
             #[cfg(feature = "extended")]
-            GremlinValue::MonthDay() => unimplemented!(),
+            GremlinValue::MonthDay(val) => unimplemented!(),
             #[cfg(feature = "extended")]
-            GremlinValue::OffsetDateTime() => unimplemented!(),
+            GremlinValue::OffsetDateTime(val) => write!(f, "OffsetDateTime::{val}"),
             #[cfg(feature = "extended")]
-            GremlinValue::OffsetTime() => unimplemented!(),
+            GremlinValue::OffsetTime(val) => unimplemented!(),
             #[cfg(feature = "extended")]
-            GremlinValue::Period() => unimplemented!(),
+            GremlinValue::Period(val) => write!(f, "Period::{val}"),
             #[cfg(feature = "extended")]
-            GremlinValue::Year() => unimplemented!(),
+            GremlinValue::Year(val) => unimplemented!(),
             #[cfg(feature = "extended")]
-            GremlinValue::YearMonth() => unimplemented!(),
+            GremlinValue::YearMonth(val) => unimplemented!(),
             #[cfg(feature = "extended")]
-            GremlinValue::ZonedDateTime() => unimplemented!(),
+            GremlinValue::ZonedDateTime(val) => unimplemented!(),
             #[cfg(feature = "extended")]
-            GremlinValue::ZoneOffset() => unimplemented!(),
+            GremlinValue::ZoneOffset(val) => write!(f, "ZoneOffset::{val}"),
         }
     }
 }

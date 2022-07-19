@@ -1,8 +1,8 @@
-use std::io::Read;
+use std::{fmt::Display, io::Read};
 
 use chrono::{
     format::{parse, Fixed, Item, Numeric, Pad, Parsed},
-    DateTime, Datelike, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Timelike,
+    DateTime, Datelike, Duration, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, Timelike,
 };
 use serde_json::json;
 
@@ -12,22 +12,511 @@ use crate::graph_binary::{Decode, Encode};
 use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
 #[cfg(feature = "graph_son")]
 use crate::structure::validate_type_entry;
-use crate::{error::DecodeError, specs::CoreType};
+use crate::{
+    error::{DecodeError, EncodeError},
+    specs::CoreType,
+};
 
-#[derive(Debug, Clone, PartialEq)]
+fn parse_java_duration(s: &str) -> Result<Duration, DecodeError> {
+    let mut iter = s.chars();
+    iter.next().filter(|c| c.eq(&'P')).ok_or_else(|| {
+        DecodeError::DecodeError("parsing error of Duration/Period literal P not found".to_string())
+    })?;
+    let mut duration = Duration::zero();
+    let mut date = true;
+
+    for pairs in s[1..].split_inclusive(['M', 'D', 'T', 'H', 'S']) {
+        let (numeric, qualifier) = pairs.split_at(pairs.len() - 1);
+
+        if date {
+            match qualifier {
+                "D" => {
+                    let days = numeric.parse::<i64>().map_err(|err| {
+                        DecodeError::DecodeError(format!("cannot parse years: {err}"))
+                    })?;
+                    duration = duration + Duration::days(days);
+                }
+                "T" => date = false,
+
+                rest => {
+                    return Err(DecodeError::DecodeError(format!(
+                        "identifier {rest} not valid while parsing Date portion"
+                    )))
+                }
+            }
+        } else {
+            match qualifier {
+                "H" => {
+                    let hours = numeric.parse::<i64>().map_err(|err| {
+                        DecodeError::DecodeError(format!("cannot parse years: {err}"))
+                    })?;
+                    duration = duration + Duration::hours(hours);
+                }
+                "M" => {
+                    let minutes = numeric.parse::<i64>().map_err(|err| {
+                        DecodeError::DecodeError(format!("cannot parse years: {err}"))
+                    })?;
+                    duration = duration + Duration::minutes(minutes);
+                }
+                "S" => {
+                    let seconds = numeric.parse::<f64>().map_err(|err| {
+                        DecodeError::DecodeError(format!("cannot parse years: {err}"))
+                    })?;
+                    let nanos = (seconds.fract() * 1000. * 1000. * 1000.) as i64;
+                    duration = duration
+                        + Duration::seconds(seconds.floor() as i64)
+                        + Duration::nanoseconds(nanos);
+                }
+                a => {
+                    return Err(DecodeError::DecodeError(format!(
+                        "identifier {a} not valid while parsing Time portion"
+                    )))
+                }
+            }
+        }
+    }
+
+    Ok(duration)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MonthDay {
     month: u8,
     day: u8,
 }
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy, Eq, PartialOrd, Ord, Hash)]
 pub struct Year(i32);
-#[derive(Debug, Clone, PartialEq)]
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct YearMonth {
     year: i32,
     month: u8,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Period {
+    years: i32,
+    months: i32,
+    days: i32,
+}
+
+impl Period {
+    pub fn new(years: i32, months: i32, days: i32) -> Period {
+        Period {
+            years,
+            months,
+            days,
+        }
+    }
+
+    pub fn zero() -> Period {
+        Period::new(0, 0, 0)
+    }
+
+    pub fn parse(s: &str) -> Result<Period, DecodeError> {
+        let mut iter = s.chars();
+        iter.next().filter(|c| c.eq(&'P')).ok_or_else(|| {
+            DecodeError::DecodeError(
+                "parsing error of Duration/Period literal P not found".to_string(),
+            )
+        })?;
+        let mut period = Period::zero();
+        for pairs in s[1..].split_inclusive(['Y', 'M', 'W', 'D']) {
+            let (numeric, qualifier) = pairs.split_at(pairs.len() - 1);
+
+            match qualifier {
+                "Y" => {
+                    let years = numeric.parse::<i32>().map_err(|err| {
+                        DecodeError::DecodeError(format!("cannot parse years: {err}"))
+                    })?;
+                    period.years += years
+                }
+                "M" => {
+                    let months = numeric.parse::<i32>().map_err(|err| {
+                        DecodeError::DecodeError(format!("cannot parse months: {err}"))
+                    })?;
+                    period.months += months;
+                }
+                "W" => {
+                    let weeks = numeric.parse::<i32>().map_err(|err| {
+                        DecodeError::DecodeError(format!("cannot parse weeks: {err}"))
+                    })?;
+                    period.days += weeks * 7;
+                }
+                "D" => {
+                    let days = numeric.parse::<i32>().map_err(|err| {
+                        DecodeError::DecodeError(format!("cannot parse days: {err}"))
+                    })?;
+                    period.days += days;
+                }
+                a => {
+                    return Err(DecodeError::DecodeError(format!(
+                        "identifier {a} not valid while parsing Period "
+                    )))
+                }
+            }
+        }
+        Ok(period)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ZonedDateTime(DateTime<FixedOffset>);
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OffsetTime {
+    time: NaiveTime,
+    offset: FixedOffset,
+}
+
+#[cfg(feature = "graph_binary")]
+impl Encode for Duration {
+    fn type_code() -> u8 {
+        CoreType::Duration.into()
+    }
+
+    fn partial_encode<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), crate::error::EncodeError> {
+        let s = self
+            .to_std()
+            .map_err(|e| EncodeError::Serilization(format!("duration out of range: {e}")))?;
+        let a = i64::try_from(s.as_secs())
+            .map_err(|e| EncodeError::Serilization(format!("cannot convert u64 to i64: {e}")))?;
+        a.partial_encode(writer)?;
+        (s.subsec_nanos() as i32).partial_encode(writer)
+    }
+}
+
+#[cfg(feature = "graph_binary")]
+impl Decode for Duration {
+    fn expected_type_code() -> u8 {
+        CoreType::Duration.into()
+    }
+
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let secs = i64::partial_decode(reader)?;
+
+        let nanos = i32::partial_decode(reader)?;
+
+        Ok(Duration::seconds(secs) + Duration::nanoseconds(nanos as i64))
+    }
+}
+
+#[cfg(feature = "graph_son")]
+impl EncodeGraphSON for Duration {
+    fn encode_v3(&self) -> serde_json::Value {
+        json!({
+          "@type" : "gx:Duration",
+          "@value" : self.to_string()
+        })
+    }
+
+    fn encode_v2(&self) -> serde_json::Value {
+        self.encode_v3()
+    }
+
+    fn encode_v1(&self) -> serde_json::Value {
+        todo!()
+    }
+}
+
+#[cfg(feature = "graph_son")]
+impl DecodeGraphSON for Duration {
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let s = j_val
+            .as_object()
+            .filter(|map| validate_type_entry(*map, "gx:Duration"))
+            .and_then(|map| map.get("@value"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                DecodeError::DecodeError("could not decode Duration type identifier".to_string())
+            })?;
+
+        parse_java_duration(s)
+    }
+
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        Self::decode_v3(j_val)
+    }
+
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        todo!()
+    }
+}
+
+#[cfg(feature = "graph_binary")]
+impl Encode for MonthDay {
+    fn type_code() -> u8 {
+        CoreType::MonthDay.into()
+    }
+
+    fn partial_encode<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), crate::error::EncodeError> {
+        self.month.partial_encode(writer)?;
+        self.day.partial_encode(writer)
+    }
+}
+#[cfg(feature = "graph_binary")]
+impl Decode for MonthDay {
+    fn expected_type_code() -> u8 {
+        CoreType::MonthDay.into()
+    }
+
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let month = u8::partial_decode(reader)?;
+        let day = u8::partial_decode(reader)?;
+
+        Ok(MonthDay { month, day })
+    }
+}
+
+#[cfg(feature = "graph_son")]
+impl EncodeGraphSON for MonthDay {
+    fn encode_v3(&self) -> serde_json::Value {
+        json!({
+          "@type" : "gx:MonthDay",
+          "@value" : format!("--{:02}-{:02}",self.month,self.day)
+        })
+    }
+
+    fn encode_v2(&self) -> serde_json::Value {
+        self.encode_v3()
+    }
+
+    fn encode_v1(&self) -> serde_json::Value {
+        todo!()
+    }
+}
+
+#[cfg(feature = "graph_son")]
+impl DecodeGraphSON for MonthDay {
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let s = j_val
+            .as_object()
+            .filter(|map| validate_type_entry(*map, "gx:MonthDay"))
+            .and_then(|map| map.get("@value"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                DecodeError::DecodeError("could not decode MonthDay type identifier".to_string())
+            })?;
+        let month = s[2..4]
+            .parse()
+            .map_err(|e| DecodeError::DecodeError(format!("month parse error: {e}")))?;
+        let day = s[5..]
+            .parse()
+            .map_err(|e| DecodeError::DecodeError(format!("day parse error: {e}")))?;
+
+        Ok(MonthDay { month, day })
+    }
+
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        Self::decode_v3(j_val)
+    }
+
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        todo!()
+    }
+}
+#[cfg(feature = "graph_binary")]
+impl Encode for Year {
+    fn type_code() -> u8 {
+        CoreType::Year.into()
+    }
+
+    fn partial_encode<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), crate::error::EncodeError> {
+        self.0.partial_encode(writer)
+    }
+}
+#[cfg(feature = "graph_binary")]
+impl Decode for Year {
+    fn expected_type_code() -> u8 {
+        CoreType::Year.into()
+    }
+
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        Ok(Year(i32::partial_decode(reader)?))
+    }
+}
+
+#[cfg(feature = "graph_son")]
+impl EncodeGraphSON for Year {
+    fn encode_v3(&self) -> serde_json::Value {
+        json!({
+          "@type" : "gx:Year",
+          "@value" : self.0
+        })
+    }
+
+    fn encode_v2(&self) -> serde_json::Value {
+        self.encode_v3()
+    }
+
+    fn encode_v1(&self) -> serde_json::Value {
+        todo!()
+    }
+}
+
+#[cfg(feature = "graph_son")]
+impl DecodeGraphSON for Year {
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let s = j_val
+            .as_object()
+            .filter(|map| validate_type_entry(*map, "gx:Year"))
+            .and_then(|map| map.get("@value"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                DecodeError::DecodeError("could not decode Year type identifier".to_string())
+            })?;
+        let year = s
+            .parse()
+            .map_err(|e| DecodeError::DecodeError(format!("year parse error: {e}")))?;
+
+        Ok(Year(year))
+    }
+
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        Self::decode_v3(j_val)
+    }
+
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        todo!()
+    }
+}
+
+#[cfg(feature = "graph_binary")]
+impl Encode for YearMonth {
+    fn type_code() -> u8 {
+        CoreType::YearMonth.into()
+    }
+
+    fn partial_encode<W: std::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), crate::error::EncodeError> {
+        self.year.partial_encode(writer)?;
+        self.month.partial_encode(writer)
+    }
+}
+#[cfg(feature = "graph_binary")]
+impl Decode for YearMonth {
+    fn expected_type_code() -> u8 {
+        CoreType::YearMonth.into()
+    }
+
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let year = i32::partial_decode(reader)?;
+        let month = u8::partial_decode(reader)?;
+        Ok(YearMonth { year, month })
+    }
+}
+
+#[cfg(feature = "graph_son")]
+impl EncodeGraphSON for YearMonth {
+    fn encode_v3(&self) -> serde_json::Value {
+        json!({
+          "@type" : "gx:YearMonth",
+          "@value" : format!("{:04}-{:02}",self.year,self.month)
+        })
+    }
+
+    fn encode_v2(&self) -> serde_json::Value {
+        self.encode_v3()
+    }
+
+    fn encode_v1(&self) -> serde_json::Value {
+        todo!()
+    }
+}
+
+#[cfg(feature = "graph_son")]
+impl DecodeGraphSON for YearMonth {
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let s = j_val
+            .as_object()
+            .filter(|map| validate_type_entry(*map, "gx:YearMonth"))
+            .and_then(|map| map.get("@value"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                DecodeError::DecodeError("could not decode YearMonth type identifier".to_string())
+            })?;
+        if let Some((year, month)) = s.split_once('-') {
+            let year = year
+                .parse()
+                .map_err(|e| DecodeError::DecodeError(format!("year parse error: {e}")))?;
+            let month = month
+                .parse()
+                .map_err(|e| DecodeError::DecodeError(format!("year parse error: {e}")))?;
+            Ok(YearMonth { year, month })
+        } else {
+            Err(DecodeError::DecodeError(
+                "YearMonth has wrong format".to_string(),
+            ))
+        }
+    }
+
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        Self::decode_v3(j_val)
+    }
+
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        todo!()
+    }
+}
 
 #[cfg(feature = "graph_binary")]
 impl Encode for NaiveTime {
@@ -398,7 +887,7 @@ impl DecodeGraphSON for FixedOffset {
 }
 
 #[cfg(feature = "graph_binary")]
-impl Encode for (NaiveTime, FixedOffset) {
+impl Encode for OffsetTime {
     fn type_code() -> u8 {
         CoreType::OffsetTime.into()
     }
@@ -407,13 +896,13 @@ impl Encode for (NaiveTime, FixedOffset) {
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
-        self.0.partial_encode(writer)?;
-        self.1.partial_encode(writer)
+        self.time.partial_encode(writer)?;
+        self.offset.partial_encode(writer)
     }
 }
 
 #[cfg(feature = "graph_binary")]
-impl Decode for (NaiveTime, FixedOffset) {
+impl Decode for OffsetTime {
     fn expected_type_code() -> u8 {
         CoreType::OffsetTime.into()
     }
@@ -422,19 +911,19 @@ impl Decode for (NaiveTime, FixedOffset) {
     where
         Self: std::marker::Sized,
     {
-        let local_time = NaiveTime::partial_decode(reader)?;
+        let time = NaiveTime::partial_decode(reader)?;
         let offset = FixedOffset::partial_decode(reader)?;
 
-        Ok((local_time, offset))
+        Ok(OffsetTime { time, offset })
     }
 }
 
 #[cfg(feature = "graph_son")]
-impl EncodeGraphSON for (NaiveTime, FixedOffset) {
+impl EncodeGraphSON for OffsetTime {
     fn encode_v3(&self) -> serde_json::Value {
         json!({
           "@type" : "gx:OffsetTime",
-          "@value" : format!("{}{}",self.0.format("%H:%M:%S"),self.1)
+          "@value" : format!("{}{}",self.time.format("%H:%M:%S"),self.offset)
         })
     }
 
@@ -448,7 +937,7 @@ impl EncodeGraphSON for (NaiveTime, FixedOffset) {
 }
 
 #[cfg(feature = "graph_son")]
-impl DecodeGraphSON for (NaiveTime, FixedOffset) {
+impl DecodeGraphSON for OffsetTime {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
@@ -463,19 +952,20 @@ impl DecodeGraphSON for (NaiveTime, FixedOffset) {
             })?;
 
         let time = NaiveTime::parse_from_str(s, "%H:%M:%S%z")
-            .map_err(|err| DecodeError::DecodeError(format!("cannot parse ZoneOffset {err}")))?;
+            .or_else(|_| NaiveTime::parse_from_str(s, "%H:%M:%S%.f%z"))
+            .map_err(|err| DecodeError::DecodeError(format!("cannot parse Time {err}")))?;
 
         let mut parsed = Parsed::new();
         parse(
             &mut parsed,
-            &s[8..],
+            &s[s.len() - 6..], // TODO not safe
             [Item::Fixed(Fixed::TimezoneOffset)].iter(),
         )
         .map_err(|err| DecodeError::DecodeError(format!("cannot parse ZoneOffset {err}")))?;
         let offset = parsed
             .to_fixed_offset()
             .map_err(|err| DecodeError::DecodeError(format!("cannot parse ZoneOffset {err}")))?;
-        Ok((time, offset))
+        Ok(OffsetTime { time, offset })
     }
 
     fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
@@ -669,6 +1159,108 @@ impl DecodeGraphSON for ZonedDateTime {
     }
 }
 
+impl Encode for Period {
+    fn type_code() -> u8 {
+        CoreType::Period.into()
+    }
+
+    fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+        self.years.partial_encode(writer)?;
+        self.months.partial_encode(writer)?;
+        self.days.partial_encode(writer)
+    }
+}
+
+impl Decode for Period {
+    fn expected_type_code() -> u8 {
+        CoreType::Period.into()
+    }
+
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let years = i32::partial_decode(reader)?;
+        let months = i32::partial_decode(reader)?;
+        let days = i32::partial_decode(reader)?;
+
+        Ok(Period {
+            years,
+            months,
+            days,
+        })
+    }
+}
+
+impl Display for Period {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "P")?;
+        let mut some = false;
+        if self.years != 0 {
+            write!(f, "{}Y", self.years)?;
+            some = true;
+        }
+        if self.months != 0 {
+            write!(f, "{}M", self.months)?;
+            some = true;
+        }
+        match (some, self.days) {
+            (true, 0) => Ok(()),
+            (true, not_zero) => write!(f, "{not_zero}D"),
+            (false, either) => write!(f, "{either}D"),
+        }
+    }
+}
+
+impl EncodeGraphSON for Period {
+    fn encode_v3(&self) -> serde_json::Value {
+        json!({
+          "@type" : "gx:Period",
+          "@value" : self.to_string()
+        })
+    }
+
+    fn encode_v2(&self) -> serde_json::Value {
+        self.encode_v3()
+    }
+
+    fn encode_v1(&self) -> serde_json::Value {
+        todo!()
+    }
+}
+
+impl DecodeGraphSON for Period {
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let s = j_val
+            .as_object()
+            .filter(|map| validate_type_entry(*map, "gx:Period"))
+            .and_then(|map| map.get("@value"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                DecodeError::DecodeError("could not decode Period type identifier".to_string())
+            })?;
+
+        Period::parse(s)
+    }
+
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        Self::decode_v3(j_val)
+    }
+
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        todo!()
+    }
+}
+
 #[test]
 fn local_date_encode() {
     let expected = [0x84, 0x0, 0x0, 0x0, 0x7, 0xE6, 6, 13];
@@ -807,7 +1399,11 @@ fn offset_decode_v3() {
 fn time_offset_encode_v3() {
     let expected = r#"{"@type":"gx:OffsetTime","@value":"10:15:30+01:00"}"#;
 
-    let v = (NaiveTime::from_hms(10, 15, 30), FixedOffset::west(-3600)).encode_v3();
+    let v = OffsetTime {
+        time: NaiveTime::from_hms(10, 15, 30),
+        offset: FixedOffset::west(-3600),
+    }
+    .encode_v3();
     let res = serde_json::to_string(&v).unwrap();
     assert_eq!(res, expected);
 }
@@ -817,10 +1413,13 @@ fn time_offset_decode_v3() {
     let s = r#"{"@type":"gx:OffsetTime","@value":"10:15:30+01:00"}"#;
 
     let v = serde_json::from_str(s).unwrap();
-    let res = <(NaiveTime, FixedOffset)>::decode_v3(&v).unwrap();
+    let res = OffsetTime::decode_v3(&v).unwrap();
     assert_eq!(
         res,
-        (NaiveTime::from_hms(10, 15, 30), FixedOffset::west(-3600))
+        OffsetTime {
+            time: NaiveTime::from_hms(10, 15, 30),
+            offset: FixedOffset::west(-3600)
+        }
     )
 }
 
@@ -896,4 +1495,94 @@ fn zoned_date_time_offset_decode_v3() {
         res,
         ZonedDateTime(DateTime::parse_from_rfc3339("2016-12-23T12:12:24.000000000+02:00").unwrap())
     )
+}
+
+#[test]
+fn month_day_encode_v3() {
+    let expected = r#"{"@type":"gx:MonthDay","@value":"--01-01"}"#;
+
+    let v = MonthDay { month: 1, day: 1 }.encode_v3();
+    let res = serde_json::to_string(&v).unwrap();
+    assert_eq!(res, expected);
+}
+
+#[test]
+fn year_month_decode_v3() {
+    let s = r#"{"@type":"gx:MonthDay","@value":"--01-21"}"#;
+
+    let v = serde_json::from_str(s).unwrap();
+    let res = MonthDay::decode_v3(&v).unwrap();
+    assert_eq!(res, MonthDay { month: 1, day: 21 })
+}
+
+#[test]
+fn month_day_decode_v3() {
+    let s = r#"{"@type":"gx:YearMonth","@value":"2016-12"}"#;
+
+    let v = serde_json::from_str(s).unwrap();
+    let res = YearMonth::decode_v3(&v).unwrap();
+    assert_eq!(
+        res,
+        YearMonth {
+            year: 2016,
+            month: 12,
+        }
+    )
+}
+
+#[test]
+fn year_month_encode_v3() {
+    let expected = r#"{"@type":"gx:YearMonth","@value":"2016-01"}"#;
+
+    let v = YearMonth {
+        year: 2016,
+        month: 1,
+    }
+    .encode_v3();
+    let res = serde_json::to_string(&v).unwrap();
+    assert_eq!(res, expected);
+}
+
+#[test]
+fn duration_encode_v3() {
+    let expected = r#"{"@type":"gx:Duration","@value":"P5DT2.001S"}"#;
+    let v = (Duration::seconds(3600 * 24 * 5 + 2) + Duration::nanoseconds(1000 * 1000)).encode_v3();
+    let res = serde_json::to_string(&v).unwrap();
+    assert_eq!(res, expected);
+}
+
+#[test]
+fn duration_decode_v3() {
+    let s = r#"{"@type":"gx:Duration","@value":"P5DT2.1S"}"#;
+    let expected = Duration::seconds(3600 * 24 * 5 + 2) + Duration::nanoseconds(1000 * 1000 * 100);
+    let v = serde_json::from_str(s).unwrap();
+    let res = Duration::decode_v3(&v).unwrap();
+
+    assert_eq!(res, expected);
+}
+
+#[test]
+fn period_encode_v3() {
+    let expected = r#"{"@type":"gx:Period","@value":"P2Y5M-1D"}"#;
+    let v = Period::new(2, 5, -1).encode_v3();
+    let res = serde_json::to_string(&v).unwrap();
+    assert_eq!(res, expected);
+}
+
+#[test]
+fn period_zero_encode_v3() {
+    let expected = r#"{"@type":"gx:Period","@value":"P0D"}"#;
+    let v = Period::zero().encode_v3();
+    let res = serde_json::to_string(&v).unwrap();
+    assert_eq!(res, expected);
+}
+
+#[test]
+fn period_decode_v3() {
+    let s = r#"{"@type":"gx:Period","@value":"P5Y2M-1D"}"#;
+    let expected = Period::new(5, 2,- 1);
+    let v = serde_json::from_str(s).unwrap();
+    let res = Period::decode_v3(&v).unwrap();
+
+    assert_eq!(res, expected);
 }

@@ -10,12 +10,21 @@ uuid = {version = "1.0.0" , features = ["v4","fast-rng"]}
 serde = {version = "1.0.0",features = ["derive"], optional = true}
 thiserror = "1.0.0"
 serde_json = {version = "1.0.0",optional = true}
+chrono = {version = "0.4.0",optional = true}
 
 [features]
 # Defines a feature named `webp` that does not enable any other features.
-default = ["graph_binary","graph_son"] 
+default = ["graph_binary","graph_son","extended"] 
+graph_binary = []
 full = ["default","extended","serde"]
 graph_son = ["dep:serde_json"]
-graph_binary = []
-extended = []
+extended = ["dep:chrono"]
 serde = ["dep:serde"]
+
+
+[dev-dependencies]
+criterion = "0.3.0"
+
+[[bench]]
+name = "benchmark"
+harness = false

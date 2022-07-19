@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::io::{Read, Write};
+use std::fs::File;
+use std::io::{BufReader, BufWriter, Read, Write};
 
 use crate::error::{DecodeError, EncodeError};
 
@@ -21,6 +22,21 @@ use crate::Binding;
 use crate::GremlinValue;
 use crate::{specs::CoreType, structure::edge::Edge};
 use uuid::Uuid;
+
+pub fn from_file(path: &std::path::Path) -> Result<GremlinValue, DecodeError> {
+    let file = File::open(path).unwrap();
+    let mut buf = BufReader::new(file);
+    GremlinValue::decode(&mut buf)
+}
+
+pub fn from_slice(slice: &mut &[u8]) -> Result<GremlinValue, DecodeError> {
+    GremlinValue::decode(slice)
+}
+
+pub fn to_file(gremlin_value: GremlinValue, file: File) -> Result<(), EncodeError> {
+    let mut writer = BufWriter::new(file);
+    gremlin_value.encode(&mut writer)
+}
 
 #[cfg(feature = "graph_binary")]
 pub fn encode_null_object<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
@@ -85,33 +101,33 @@ impl GremlinValue {
             #[cfg(feature = "extended")]
             GremlinValue::Char(val) => val.encode(writer),
             #[cfg(feature = "extended")]
-            GremlinValue::Duration() => unimplemented!(),
+            GremlinValue::Duration(val) => val.encode(writer),
             #[cfg(feature = "extended")]
-            GremlinValue::InetAddress(_) => unimplemented!(),
+            GremlinValue::InetAddress(val) => val.encode(writer),
             #[cfg(feature = "extended")]
-            GremlinValue::Instant() => unimplemented!(),
+            GremlinValue::Instant(val) => unimplemented!(),
             #[cfg(feature = "extended")]
-            GremlinValue::LocalDate() => unimplemented!(),
+            GremlinValue::LocalDate(val) => val.encode(writer),
             #[cfg(feature = "extended")]
-            GremlinValue::LocalDateTime() => unimplemented!(),
+            GremlinValue::LocalDateTime(val) => val.encode(writer),
             #[cfg(feature = "extended")]
-            GremlinValue::LocalTime() => unimplemented!(),
+            GremlinValue::LocalTime(val) => val.encode(writer),
             #[cfg(feature = "extended")]
-            GremlinValue::MonthDay() => unimplemented!(),
+            GremlinValue::MonthDay(val) => val.encode(writer),
             #[cfg(feature = "extended")]
-            GremlinValue::OffsetDateTime() => unimplemented!(),
+            GremlinValue::OffsetDateTime(val) => val.encode(writer),
             #[cfg(feature = "extended")]
-            GremlinValue::OffsetTime() => unimplemented!(),
+            GremlinValue::OffsetTime(val) => val.encode(writer),
             #[cfg(feature = "extended")]
-            GremlinValue::Period() => unimplemented!(),
+            GremlinValue::Period(val) => val.encode(writer),
             #[cfg(feature = "extended")]
-            GremlinValue::Year() => unimplemented!(),
+            GremlinValue::Year(val) => val.encode(writer),
             #[cfg(feature = "extended")]
-            GremlinValue::YearMonth() => unimplemented!(),
+            GremlinValue::YearMonth(val) => val.encode(writer),
             #[cfg(feature = "extended")]
-            GremlinValue::ZonedDateTime() => unimplemented!(),
+            GremlinValue::ZonedDateTime(val) => val.encode(writer),
             #[cfg(feature = "extended")]
-            GremlinValue::ZoneOffset() => unimplemented!(),
+            GremlinValue::ZoneOffset(val) => val.encode(writer),
             // GraphBinary::Custom => todo!(),
             // _ =>  Bytes::new()
         }
@@ -155,7 +171,7 @@ impl Encode for GremlinValue {
 }
 
 #[cfg(feature = "graph_binary")]
-pub fn decode<R: Read>(reader: &mut R) -> Result<GremlinValue, DecodeError> {
+fn decode<R: Read>(reader: &mut R) -> Result<GremlinValue, DecodeError> {
     use crate::structure::{enums::P, map::MapKeys};
 
     let mut buf = [255_u8; 2];
@@ -227,6 +243,11 @@ pub fn decode<R: Read>(reader: &mut R) -> Result<GremlinValue, DecodeError> {
         )),
         #[cfg(feature = "extended")]
         (CoreType::Char, _) => Ok(GremlinValue::Char(char::partial_decode(reader)?)),
+        #[cfg(feature = "extended")]
+        (CoreType::InetAddress, _) => Ok(GremlinValue::InetAddress(
+            std::net::IpAddr::partial_decode(reader)?,
+        )),
+        (_, _) => todo!("not yet implemented"),
     }
 }
 
