@@ -40,9 +40,7 @@ impl Decode for String {
     }
 
     fn partial_decode<R: Read>(reader: &mut R) -> Result<String, DecodeError> {
-        let mut buf = [0_u8; 4];
-        reader.read_exact(&mut buf)?;
-        let len = i32::from_be_bytes(buf);
+        let len = i32::partial_decode(reader)?;
 
         if len < 0 {
             return Err(DecodeError::DecodeError("size negativ".to_string()));
@@ -154,105 +152,6 @@ impl EncodeGraphSON for &str {
 impl From<&str> for GremlinValue {
     fn from(s: &str) -> Self {
         GremlinValue::String(s.to_owned())
-    }
-}
-
-#[cfg(all(feature = "graph_binary", feature = "extended"))]
-impl Encode for char {
-    fn type_code() -> u8 {
-        CoreType::Char.into()
-    }
-
-    fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
-        let mut buf = [0; 4];
-        let slice = self.encode_utf8(&mut buf);
-        writer.write_all(slice.as_bytes())?;
-        Ok(())
-    }
-}
-
-#[cfg(all(feature = "graph_binary", feature = "extended"))]
-impl Decode for char {
-    fn expected_type_code() -> u8 {
-        CoreType::Char.into()
-    }
-
-    fn partial_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        let mut first_byte = [0_u8; 1];
-        reader.read_exact(&mut first_byte)?;
-
-        match first_byte[0] {
-            one if one < 0b1000_0000 => Ok(char::from(one)),
-            two if (0b1100_0000..0b1110_0000).contains(&two) => {
-                let mut second_byte = [0_u8; 1];
-                reader.read_exact(&mut second_byte)?;
-                std::str::from_utf8(&[first_byte[0], second_byte[0]])?
-                    .chars()
-                    .next()
-                    .ok_or_else(|| {
-                        DecodeError::DecodeError("error converting u32 to char".to_string())
-                    })
-            }
-            three if (0b1110_0000..0b1111_0000).contains(&three) => {
-                let mut rest = [0_u8; 2];
-                reader.read_exact(&mut rest)?;
-                std::str::from_utf8(&[first_byte[0], rest[0], rest[1]])?
-                    .chars()
-                    .next()
-                    .ok_or_else(|| {
-                        DecodeError::DecodeError("error converting u32 to char".to_string())
-                    })
-            }
-            four if (0b1111_0000..0b1111_1000).contains(&four) => {
-                let mut rest = [0_u8; 3];
-                reader.read_exact(&mut rest)?;
-                std::str::from_utf8(&[first_byte[0], rest[0], rest[1], rest[2]])?
-                    .chars()
-                    .next()
-                    .ok_or_else(|| {
-                        DecodeError::DecodeError("error converting u32 to char".to_string())
-                    })
-            }
-            rest => Err(DecodeError::DecodeError(format!(
-                "not a valid utf-8 first byte: value {:b}",
-                rest
-            ))),
-        }
-    }
-}
-#[cfg(all(feature = "extended", feature = "graph_son"))]
-impl DecodeGraphSON for char {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "gx:Char"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|value| value.as_str())
-            .and_then(|s| s.chars().next()) //FIXME more than 1 char is not evaluated
-            .ok_or_else(|| DecodeError::DecodeError("json error in char".to_string()))
-    }
-
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        Self::decode_v3(j_val)
-    }
-
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        j_val
-            .as_str()
-            .and_then(|s| s.chars().next())
-            .ok_or_else(|| DecodeError::DecodeError("json error in char".to_string()))
     }
 }
 
@@ -392,10 +291,10 @@ impl Decode for i32 {
     }
 
     fn partial_decode<R: Read>(reader: &mut R) -> Result<i32, DecodeError> {
-        let mut int = [0_u8; 4];
-        reader.read_exact(&mut int)?;
+        let mut buf = [0_u8; 4];
+        reader.read_exact(&mut buf)?;
 
-        Ok(i32::from_be_bytes(int))
+        Ok(i32::from_be_bytes(buf))
     }
 }
 
@@ -965,7 +864,6 @@ macro_rules! graphson_impl {
 }
 
 graphson_impl!(
-    (char, "gx:Char"),
     (u8, "gx:Byte"),
     (i16, "gx:Int16"),
     (i32, "g:Int32"),
@@ -1194,5 +1092,5 @@ fn uuid_encode_v3() {
     let res = serde_json::to_string(&v).unwrap();
 
     let expected = r#"{"@type":"g:UUID","@value":"41d2e28a-20a4-4ab0-b379-d810dede3786"}"#;
-    assert_eq!(res,expected)
+    assert_eq!(res, expected)
 }
