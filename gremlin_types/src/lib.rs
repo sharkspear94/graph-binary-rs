@@ -17,9 +17,9 @@ pub mod ser;
 
 #[cfg(feature = "extended")]
 use chrono::{DateTime, Duration, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
-use extended::chrono::Period;
+
 #[cfg(feature = "extended")]
-use extended::chrono::{MonthDay, OffsetTime, Year, YearMonth, ZonedDateTime};
+use extended::chrono::{MonthDay, OffsetTime, Period, Year, YearMonth, ZonedDateTime};
 
 use structure::enums::P;
 use structure::map::MapKeys;
@@ -130,7 +130,7 @@ pub enum GremlinValue {
 }
 
 impl GremlinValue {
-    /// Returns an Option of an owned value if the Type was the GremlinValue variant.
+    /// Returns an Option of an owned value if the Type was the `GremlinValue` variant.
     /// Returns None if GremlinValue enum holds another Type
     ///
     /// ```
@@ -147,7 +147,7 @@ impl GremlinValue {
         T::try_from(self).ok()
     }
 
-    /// Returns an Option of an cloned value if the Type was the GremlinValue variant.
+    /// Returns an Option of an cloned value if the Type was the `GremlinValue` variant.
     /// Returns None if GremlinValue enum holds another Type
     ///
     /// ```
@@ -163,8 +163,8 @@ impl GremlinValue {
     pub fn get_cloned<T: TryFrom<GremlinValue>>(&self) -> Option<T> {
         T::try_from(self.clone()).ok()
     }
-    /// Returns an Option of the borrowed value if the Type was the GremlinValue variant.
-    /// Returns None if GremlinValue enum holds another Type
+    /// Returns an Option of the borrowed value if the Type was the `GremlinValue` variant.
+    /// Returns None if `GremlinValue` enum holds another Type
     ///
     /// ```
     /// # use gremlin_types::GremlinValue;
@@ -180,8 +180,8 @@ impl GremlinValue {
         T::try_borrow_from(self)
     }
 
-    /// Returns an Option of the mutable borrowed value if the Type was the GremlinValue variant.
-    /// Returns None if GremlinValue enum holds another Type
+    /// Returns an Option of the mutable borrowed value if the Type was the `GremlinValue` variant.
+    /// Returns None if `GremlinValue` enum holds another Type
     ///
     /// ```
     /// # use gremlin_types::GremlinValue;
@@ -288,19 +288,19 @@ impl Display for GremlinValue {
             #[cfg(feature = "extended")]
             GremlinValue::LocalTime(val) => write!(f, "LocalTime::{val}"),
             #[cfg(feature = "extended")]
-            GremlinValue::MonthDay(val) => unimplemented!(),
+            GremlinValue::MonthDay(val) => write!(f, "MonthDay::{val}"),
             #[cfg(feature = "extended")]
             GremlinValue::OffsetDateTime(val) => write!(f, "OffsetDateTime::{val}"),
             #[cfg(feature = "extended")]
-            GremlinValue::OffsetTime(val) => unimplemented!(),
+            GremlinValue::OffsetTime(val) => write!(f, "OffsetTime::{val}"),
             #[cfg(feature = "extended")]
             GremlinValue::Period(val) => write!(f, "Period::{val}"),
             #[cfg(feature = "extended")]
-            GremlinValue::Year(val) => unimplemented!(),
+            GremlinValue::Year(val) => write!(f, "Year::{val}"),
             #[cfg(feature = "extended")]
-            GremlinValue::YearMonth(val) => unimplemented!(),
+            GremlinValue::YearMonth(val) => write!(f, "YearMonth::{val}"),
             #[cfg(feature = "extended")]
-            GremlinValue::ZonedDateTime(val) => unimplemented!(),
+            GremlinValue::ZonedDateTime(val) => write!(f, "OffsetDateTime::{val}"),
             #[cfg(feature = "extended")]
             GremlinValue::ZoneOffset(val) => write!(f, "ZoneOffset::{val}"),
         }

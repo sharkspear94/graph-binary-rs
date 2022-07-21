@@ -1,4 +1,7 @@
-use std::{fmt::Display, io::Read};
+use std::{
+    fmt::{write, Display},
+    io::Read,
+};
 
 use chrono::{
     format::{parse, Fixed, Item, Numeric, Pad, Parsed},
@@ -84,13 +87,30 @@ pub struct MonthDay {
     month: u8,
     day: u8,
 }
+impl Display for MonthDay {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "--{}-{}", self.month, self.day)
+    }
+}
 #[derive(Debug, Clone, PartialEq, Copy, Eq, PartialOrd, Ord, Hash)]
 pub struct Year(i32);
+
+impl Display for Year {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct YearMonth {
     year: i32,
     month: u8,
+}
+
+impl Display for YearMonth {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}-{}", self.year, self.month)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -163,10 +183,22 @@ impl Period {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ZonedDateTime(DateTime<FixedOffset>);
 
+impl Display for ZonedDateTime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct OffsetTime {
     time: NaiveTime,
     offset: FixedOffset,
+}
+
+impl Display for OffsetTime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}{}", self.time, self.offset)
+    }
 }
 
 #[cfg(feature = "graph_binary")]
@@ -1580,7 +1612,7 @@ fn period_zero_encode_v3() {
 #[test]
 fn period_decode_v3() {
     let s = r#"{"@type":"gx:Period","@value":"P5Y2M-1D"}"#;
-    let expected = Period::new(5, 2,- 1);
+    let expected = Period::new(5, 2, -1);
     let v = serde_json::from_str(s).unwrap();
     let res = Period::decode_v3(&v).unwrap();
 
