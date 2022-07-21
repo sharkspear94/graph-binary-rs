@@ -15,7 +15,6 @@ use super::{
 #[cfg(feature = "graph_binary")]
 use crate::graph_binary::{Decode, Encode};
 
-
 #[cfg(feature = "graph_son")]
 use super::validate_type_entry;
 #[cfg(feature = "graph_son")]
@@ -225,18 +224,15 @@ impl DecodeGraphSON for Edge {
         let out_v_id = val_by_key_v3!(object, "outV", GremlinValue, "Edge")?;
         let out_v_label = val_by_key_v3!(object, "outVLabel", String, "Edge")?;
 
-        let mut properties_vec = None;
-        let prop_iter = object
+        let properties = object
             .and_then(|map| map.get("properties"))
             .and_then(|map| map.as_object())
-            .map(|map| map.values());
-        if let Some(props) = prop_iter {
-            let mut vec = Vec::new();
-            for v in props {
-                vec.push(Property::decode_v3(v)?);
-            }
-            properties_vec = Some(vec);
-        }
+            .map(|map| {
+                map.values()
+                    .map(Property::decode_v3)
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .transpose()?;
 
         Ok(Edge {
             id: Box::new(id),
@@ -246,7 +242,7 @@ impl DecodeGraphSON for Edge {
             out_v_id: Box::new(out_v_id),
             out_v_label,
             parent: None,
-            properties: properties_vec,
+            properties,
         })
     }
 
@@ -267,22 +263,18 @@ impl DecodeGraphSON for Edge {
         let out_v_id = val_by_key_v2!(object, "outV", GremlinValue, "Edge")?;
         let out_v_label = val_by_key_v2!(object, "outVLabel", String, "Edge")?;
 
-        let mut properties_vec = None;
-        let prop_iter = object
+        let properties = object
             .and_then(|map| map.get("properties"))
             .and_then(|map| map.as_object())
-            .map(|map| map.iter());
-        if let Some(props) = prop_iter {
-            let mut vec = Vec::new();
-            for (k, v) in props {
-                vec.push(Property {
-                    key: k.clone(),
-                    value: Box::new(GremlinValue::decode_v2(v)?),
-                    parent: property::EitherParent::None,
-                });
-            }
-            properties_vec = Some(vec);
-        }
+            .map(|map| {
+                map.iter()
+                    .map(|(k, v)| {
+                        GremlinValue::decode_v2(v)
+                            .map(|g| Property::new(k, g, property::EitherParent::None))
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .transpose()?;
 
         Ok(Edge {
             id: Box::new(id),
@@ -292,7 +284,7 @@ impl DecodeGraphSON for Edge {
             out_v_id: Box::new(out_v_id),
             out_v_label,
             parent: None,
-            properties: properties_vec,
+            properties,
         })
     }
 

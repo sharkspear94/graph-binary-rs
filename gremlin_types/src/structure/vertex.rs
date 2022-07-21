@@ -169,27 +169,17 @@ impl DecodeGraphSON for Vertex {
 
         let label = val_by_key_v3!(type_value_object, "label", String, "Vertex")?;
 
-        let mut properties = None;
-        if let Some(jvalues) = type_value_object
-            .and_then(|obj| obj.get("properties"))
+        let properties = type_value_object
+            .and_then(|map| map.get("properties"))
             .and_then(|obj| obj.as_object())
             .map(|map| {
                 map.values()
-                    .flat_map(|val| val.as_array().into_iter())
+                    .flat_map(|val| val.as_array())
                     .flatten()
+                    .map(DecodeGraphSON::decode_v3)
+                    .collect::<Result<Vec<VertexProperty>, DecodeError>>()
             })
-        {
-            let mut vertex_properties = if let (_, Some(size)) = jvalues.size_hint() {
-                Vec::with_capacity(size)
-            } else {
-                Vec::new()
-            };
-            for i in jvalues {
-                vertex_properties.push(VertexProperty::decode_v3(i)?);
-            }
-            properties = Some(vertex_properties);
-        }
-
+            .transpose()?;
         Ok(Vertex {
             id: Box::new(id),
             label,
@@ -209,26 +199,17 @@ impl DecodeGraphSON for Vertex {
         let id = val_by_key_v2!(type_value_object, "id", GremlinValue, "Vertex")?;
         let label = val_by_key_v2!(type_value_object, "label", String, "Vertex")?;
 
-        let mut properties = None;
-        if let Some(jvalues) = type_value_object
-            .and_then(|obj| obj.get("properties"))
+        let properties = type_value_object
+            .and_then(|map| map.get("properties"))
             .and_then(|obj| obj.as_object())
             .map(|map| {
                 map.values()
-                    .flat_map(|val| val.as_array().into_iter())
+                    .flat_map(|val| val.as_array())
                     .flatten()
+                    .map(DecodeGraphSON::decode_v2)
+                    .collect::<Result<Vec<VertexProperty>, DecodeError>>()
             })
-        {
-            let mut vertex_properties = if let (_, Some(size)) = jvalues.size_hint() {
-                Vec::with_capacity(size)
-            } else {
-                Vec::new()
-            };
-            for i in jvalues {
-                vertex_properties.push(VertexProperty::decode_v2(i)?);
-            }
-            properties = Some(vertex_properties);
-        }
+            .transpose()?;
 
         Ok(Vertex {
             id: Box::new(id),

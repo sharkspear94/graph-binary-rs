@@ -206,30 +206,23 @@ impl DecodeGraphSON for VertexProperty {
         let value = val_by_key_v3!(value_object, "value", GremlinValue, "VertexProperty")?;
 
         let properties = value_object
-            .and_then(|value_object| value_object.get("properties"))
+            .and_then(|map| map.get("properties"))
             .and_then(|prop_obj| prop_obj.as_object())
-            .map(|map| map.iter());
-
-        let mut properties_option = None;
-
-        if let Some(iter) = properties {
-            let mut v_properties = Vec::<Property>::new();
-            for (key, value) in iter {
-                v_properties.push(Property {
-                    key: key.clone(),
-                    value: Box::new(GremlinValue::decode_v3(value)?),
-                    parent: EitherParent::None,
-                })
-            }
-            properties_option = Some(v_properties)
-        }
+            .map(|map| {
+                map.iter()
+                    .map(|(k, v)| {
+                        GremlinValue::decode_v3(v).map(|g| Property::new(k, g, EitherParent::None))
+                    })
+                    .collect::<Result<Vec<Property>, DecodeError>>()
+            })
+            .transpose()?;
 
         Ok(VertexProperty {
             id: Box::new(id),
             label,
             value: Box::new(value),
             parent: None,
-            properties: properties_option,
+            properties,
         })
     }
 
@@ -249,23 +242,16 @@ impl DecodeGraphSON for VertexProperty {
         let vertex_id = val_by_key_v2!(object, "vertex", GremlinValue, "VertexProperty")?;
 
         let properties = object
-            .and_then(|m| m.get("properties"))
-            .and_then(|o| o.as_object())
-            .map(|map| map.iter());
-
-        let mut properties_opt = None;
-        let mut v_properties = Vec::<Property>::new();
-
-        if let Some(iter) = properties {
-            for (k, v) in iter {
-                v_properties.push(Property {
-                    key: k.clone(),
-                    value: Box::new(GremlinValue::decode_v3(v)?),
-                    parent: EitherParent::None,
-                })
-            }
-            properties_opt = Some(v_properties)
-        }
+            .and_then(|map| map.get("properties"))
+            .and_then(|prop_obj| prop_obj.as_object())
+            .map(|map| {
+                map.iter()
+                    .map(|(k, v)| {
+                        GremlinValue::decode_v2(v).map(|g| Property::new(k, g, EitherParent::None))
+                    })
+                    .collect::<Result<Vec<Property>, DecodeError>>()
+            })
+            .transpose()?;
 
         Ok(VertexProperty {
             id: Box::new(id),
@@ -276,7 +262,7 @@ impl DecodeGraphSON for VertexProperty {
                 label: Default::default(),
                 properties: None,
             }),
-            properties: properties_opt,
+            properties,
         })
     }
 
