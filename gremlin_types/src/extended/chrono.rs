@@ -83,6 +83,29 @@ fn parse_java_duration(s: &str) -> Result<Duration, DecodeError> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Instant {
+    secs: i64,
+    nanos: i32,
+}
+
+impl Instant {
+    pub fn new(secs: i64, nanos: i32) -> Instant {
+        Instant { secs, nanos }
+    }
+}
+
+impl Display for Instant {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            NaiveDateTime::from_timestamp(self.secs, self.nanos as u32)
+                .format("%Y-%m-%dT%H:%M:%S%.fZ")
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MonthDay {
     month: u8,
     day: u8,
@@ -1293,6 +1316,87 @@ impl DecodeGraphSON for Period {
     }
 }
 
+impl Encode for Instant {
+    fn type_code() -> u8 {
+        CoreType::Instant.into()
+    }
+
+    fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+        self.secs.partial_encode(writer)?;
+        self.nanos.partial_encode(writer)
+    }
+}
+
+impl Decode for Instant {
+    fn expected_type_code() -> u8 {
+        CoreType::Instant.into()
+    }
+
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let secs = i64::partial_decode(reader)?;
+        let nanos = i32::partial_decode(reader)?;
+
+        Ok(Instant { secs, nanos })
+    }
+}
+
+impl EncodeGraphSON for Instant {
+    fn encode_v3(&self) -> serde_json::Value {
+        json!({
+          "@type" : "gx:Instant",
+          "@value" : NaiveDateTime::from_timestamp(self.secs, self.nanos as u32).format("%Y-%m-%dT%H:%M:%S%.fZ").to_string()
+        })
+    }
+
+    fn encode_v2(&self) -> serde_json::Value {
+        self.encode_v3()
+    }
+
+    fn encode_v1(&self) -> serde_json::Value {
+        todo!()
+    }
+}
+
+impl DecodeGraphSON for Instant {
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let s = j_val
+            .as_object()
+            .filter(|map| validate_type_entry(*map, "gx:Instant"))
+            .and_then(|map| map.get("@value"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                DecodeError::DecodeError("could not decode Instant type identifier".to_string())
+            })?;
+
+        let naive = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.fZ")
+            .map_err(|e| DecodeError::DecodeError(format!("cannot parse Instant: {e}")))?;
+        Ok(Instant {
+            secs: naive.timestamp(),
+            nanos: naive.nanosecond() as i32,
+        })
+    }
+
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        Self::decode_v3(j_val)
+    }
+
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        todo!()
+    }
+}
+
 #[test]
 fn local_date_encode() {
     let expected = [0x84, 0x0, 0x0, 0x0, 0x7, 0xE6, 6, 13];
@@ -1616,5 +1720,77 @@ fn period_decode_v3() {
     let v = serde_json::from_str(s).unwrap();
     let res = Period::decode_v3(&v).unwrap();
 
+    assert_eq!(res, expected);
+}
+
+#[test]
+fn instant_encode_v3() {
+    let expected = r#"{"@type":"gx:Instant","@value":"2022-07-22T13:14:08.770323Z"}"#;
+    let v = Instant {
+        secs: 1658495648,
+        nanos: 770323000,
+    }
+    .encode_v3();
+    let res = serde_json::to_string(&v).unwrap();
+    assert_eq!(res, expected);
+}
+
+#[test]
+fn instant_encode() {
+    let expected = [
+        0x83, 0x0, 0x0, 0x0, 0x0, 0x0, 0x62, 0xda, 0xa2, 0xa0, 0, 0, 0x0, 0x0,
+    ];
+
+    let mut buf = vec![];
+    Instant::new(1658495648, 0).encode(&mut buf).unwrap();
+
+    assert_eq!(buf, expected)
+}
+
+#[test]
+fn instant_decode() {
+    let buf = [
+        0x83, 0x0, 0x0, 0x0, 0x0, 0x0, 0x62, 0xda, 0xa2, 0xa0, 0, 0, 0x0, 0x0,
+    ];
+
+    let res = Instant::decode(&mut &buf[..]).unwrap();
+    let expected = Instant::new(1658495648, 0);
+
+    assert_eq!(res, expected)
+}
+
+#[test]
+fn instant_no_nanos_encode_v3() {
+    let expected = r#"{"@type":"gx:Instant","@value":"2022-07-22T13:14:08Z"}"#;
+    let v = Instant {
+        secs: 1658495648,
+        nanos: 0,
+    }
+    .encode_v3();
+    let res = serde_json::to_string(&v).unwrap();
+    assert_eq!(res, expected);
+}
+
+#[test]
+fn instant_decode_v3() {
+    let s = r#"{"@type":"gx:Instant","@value":"2022-07-22T13:14:08.770323Z"}"#;
+    let expected = Instant {
+        secs: 1658495648,
+        nanos: 770323000,
+    };
+    let v = serde_json::from_str(s).unwrap();
+    let res = Instant::decode_v3(&v).unwrap();
+    assert_eq!(res, expected);
+}
+
+#[test]
+fn instant_no_nanos_decode_v3() {
+    let s = r#"{"@type":"gx:Instant","@value":"2022-07-22T13:14:08Z"}"#;
+    let expected = Instant {
+        secs: 1658495648,
+        nanos: 0,
+    };
+    let v = serde_json::from_str(s).unwrap();
+    let res = Instant::decode_v3(&v).unwrap();
     assert_eq!(res, expected);
 }
