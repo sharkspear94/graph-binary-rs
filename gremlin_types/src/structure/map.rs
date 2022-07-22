@@ -17,9 +17,7 @@ use std::{
 use crate::graph_binary::{Decode, Encode};
 
 #[cfg(feature = "graph_son")]
-use super::validate_type_entry;
-#[cfg(feature = "graph_son")]
-use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+use crate::graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON};
 #[cfg(feature = "graph_son")]
 use serde_json::json;
 

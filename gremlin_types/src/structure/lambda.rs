@@ -1,18 +1,18 @@
 use std::fmt::Display;
 
-
 use crate::error::DecodeError;
-use crate::{conversion, specs::CoreType, val_by_key_v3};
+use crate::{conversion, specs::CoreType};
 
 #[cfg(feature = "graph_binary")]
 use crate::graph_binary::{Decode, Encode};
 
 #[cfg(feature = "graph_son")]
-use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+use crate::{
+    graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON},
+    val_by_key_v3,
+};
 #[cfg(feature = "graph_son")]
 use serde_json::json;
-#[cfg(feature = "graph_son")]
-use super::validate_type_entry;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Lambda {
@@ -71,7 +71,6 @@ impl Decode for Lambda {
 
 #[cfg(feature = "graph_son")]
 impl EncodeGraphSON for Lambda {
-    
     fn encode_v3(&self) -> serde_json::Value {
         json!({
           "@type" : "g:Lambda",
@@ -83,7 +82,6 @@ impl EncodeGraphSON for Lambda {
         })
     }
 
-    
     fn encode_v2(&self) -> serde_json::Value {
         self.encode_v3()
     }

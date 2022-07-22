@@ -1,25 +1,24 @@
-use std::{
-    fmt::{write, Display},
-    io::Read,
-};
+use std::{fmt::Display, io::Read};
 
 use chrono::{
-    format::{parse, Fixed, Item, Numeric, Pad, Parsed},
     DateTime, Datelike, Duration, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, Timelike,
 };
+
+#[cfg(feature = "graph_son")]
+use chrono::format::{parse, Fixed, Item, Numeric, Pad, Parsed};
+#[cfg(feature = "graph_son")]
 use serde_json::json;
 
 #[cfg(feature = "graph_binary")]
 use crate::graph_binary::{Decode, Encode};
 #[cfg(feature = "graph_son")]
-use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
-#[cfg(feature = "graph_son")]
-use crate::structure::validate_type_entry;
+use crate::graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON};
 use crate::{
     error::{DecodeError, EncodeError},
     specs::CoreType,
 };
 
+#[cfg(feature = "graph_son")]
 fn parse_java_duration(s: &str) -> Result<Duration, DecodeError> {
     let mut iter = s.chars();
     iter.next().filter(|c| c.eq(&'P')).ok_or_else(|| {
@@ -1214,6 +1213,7 @@ impl DecodeGraphSON for ZonedDateTime {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for Period {
     fn type_code() -> u8 {
         CoreType::Period.into()
@@ -1226,6 +1226,7 @@ impl Encode for Period {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for Period {
     fn expected_type_code() -> u8 {
         CoreType::Period.into()
@@ -1267,6 +1268,7 @@ impl Display for Period {
     }
 }
 
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for Period {
     fn encode_v3(&self) -> serde_json::Value {
         json!({
@@ -1284,6 +1286,7 @@ impl EncodeGraphSON for Period {
     }
 }
 
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Period {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -1316,6 +1319,7 @@ impl DecodeGraphSON for Period {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Encode for Instant {
     fn type_code() -> u8 {
         CoreType::Instant.into()
@@ -1327,6 +1331,7 @@ impl Encode for Instant {
     }
 }
 
+#[cfg(feature = "graph_binary")]
 impl Decode for Instant {
     fn expected_type_code() -> u8 {
         CoreType::Instant.into()
@@ -1343,6 +1348,7 @@ impl Decode for Instant {
     }
 }
 
+#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for Instant {
     fn encode_v3(&self) -> serde_json::Value {
         json!({
@@ -1360,6 +1366,7 @@ impl EncodeGraphSON for Instant {
     }
 }
 
+#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Instant {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
@@ -1389,7 +1396,7 @@ impl DecodeGraphSON for Instant {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {

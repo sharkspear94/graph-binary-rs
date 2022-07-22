@@ -1,4 +1,5 @@
 mod error;
+#[cfg(feature = "graph_binary")]
 pub mod graph_binary;
 mod macros;
 mod specs;
@@ -19,7 +20,7 @@ pub mod ser;
 use chrono::{DateTime, Duration, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 
 #[cfg(feature = "extended")]
-use extended::chrono::{MonthDay, OffsetTime, Period, Year, YearMonth, ZonedDateTime};
+use extended::chrono::{Instant, MonthDay, OffsetTime, Period, Year, YearMonth, ZonedDateTime};
 
 use structure::enums::P;
 use structure::map::MapKeys;
@@ -104,7 +105,7 @@ pub enum GremlinValue {
     #[cfg(feature = "extended")]
     InetAddress(std::net::IpAddr),
     #[cfg(feature = "extended")]
-    Instant(DateTime<FixedOffset>),
+    Instant(Instant),
     #[cfg(feature = "extended")]
     LocalDate(NaiveDate),
     #[cfg(feature = "extended")]
@@ -280,7 +281,7 @@ impl Display for GremlinValue {
             #[cfg(feature = "extended")]
             GremlinValue::InetAddress(val) => write!(f, "InetAddress::{val}"),
             #[cfg(feature = "extended")]
-            GremlinValue::Instant(val) => unimplemented!(),
+            GremlinValue::Instant(val) => write!(f, "Instant::{val}"),
             #[cfg(feature = "extended")]
             GremlinValue::LocalDate(val) => write!(f, "LocalDate::{val}"),
             #[cfg(feature = "extended")]

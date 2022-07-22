@@ -6,9 +6,7 @@ use crate::{error::DecodeError, specs::CoreType, GremlinValue};
 use crate::graph_binary::{Decode, Encode};
 
 #[cfg(feature = "graph_son")]
-use super::validate_type_entry;
-#[cfg(feature = "graph_son")]
-use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+use crate::graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON};
 #[cfg(feature = "graph_son")]
 use serde_json::json;
 
@@ -41,7 +39,7 @@ impl Decode for BulkSet {
         CoreType::BulkSet.into()
     }
 
-    fn partial_decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
+    fn partial_decode<R: std::io::Read>(reader: &mut R) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -85,7 +83,7 @@ impl EncodeGraphSON for BulkSet {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for BulkSet {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -109,14 +107,14 @@ impl DecodeGraphSON for BulkSet {
         Ok(BulkSet(bulk_set))
     }
 
-    fn decode_v2(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v2(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
         unimplemented!("BulkSet in not supported in GraphSON V2")
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {

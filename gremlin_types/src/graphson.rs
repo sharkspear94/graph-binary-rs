@@ -1,11 +1,12 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, net::IpAddr};
+
+// use crate::extended::chrono::{MonthDay, OffsetTime, Year, YearMonth};
 
 use uuid::Uuid;
 
 use crate::{
     error::DecodeError,
     structure::{
-        bulkset::BulkSet,
         bytecode::Bytecode,
         edge::Edge,
         enums::{
@@ -24,6 +25,13 @@ use crate::{
     Binding,
 };
 use crate::{structure::enums::P, GremlinValue};
+
+#[cfg(feature = "extended")]
+use crate::extended::chrono::{
+    Instant, MonthDay, OffsetTime, Period, Year, YearMonth, ZonedDateTime,
+};
+#[cfg(feature = "extended")]
+use chrono::{DateTime, Duration, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 
 #[cfg(feature = "graph_son")]
 pub trait EncodeGraphSON {
@@ -89,8 +97,7 @@ impl EncodeGraphSON for GremlinValue {
             GremlinValue::Short(val) => val.encode_v3(),
             GremlinValue::Boolean(val) => val.encode_v3(),
             GremlinValue::TextP(val) => val.encode_v3(),
-            // GremlinTypes::TraversalStrategy(val) => val.encode_v3(),
-            // GremlinTypes::BulkSet(val) => val.encode_v3(),
+            GremlinValue::BulkSet(val) => val.encode_v3(),
             // GremlinTypes::Tree(val) => val.encode_v3(),
             GremlinValue::Metrics(val) => val.encode_v3(),
             GremlinValue::TraversalMetrics(val) => val.encode_v3(),
@@ -98,7 +105,35 @@ impl EncodeGraphSON for GremlinValue {
             GremlinValue::UnspecifiedNullObject => serde_json::Value::Null,
             #[cfg(feature = "extended")]
             GremlinValue::Char(val) => val.encode_v3(),
-            _ => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::Duration(val) => val.encode_v3(),
+            #[cfg(feature = "extended")]
+            GremlinValue::InetAddress(val) => val.encode_v3(),
+            #[cfg(feature = "extended")]
+            GremlinValue::Instant(val) => val.encode_v3(),
+            #[cfg(feature = "extended")]
+            GremlinValue::LocalDate(val) => val.encode_v3(),
+            #[cfg(feature = "extended")]
+            GremlinValue::LocalDateTime(val) => val.encode_v3(),
+            #[cfg(feature = "extended")]
+            GremlinValue::LocalTime(val) => val.encode_v3(),
+            #[cfg(feature = "extended")]
+            GremlinValue::MonthDay(val) => val.encode_v3(),
+            #[cfg(feature = "extended")]
+            GremlinValue::OffsetDateTime(val) => val.encode_v3(),
+            #[cfg(feature = "extended")]
+            GremlinValue::OffsetTime(val) => val.encode_v3(),
+            #[cfg(feature = "extended")]
+            GremlinValue::Period(val) => val.encode_v3(),
+            #[cfg(feature = "extended")]
+            GremlinValue::Year(val) => val.encode_v3(),
+            #[cfg(feature = "extended")]
+            GremlinValue::YearMonth(val) => val.encode_v3(),
+            #[cfg(feature = "extended")]
+            GremlinValue::ZonedDateTime(val) => val.encode_v3(),
+            #[cfg(feature = "extended")]
+            GremlinValue::ZoneOffset(val) => val.encode_v3(),
+            _ => unimplemented!("not supported with GraphSON V3 encode"),
         }
     }
     fn encode_v2(&self) -> serde_json::Value {
@@ -139,8 +174,7 @@ impl EncodeGraphSON for GremlinValue {
             GremlinValue::Short(val) => val.encode_v2(),
             GremlinValue::Boolean(val) => val.encode_v2(),
             GremlinValue::TextP(val) => val.encode_v2(),
-            // GremlinTypes::TraversalStrategy(val) => val.encode_v2(),
-            // GremlinTypes::BulkSet(val) => val.encode_v2(),
+            GremlinValue::BulkSet(val) => val.encode_v2(),
             // GremlinTypes::Tree(val) => val.encode_v2(),
             GremlinValue::Metrics(val) => val.encode_v2(),
             GremlinValue::TraversalMetrics(val) => val.encode_v2(),
@@ -148,7 +182,35 @@ impl EncodeGraphSON for GremlinValue {
             GremlinValue::UnspecifiedNullObject => serde_json::Value::Null,
             #[cfg(feature = "extended")]
             GremlinValue::Char(val) => val.encode_v2(),
-            _ => unimplemented!(),
+            #[cfg(feature = "extended")]
+            GremlinValue::Duration(val) => val.encode_v2(),
+            #[cfg(feature = "extended")]
+            GremlinValue::InetAddress(val) => val.encode_v2(),
+            #[cfg(feature = "extended")]
+            GremlinValue::Instant(val) => val.encode_v2(),
+            #[cfg(feature = "extended")]
+            GremlinValue::LocalDate(val) => val.encode_v2(),
+            #[cfg(feature = "extended")]
+            GremlinValue::LocalDateTime(val) => val.encode_v2(),
+            #[cfg(feature = "extended")]
+            GremlinValue::LocalTime(val) => val.encode_v2(),
+            #[cfg(feature = "extended")]
+            GremlinValue::MonthDay(val) => val.encode_v2(),
+            #[cfg(feature = "extended")]
+            GremlinValue::OffsetDateTime(val) => val.encode_v2(),
+            #[cfg(feature = "extended")]
+            GremlinValue::OffsetTime(val) => val.encode_v2(),
+            #[cfg(feature = "extended")]
+            GremlinValue::Period(val) => val.encode_v2(),
+            #[cfg(feature = "extended")]
+            GremlinValue::Year(val) => val.encode_v2(),
+            #[cfg(feature = "extended")]
+            GremlinValue::YearMonth(val) => val.encode_v2(),
+            #[cfg(feature = "extended")]
+            GremlinValue::ZonedDateTime(val) => val.encode_v2(),
+            #[cfg(feature = "extended")]
+            GremlinValue::ZoneOffset(val) => val.encode_v2(),
+            _ => unimplemented!("not supported with GraphSON V2 encode"),
         }
     }
 
@@ -229,23 +291,43 @@ impl DecodeGraphSON for GremlinValue {
                     // "gx:BigInteger" => Ok(GremlinTypes::BigInteger(BigInteger::decode_v3(j_val)?)),
                     "gx:Byte" => Ok(GremlinValue::Byte(u8::decode_v3(j_val)?)),
                     // "gx:ByteBuffer" => Ok(GremlinTypes::ByteBuffer(ByteBuffer::decode_v3(j_val)?)),
+                    "gx:Int16" => Ok(GremlinValue::Short(i16::decode_v3(j_val)?)),
                     #[cfg(feature = "extended")]
                     "gx:Char" => Ok(GremlinValue::Char(char::decode_v3(j_val)?)),
-                    // "gx:Duration" => Ok(GremlinTypes::Duration(Duration::decode_v3(j_val)?)),
-                    // "gx:InetAddress" => Ok(GremlinTypes::InetAddress(InetAddress::decode_v3(j_val)?)),
-                    // "gx:Instant" => Ok(GremlinTypes::Instant(Instant::decode_v3(j_val)?)),
-                    // "gx:LocalDate" => Ok(GremlinTypes::LocalDate(LocalDate::decode_v3(j_val)?)),
-                    // "gx:LocalDateTime" => Ok(GremlinTypes::LocalDateTime(LocalDateTime::decode_v3(j_val)?)),
-                    // "gx:LocalTime" => Ok(GremlinTypes::LocalTime(LocalTime::decode_v3(j_val)?)),
-                    // "gx:MonthDay" => Ok(GremlinTypes::MonthDay(MonthDay::decode_v3(j_val)?)),
-                    // "gx:OffsetDateTime" => Ok(GremlinTypes::OffsetDateTime(OffsetDateTime::decode_v3(j_val)?)),
-                    // "gx:OffsetTime" => Ok(GremlinTypes::OffsetTime(OffsetTime::decode_v3(j_val)?)),
-                    // "gx:Period" => Ok(GremlinTypes::Period(Period::decode_v3(j_val)?)),
-                    "gx:Int16" => Ok(GremlinValue::Short(i16::decode_v3(j_val)?)),
-                    // "gx:Year" => Ok(GremlinTypes::Year(Year::decode_v3(j_val)?)),
-                    // "gx:YearMonth" => Ok(GremlinTypes::YearMonth(YearMonth::decode_v3(j_val)?)),
-                    // "gx:ZonedDateTime" => Ok(GremlinTypes::ZonedDateTime(ZonedDateTime::decode_v3(j_val)?)),
-                    // "gx:ZoneOffset" => Ok(GremlinTypes::ZoneOffset(ZoneOffset::decode_v3(j_val)?)),
+                    #[cfg(feature = "extended")]
+                    "gx:Duration" => Ok(GremlinValue::Duration(Duration::decode_v3(j_val)?)),
+                    #[cfg(feature = "extended")]
+                    "gx:InetAddress" => Ok(GremlinValue::InetAddress(IpAddr::decode_v3(j_val)?)),
+                    #[cfg(feature = "extended")]
+                    "gx:Instant" => Ok(GremlinValue::Instant(Instant::decode_v3(j_val)?)),
+                    #[cfg(feature = "extended")]
+                    "gx:LocalDate" => Ok(GremlinValue::LocalDate(NaiveDate::decode_v3(j_val)?)),
+                    #[cfg(feature = "extended")]
+                    "gx:LocalDateTime" => Ok(GremlinValue::LocalDateTime(
+                        NaiveDateTime::decode_v3(j_val)?,
+                    )),
+                    #[cfg(feature = "extended")]
+                    "gx:LocalTime" => Ok(GremlinValue::LocalTime(NaiveTime::decode_v3(j_val)?)),
+                    #[cfg(feature = "extended")]
+                    "gx:MonthDay" => Ok(GremlinValue::MonthDay(MonthDay::decode_v3(j_val)?)),
+                    #[cfg(feature = "extended")]
+                    "gx:OffsetDateTime" => {
+                        Ok(GremlinValue::OffsetDateTime(DateTime::decode_v3(j_val)?))
+                    }
+                    #[cfg(feature = "extended")]
+                    "gx:OffsetTime" => Ok(GremlinValue::OffsetTime(OffsetTime::decode_v3(j_val)?)),
+                    #[cfg(feature = "extended")]
+                    "gx:Period" => Ok(GremlinValue::Period(Period::decode_v3(j_val)?)),
+                    #[cfg(feature = "extended")]
+                    "gx:Year" => Ok(GremlinValue::Year(Year::decode_v3(j_val)?)),
+                    #[cfg(feature = "extended")]
+                    "gx:YearMonth" => Ok(GremlinValue::YearMonth(YearMonth::decode_v3(j_val)?)),
+                    #[cfg(feature = "extended")]
+                    "gx:ZonedDateTime" => Ok(GremlinValue::ZonedDateTime(
+                        ZonedDateTime::decode_v3(j_val)?,
+                    )),
+                    #[cfg(feature = "extended")]
+                    "gx:ZoneOffset" => Ok(GremlinValue::ZoneOffset(FixedOffset::decode_v3(j_val)?)),
                     _ => todo!(),
                 }
             }
@@ -327,23 +409,49 @@ impl DecodeGraphSON for GremlinValue {
                         // "gx:BigInteger" => Ok(GremlinTypes::BigInteger(BigInteger::decode_v2(j_val)?)),
                         "gx:Byte" => Ok(GremlinValue::Byte(u8::decode_v2(j_val)?)),
                         // "gx:ByteBuffer" => Ok(GremlinTypes::ByteBuffer(ByteBuffer::decode_v2(j_val)?)),
+                        "gx:Int16" => Ok(GremlinValue::Short(i16::decode_v2(j_val)?)),
                         #[cfg(feature = "extended")]
                         "gx:Char" => Ok(GremlinValue::Char(char::decode_v2(j_val)?)),
-                        // "gx:Duration" => Ok(GremlinTypes::Duration(Duration::decode_v2(j_val)?)),
-                        // "gx:InetAddress" => Ok(GremlinTypes::InetAddress(InetAddress::decode_v2(j_val)?)),
-                        // "gx:Instant" => Ok(GremlinTypes::Instant(Instant::decode_v2(j_val)?)),
-                        // "gx:LocalDate" => Ok(GremlinTypes::LocalDate(LocalDate::decode_v2(j_val)?)),
-                        // "gx:LocalDateTime" => Ok(GremlinTypes::LocalDateTime(LocalDateTime::decode_v2(j_val)?)),
-                        // "gx:LocalTime" => Ok(GremlinTypes::LocalTime(LocalTime::decode_v2(j_val)?)),
-                        // "gx:MonthDay" => Ok(GremlinTypes::MonthDay(MonthDay::decode_v2(j_val)?)),
-                        // "gx:OffsetDateTime" => Ok(GremlinTypes::OffsetDateTime(OffsetDateTime::decode_v2(j_val)?)),
-                        // "gx:OffsetTime" => Ok(GremlinTypes::OffsetTime(OffsetTime::decode_v2(j_val)?)),
-                        // "gx:Period" => Ok(GremlinTypes::Period(Period::decode_v2(j_val)?)),
-                        "gx:Int16" => Ok(GremlinValue::Short(i16::decode_v2(j_val)?)),
-                        // "gx:Year" => Ok(GremlinTypes::Year(Year::decode_v2(j_val)?)),
-                        // "gx:YearMonth" => Ok(GremlinTypes::YearMonth(YearMonth::decode_v2(j_val)?)),
-                        // "gx:ZonedDateTime" => Ok(GremlinTypes::ZonedDateTime(ZonedDateTime::decode_v2(j_val)?)),
-                        // "gx:ZoneOffset" => Ok(GremlinTypes::ZoneOffset(ZoneOffset::decode_v2(j_val)?)),
+                        #[cfg(feature = "extended")]
+                        "gx:Duration" => Ok(GremlinValue::Duration(Duration::decode_v2(j_val)?)),
+                        #[cfg(feature = "extended")]
+                        "gx:InetAddress" => {
+                            Ok(GremlinValue::InetAddress(IpAddr::decode_v2(j_val)?))
+                        }
+                        #[cfg(feature = "extended")]
+                        "gx:Instant" => Ok(GremlinValue::Instant(Instant::decode_v2(j_val)?)),
+                        #[cfg(feature = "extended")]
+                        "gx:LocalDate" => Ok(GremlinValue::LocalDate(NaiveDate::decode_v2(j_val)?)),
+                        #[cfg(feature = "extended")]
+                        "gx:LocalDateTime" => Ok(GremlinValue::LocalDateTime(
+                            NaiveDateTime::decode_v2(j_val)?,
+                        )),
+                        #[cfg(feature = "extended")]
+                        "gx:LocalTime" => Ok(GremlinValue::LocalTime(NaiveTime::decode_v2(j_val)?)),
+                        #[cfg(feature = "extended")]
+                        "gx:MonthDay" => Ok(GremlinValue::MonthDay(MonthDay::decode_v2(j_val)?)),
+                        #[cfg(feature = "extended")]
+                        "gx:OffsetDateTime" => {
+                            Ok(GremlinValue::OffsetDateTime(DateTime::decode_v2(j_val)?))
+                        }
+                        #[cfg(feature = "extended")]
+                        "gx:OffsetTime" => {
+                            Ok(GremlinValue::OffsetTime(OffsetTime::decode_v2(j_val)?))
+                        }
+                        #[cfg(feature = "extended")]
+                        "gx:Period" => Ok(GremlinValue::Period(Period::decode_v2(j_val)?)),
+                        #[cfg(feature = "extended")]
+                        "gx:Year" => Ok(GremlinValue::Year(Year::decode_v2(j_val)?)),
+                        #[cfg(feature = "extended")]
+                        "gx:YearMonth" => Ok(GremlinValue::YearMonth(YearMonth::decode_v2(j_val)?)),
+                        #[cfg(feature = "extended")]
+                        "gx:ZonedDateTime" => Ok(GremlinValue::ZonedDateTime(
+                            ZonedDateTime::decode_v2(j_val)?,
+                        )),
+                        #[cfg(feature = "extended")]
+                        "gx:ZoneOffset" => {
+                            Ok(GremlinValue::ZoneOffset(FixedOffset::decode_v2(j_val)?))
+                        }
                         _ => todo!(),
                     }
                 } else {
@@ -360,4 +468,63 @@ impl DecodeGraphSON for GremlinValue {
     {
         todo!()
     }
+}
+
+#[macro_export]
+macro_rules! val_by_key_v1 {
+    ($obj:expr,$key:literal,$expected:ty,$context:literal) => {
+        $obj.and_then(|m| m.get($key))
+            .and_then(|j_val| <$expected>::decode_v1(j_val).ok())
+            .ok_or_else(|| {
+                DecodeError::DecodeError(format!(
+                    "Error extracting a {} from key: {}, during {} v1 decoding",
+                    stringify!($expected),
+                    $key,
+                    $context
+                ))
+            })
+    };
+}
+
+#[macro_export]
+macro_rules! val_by_key_v2 {
+    ($obj:expr,$key:literal,$expected:ty,$context:literal) => {
+        $obj.and_then(|m| m.get($key))
+            .and_then(|j_val| <$expected>::decode_v2(j_val).ok())
+            .ok_or_else(|| {
+                DecodeError::DecodeError(format!(
+                    "Error extracting a {} from key: {}, during {} v2 decoding",
+                    stringify!($expected),
+                    $key,
+                    $context
+                ))
+            })
+    };
+}
+
+#[macro_export]
+macro_rules! val_by_key_v3 {
+    ($obj:expr,$key:literal,$expected:ty,$context:literal) => {
+        $obj.and_then(|m| m.get($key))
+            .and_then(|j_val| <$expected>::decode_v3(j_val).ok())
+            .ok_or_else(|| {
+                DecodeError::DecodeError(format!(
+                    "Error extracting a {} from key: {}, during {} v3 decoding",
+                    stringify!($expected),
+                    $key,
+                    $context
+                ))
+            })
+    };
+}
+
+#[cfg(feature = "graph_son")]
+pub fn validate_type_entry(
+    map: &serde_json::Map<String, serde_json::Value>,
+    type_value: &str,
+) -> bool {
+    map.get("@type")
+        .and_then(|val| val.as_str())
+        .filter(|s| s.eq(&type_value))
+        .is_some()
 }

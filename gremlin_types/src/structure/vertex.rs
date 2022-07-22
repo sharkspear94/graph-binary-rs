@@ -4,7 +4,7 @@ use crate::{
     conversion,
     error::DecodeError,
     specs::{self, CoreType},
-    val_by_key_v2, val_by_key_v3, GremlinValue,
+    GremlinValue,
 };
 
 use super::vertex_property::VertexProperty;
@@ -13,9 +13,10 @@ use super::vertex_property::VertexProperty;
 use crate::graph_binary::{Decode, Encode};
 
 #[cfg(feature = "graph_son")]
-use super::validate_type_entry;
-#[cfg(feature = "graph_son")]
-use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+use crate::{
+    graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON},
+    val_by_key_v2, val_by_key_v3,
+};
 #[cfg(feature = "graph_son")]
 use serde_json::json;
 

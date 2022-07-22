@@ -6,11 +6,9 @@ use crate::{conversion, error::DecodeError, specs::CoreType, GremlinValue};
 use crate::graph_binary::{Decode, Encode};
 
 #[cfg(feature = "graph_son")]
-use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+use crate::graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON};
 #[cfg(feature = "graph_son")]
 use serde_json::json;
-#[cfg(feature = "graph_son")]
-use super::validate_type_entry;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Binding {
@@ -71,7 +69,7 @@ impl Decode for Binding {
         CoreType::Binding.into()
     }
 
-    fn partial_decode<R: std::io::Read>(reader: &mut R) -> Result<Self, crate::error::DecodeError>
+    fn partial_decode<R: std::io::Read>(reader: &mut R) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
@@ -128,14 +126,14 @@ impl DecodeGraphSON for Binding {
         })
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
     where
         Self: std::marker::Sized,
     {

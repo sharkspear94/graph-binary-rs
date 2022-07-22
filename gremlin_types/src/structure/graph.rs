@@ -3,7 +3,7 @@ use std::fmt::Display;
 use crate::{
     conversion,
     specs::{self, CoreType},
-    val_by_key_v2, val_by_key_v3, GremlinValue,
+    GremlinValue,
 };
 
 use crate::error::DecodeError;
@@ -14,9 +14,11 @@ use super::{edge::Edge, property::Property, vertex::Vertex, vertex_property::Ver
 use crate::graph_binary::{Decode, Encode};
 
 #[cfg(feature = "graph_son")]
-use super::validate_type_entry;
-#[cfg(feature = "graph_son")]
-use crate::graphson::{DecodeGraphSON, EncodeGraphSON};
+use crate::{
+    graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON},
+    val_by_key_v2, val_by_key_v3,
+};
+
 #[cfg(feature = "graph_son")]
 use serde_json::{json, Map};
 

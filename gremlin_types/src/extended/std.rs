@@ -4,15 +4,17 @@ use std::{
     str::FromStr,
 };
 
-use serde_json::json;
-
+#[cfg(feature = "graph_son")]
+use crate::graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON};
 use crate::{
     error::{DecodeError, EncodeError},
-    graph_binary::{Decode, Encode},
-    graphson::{DecodeGraphSON, EncodeGraphSON},
     specs::CoreType,
-    structure::validate_type_entry,
 };
+#[cfg(feature = "graph_son")]
+use serde_json::json;
+
+#[cfg(feature = "graph_binary")]
+use crate::graph_binary::{Decode, Encode};
 
 #[cfg(feature = "graph_binary")]
 impl Encode for char {
