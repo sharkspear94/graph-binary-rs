@@ -7,6 +7,7 @@ use std::{
 #[cfg(feature = "graph_son")]
 use crate::graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON};
 use crate::{
+    conversion,
     error::{DecodeError, EncodeError},
     specs::CoreType,
 };
@@ -242,6 +243,9 @@ impl DecodeGraphSON for IpAddr {
         todo!()
     }
 }
+
+conversion!(char, Char);
+conversion!(IpAddr, InetAddress);
 
 #[test]
 fn ip_v4_encode() {

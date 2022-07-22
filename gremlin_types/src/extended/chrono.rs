@@ -14,6 +14,7 @@ use crate::graph_binary::{Decode, Encode};
 #[cfg(feature = "graph_son")]
 use crate::graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON};
 use crate::{
+    conversion,
     error::{DecodeError, EncodeError},
     specs::CoreType,
 };
@@ -1403,6 +1404,20 @@ impl DecodeGraphSON for Instant {
         todo!()
     }
 }
+
+conversion!(Instant, Instant);
+conversion!(Duration, Duration);
+conversion!(NaiveDate, LocalDate);
+conversion!(NaiveDateTime, LocalDateTime);
+conversion!(NaiveTime, LocalTime);
+conversion!(MonthDay, MonthDay);
+conversion!(DateTime<FixedOffset>, OffsetDateTime);
+conversion!(OffsetTime, OffsetTime);
+conversion!(Period, Period);
+conversion!(Year, Year);
+conversion!(YearMonth, YearMonth);
+conversion!(ZonedDateTime, ZonedDateTime);
+conversion!(FixedOffset, ZoneOffset);
 
 #[test]
 fn local_date_encode() {

@@ -40,6 +40,22 @@ pub enum DecodeError {
     TryError(#[from] TryFromIntError),
 }
 
+#[cfg(feature = "graph_son")]
+#[derive(Error, Debug)]
+pub enum GraphSonError {
+    #[error("serde_json Error")]
+    SerdeJson(#[from] serde_json::error::Error),
+    #[error("parsing string")]
+    Parse(String),
+    #[error("@type value expected `{expected}` but found {}")]
+    WrongTypeIdentifier {
+        expected: &'static str,
+        found: String,
+    },
+    #[error("Field decoding source `{source}`")]
+    FieldError { source: Box<GraphSonError> },
+}
+
 #[cfg(feature = "serde")]
 impl serde::ser::Error for EncodeError {
     fn custom<T>(msg: T) -> Self

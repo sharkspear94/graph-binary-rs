@@ -1,11 +1,10 @@
 use std::fmt::Display;
 
-use crate::{
-    conversion,
-    error::DecodeError,
-    specs::{self, CoreType},
-    GremlinValue,
-};
+#[cfg(any(feature = "graph_binary", feature = "graph_son"))]
+use crate::error::DecodeError;
+#[cfg(feature = "graph_binary")]
+use crate::specs::{self, CoreType};
+use crate::{conversion, GremlinValue};
 
 use super::{
     property::{self, Property},

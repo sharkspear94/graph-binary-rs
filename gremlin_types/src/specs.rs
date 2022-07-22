@@ -47,20 +47,35 @@ pub const CORE_TYPE_MERGE: u8 = 0x2e;
 pub const CORE_TYPE_UNSPECIFIED_NULL: u8 = 0xfe;
 pub const CORE_TYPE_CUSTOM: u8 = 0x00;
 
+#[cfg(feature = "extended")]
 pub const EXTENDED_TYPE_CHAR: u8 = 0x80;
+#[cfg(feature = "extended")]
 pub const EXTENDED_TYPE_DURATION: u8 = 0x81;
+#[cfg(feature = "extended")]
 pub const EXTENDED_TYPE_INET_ADDRESS: u8 = 0x82;
+#[cfg(feature = "extended")]
 pub const EXTENDED_TYPE_INSTANT: u8 = 0x83;
+#[cfg(feature = "extended")]
 pub const EXTENDED_TYPE_LOCAL_DATE: u8 = 0x84;
+#[cfg(feature = "extended")]
 pub const EXTENDED_TYPE_LOCAL_DATETIME: u8 = 0x85;
+#[cfg(feature = "extended")]
 pub const EXTENDED_TYPE_LOCAL_TIME: u8 = 0x86;
+#[cfg(feature = "extended")]
 pub const EXTENDED_TYPE_MONTH_DAY: u8 = 0x87;
+#[cfg(feature = "extended")]
 pub const EXTENDED_TYPE_OFFSET_DATETIME: u8 = 0x88;
+#[cfg(feature = "extended")]
 pub const EXTENDED_TYPE_OFFSET_TIME: u8 = 0x89;
+#[cfg(feature = "extended")]
 pub const EXTENDED_TYPE_PERIOD: u8 = 0x8a;
+#[cfg(feature = "extended")]
 pub const EXTENDED_TYPE_YEAR: u8 = 0x8b;
+#[cfg(feature = "extended")]
 pub const EXTENDED_TYPE_YEAR_MONTH: u8 = 0x8c;
+#[cfg(feature = "extended")]
 pub const EXTENDED_TYPE_ZONED_DATETIME: u8 = 0x8d;
+#[cfg(feature = "extended")]
 pub const EXTENDED_TYPE_ZONED_OFFSET: u8 = 0x8f;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]

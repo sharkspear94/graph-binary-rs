@@ -1,5 +1,3 @@
-use crate::error::DecodeError;
-use crate::error::EncodeError;
 use crate::macros::{TryBorrowFrom, TryMutBorrowFrom};
 use crate::specs::CoreType;
 use crate::{conversion, GremlinValue};
@@ -9,14 +7,17 @@ use std::io::Read;
 use std::slice;
 use std::str::FromStr;
 
+#[cfg(any(feature = "graph_son", feature = "graph_binary"))]
+use crate::error::DecodeError;
 #[cfg(feature = "graph_binary")]
 use crate::graph_binary::{encode_null_object, Decode, Encode};
 
+#[cfg(feature = "graph_binary")]
+use crate::error::EncodeError;
 #[cfg(feature = "graph_son")]
 use crate::graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON};
 #[cfg(feature = "graph_son")]
 use serde_json::json;
-
 #[cfg(feature = "graph_binary")]
 impl Encode for String {
     fn type_code() -> u8 {
@@ -271,6 +272,7 @@ impl DecodeGraphSON for i16 {
             .map(|val| val as i16)
     }
 }
+
 #[cfg(feature = "graph_binary")]
 impl Encode for i32 {
     fn type_code() -> u8 {
@@ -282,6 +284,7 @@ impl Encode for i32 {
         Ok(())
     }
 }
+
 #[cfg(feature = "graph_binary")]
 impl Decode for i32 {
     fn expected_type_code() -> u8 {
@@ -383,6 +386,7 @@ impl DecodeGraphSON for i64 {
             .ok_or_else(|| DecodeError::DecodeError("json error in i64 v1".to_string()))
     }
 }
+
 #[cfg(feature = "graph_binary")]
 impl Encode for f32 {
     fn type_code() -> u8 {
@@ -395,6 +399,7 @@ impl Encode for f32 {
         Ok(())
     }
 }
+
 #[cfg(feature = "graph_binary")]
 impl Decode for f32 {
     fn expected_type_code() -> u8 {
@@ -879,8 +884,6 @@ conversion!(f32, Float);
 conversion!(f64, Double);
 conversion!(bool, Boolean);
 conversion!(Uuid, Uuid);
-#[cfg(feature = "extended")]
-conversion!(char, Char);
 
 #[test]
 fn encode_string_test() {

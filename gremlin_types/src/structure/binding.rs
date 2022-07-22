@@ -93,7 +93,13 @@ impl EncodeGraphSON for Binding {
     }
 
     fn encode_v2(&self) -> serde_json::Value {
-        self.encode_v3()
+        json!({
+          "@type" : "g:Binding",
+          "@value" : {
+            "key" : self.key,
+            "value" : self.value.encode_v2()
+          }
+        })
     }
 
     fn encode_v1(&self) -> serde_json::Value {

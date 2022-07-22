@@ -328,7 +328,9 @@ impl DecodeGraphSON for GremlinValue {
                     )),
                     #[cfg(feature = "extended")]
                     "gx:ZoneOffset" => Ok(GremlinValue::ZoneOffset(FixedOffset::decode_v3(j_val)?)),
-                    _ => todo!(),
+                    rest => Err(DecodeError::DecodeError(format!(
+                        "{rest} is not a valid Graphson V3 type identifier"
+                    ))),
                 }
             }
             _ => todo!(),
@@ -452,7 +454,9 @@ impl DecodeGraphSON for GremlinValue {
                         "gx:ZoneOffset" => {
                             Ok(GremlinValue::ZoneOffset(FixedOffset::decode_v2(j_val)?))
                         }
-                        _ => todo!(),
+                        rest => Err(DecodeError::DecodeError(format!(
+                            "{rest} is not a valid Graphson V2 type identifier"
+                        ))),
                     }
                 } else {
                     Ok(GremlinValue::Map(HashMap::decode_v2(j_val)?))
@@ -491,6 +495,23 @@ macro_rules! val_by_key_v2 {
     ($obj:expr,$key:literal,$expected:ty,$context:literal) => {
         $obj.and_then(|m| m.get($key))
             .and_then(|j_val| <$expected>::decode_v2(j_val).ok())
+            .ok_or_else(|| {
+                DecodeError::DecodeError(format!(
+                    "Error extracting a {} from key: {}, during {} v2 decoding",
+                    stringify!($expected),
+                    $key,
+                    $context
+                ))
+            })
+    };
+}
+
+#[macro_export]
+macro_rules! val_by_key_v2_new {
+    ($obj:expr,$key:literal,$expected:ty,$context:literal) => {
+        $obj.get($key)
+            .map(|j_val| <$expected>::decode_v2(j_val))
+            .transpose()?
             .ok_or_else(|| {
                 DecodeError::DecodeError(format!(
                     "Error extracting a {} from key: {}, during {} v2 decoding",

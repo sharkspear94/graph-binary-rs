@@ -25,7 +25,7 @@ use serde_json::{json, Map};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct VertexProperty {
-    pub id: Box<GremlinValue>, // needs refinment
+    pub id: Box<GremlinValue>, // TODO needs refinment
     pub label: String,
     pub value: Box<GremlinValue>,
     pub parent: Option<Vertex>,

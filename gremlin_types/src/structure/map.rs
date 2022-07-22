@@ -10,8 +10,10 @@ use std::{
     collections::HashMap,
     fmt::Display,
     hash::{BuildHasher, Hash},
-    io::{Read, Write},
 };
+
+#[cfg(feature = "graph_binary")]
+use std::io::{Read, Write};
 
 #[cfg(feature = "graph_binary")]
 use crate::graph_binary::{Decode, Encode};
