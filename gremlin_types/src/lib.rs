@@ -16,12 +16,14 @@ pub mod de;
 #[cfg(feature = "serde")]
 pub mod ser;
 
+use bigdecimal::BigDecimal;
 #[cfg(feature = "extended")]
 use chrono::{DateTime, Duration, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 
 #[cfg(feature = "extended")]
 use extended::chrono::{Instant, MonthDay, OffsetTime, Period, Year, YearMonth, ZonedDateTime};
 
+use num::BigInt;
 use structure::enums::P;
 use structure::map::MapKeys;
 pub use structure::Binding;
@@ -83,8 +85,8 @@ pub enum GremlinValue {
     Scope(Scope),
     T(T),
     Traverser(Traverser),
-    // BigDecimal(BigDecimal),
-    // BigInteger(BigInteger),
+    BigDecimal(BigDecimal),
+    BigInteger(BigInt),
     Byte(u8),
     ByteBuffer(ByteBuffer),
     Short(i16),
@@ -259,6 +261,8 @@ impl Display for GremlinValue {
             GremlinValue::P(val) => write!(f, "P::{val}"),
             GremlinValue::Scope(val) => write!(f, "Scope::{val}"),
             GremlinValue::T(val) => write!(f, "T::{val}"),
+            GremlinValue::BigDecimal(val) => write!(f, "BigDecimal::{val}"),
+            GremlinValue::BigInteger(val) => write!(f, "BigInteger::{val}"),
             GremlinValue::Traverser(val) => write!(f, "Traverser::{val}"),
             GremlinValue::Byte(val) => write!(f, "{val}_u8"),
             GremlinValue::ByteBuffer(val) => todo!(),
@@ -272,8 +276,8 @@ impl Display for GremlinValue {
             GremlinValue::TraversalMetrics(val) => write!(f, "{val}"),
             GremlinValue::Merge(val) => write!(f, "Merge::{val}"),
             GremlinValue::UnspecifiedNullObject => write!(f, "UnspecifiedNullObject"),
-            GremlinValue::Date(_) => todo!(),
-            GremlinValue::Timestamp(_) => todo!(),
+            GremlinValue::Date(val) => write!(f, "Date::{val}"),
+            GremlinValue::Timestamp(val) => write!(f, "Timestamp::{val}"),
             #[cfg(feature = "extended")]
             GremlinValue::Char(val) => write!(f, "{val}"),
             #[cfg(feature = "extended")]
