@@ -1,7 +1,8 @@
 use std::fmt::Display;
 
-use crate::error::DecodeError;
+use crate::error::{DecodeError, GraphSonError};
 
+use crate::graphson::{get_val_by_key_v2, get_val_by_key_v3, validate_type};
 use crate::GremlinValue;
 use crate::{conversion, specs::CoreType};
 
@@ -121,38 +122,30 @@ impl EncodeGraphSON for Path {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Path {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Path"))
-            .and_then(|m| m.get("@value"))
-            .and_then(|m| m.as_object());
+        let value_object = validate_type(j_val, "g:Path")?;
 
-        let labels = val_by_key_v3!(object, "labels", Vec<Set<String>>, "Path")?;
-        let objects = val_by_key_v3!(object, "objects", Vec<GremlinValue>, "Path")?;
+        let labels = get_val_by_key_v3(value_object, "labels", "Path")?;
+        let objects = get_val_by_key_v3(value_object, "objects", "Path")?;
 
         Ok(Path { labels, objects })
     }
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Path"))
-            .and_then(|m| m.get("@value"))
-            .and_then(|m| m.as_object());
+        let value_object = validate_type(j_val, "g:Path")?;
 
-        let labels = val_by_key_v2!(object, "labels", Vec<Set<String>>, "Path")?;
-        let objects = val_by_key_v2!(object, "objects", Vec<GremlinValue>, "Path")?;
+        let labels = get_val_by_key_v2(value_object, "labels", "Path")?;
+        let objects = get_val_by_key_v2(value_object, "objects", "Path")?;
 
         Ok(Path { labels, objects })
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {

@@ -2,7 +2,8 @@ use std::fmt::Display;
 
 use crate::{
     conversion,
-    error::DecodeError,
+    error::{DecodeError, GraphSonError},
+    graphson::{get_val_by_key_v2, get_val_by_key_v3, validate_type},
     specs::{self, CoreType},
     GremlinValue,
 };
@@ -192,29 +193,25 @@ impl EncodeGraphSON for VertexProperty {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for VertexProperty {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let value_object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:VertexProperty"))
-            .and_then(|m| m.get("@value"))
-            .and_then(|m| m.as_object());
+        let value_object = validate_type(j_val, "g:VertexProperty")?;
 
-        let id = val_by_key_v3!(value_object, "id", GremlinValue, "VertexProperty")?;
-        let label = val_by_key_v3!(value_object, "label", String, "VertexProperty")?;
-        let value = val_by_key_v3!(value_object, "value", GremlinValue, "VertexProperty")?;
+        let id = get_val_by_key_v3(value_object, "id", "VertexProperty")?;
+        let label = get_val_by_key_v3(value_object, "label", "VertexProperty")?;
+        let value = get_val_by_key_v3(value_object, "value", "VertexProperty")?;
 
         let properties = value_object
-            .and_then(|map| map.get("properties"))
+            .get("properties")
             .and_then(|prop_obj| prop_obj.as_object())
             .map(|map| {
                 map.iter()
                     .map(|(k, v)| {
                         GremlinValue::decode_v3(v).map(|g| Property::new(k, g, EitherParent::None))
                     })
-                    .collect::<Result<Vec<Property>, DecodeError>>()
+                    .collect::<Result<Vec<_>, _>>()
             })
             .transpose()?;
 
@@ -227,30 +224,26 @@ impl DecodeGraphSON for VertexProperty {
         })
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:VertexProperty"))
-            .and_then(|m| m.get("@value"))
-            .and_then(|m| m.as_object());
+        let value_object = validate_type(j_val, "g:VertexProperty")?;
 
-        let id = val_by_key_v2!(object, "id", GremlinValue, "VertexProperty")?;
-        let label = val_by_key_v2!(object, "label", String, "VertexProperty")?;
-        let value = val_by_key_v2!(object, "value", GremlinValue, "VertexProperty")?;
-        let vertex_id = val_by_key_v2!(object, "vertex", GremlinValue, "VertexProperty")?;
+        let id = get_val_by_key_v2(value_object, "id", "VertexProperty")?;
+        let label = get_val_by_key_v2(value_object, "label", "VertexProperty")?;
+        let value = get_val_by_key_v2(value_object, "value", "VertexProperty")?;
+        let vertex_id = get_val_by_key_v2(value_object, "vertex", "VertexProperty")?;
 
-        let properties = object
-            .and_then(|map| map.get("properties"))
+        let properties = value_object
+            .get("properties")
             .and_then(|prop_obj| prop_obj.as_object())
             .map(|map| {
                 map.iter()
                     .map(|(k, v)| {
                         GremlinValue::decode_v2(v).map(|g| Property::new(k, g, EitherParent::None))
                     })
-                    .collect::<Result<Vec<Property>, DecodeError>>()
+                    .collect::<Result<Vec<_>, _>>()
             })
             .transpose()?;
 
@@ -267,7 +260,7 @@ impl DecodeGraphSON for VertexProperty {
         })
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {

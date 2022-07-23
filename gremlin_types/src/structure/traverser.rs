@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Display};
 
-use crate::error::DecodeError;
+use crate::error::{DecodeError, GraphSonError};
+use crate::graphson::{get_val_by_key_v2, get_val_by_key_v3, validate_type};
 use crate::{conversion, specs::CoreType, GremlinValue};
 
 #[cfg(feature = "graph_binary")]
@@ -145,18 +146,14 @@ impl EncodeGraphSON for Traverser {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Traverser {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Traverser"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_object());
+        let value_object = validate_type(j_val, "g:Traverser")?;
 
-        let bulk = val_by_key_v3!(object, "bulk", i64, "Traverser")?;
-        let value = val_by_key_v3!(object, "value", GremlinValue, "Traverser")?;
+        let bulk = get_val_by_key_v3(value_object, "bulk", "Traverser")?;
+        let value = get_val_by_key_v3(value_object, "value", "Traverser")?;
 
         Ok(Traverser {
             bulk,
@@ -164,18 +161,14 @@ impl DecodeGraphSON for Traverser {
         })
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Traverser"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_object());
+        let value_object = validate_type(j_val, "g:Traverser")?;
 
-        let bulk = val_by_key_v2!(object, "bulk", i64, "Traverser")?;
-        let value = val_by_key_v2!(object, "value", GremlinValue, "Traverser")?;
+        let bulk = get_val_by_key_v2(value_object, "bulk", "Traverser")?;
+        let value = get_val_by_key_v2(value_object, "value", "Traverser")?;
 
         Ok(Traverser {
             bulk,
@@ -183,7 +176,7 @@ impl DecodeGraphSON for Traverser {
         })
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {

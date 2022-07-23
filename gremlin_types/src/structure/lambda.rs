@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
-use crate::error::DecodeError;
+use crate::error::{DecodeError, GraphSonError};
+use crate::graphson::{get_val_by_key_v3, validate_type};
 use crate::{conversion, specs::CoreType};
 
 #[cfg(feature = "graph_binary")]
@@ -93,24 +94,20 @@ impl EncodeGraphSON for Lambda {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Lambda {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Lambda"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_object());
+        let value_object = validate_type(j_val, "g:Lambda")?;
 
-        let script = val_by_key_v3!(object, "script", String, "Lambda")?;
-        let language = val_by_key_v3!(object, "language", String, "Lambda")?;
-        let arguments_length = object
-            .and_then(|len| len.get("arguments"))
-            .and_then(|arguments| arguments.as_i64())
-            .ok_or_else(|| {
-                DecodeError::DecodeError("could not deserialize args len in Lambda".to_string())
-            })
+        let script = get_val_by_key_v3(value_object, "script", "Lambda")?;
+        let language = get_val_by_key_v3(value_object, "language", "Lambda")?;
+
+        let arguments_length = value_object
+            .get("arguments")
+            .ok_or_else(|| GraphSonError::KeyNotFound("arguments".to_string()))?
+            .as_i64()
+            .ok_or_else(|| GraphSonError::WrongJsonType("i64".to_string()))
             .map(|len| len as i32)?;
         Ok(Lambda {
             language,
@@ -119,14 +116,14 @@ impl DecodeGraphSON for Lambda {
         })
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Lambda::decode_v3(j_val)
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {

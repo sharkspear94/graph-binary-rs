@@ -15,16 +15,17 @@ use crate::graph_binary::{Decode, Encode};
 use crate::graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON};
 use crate::{
     conversion,
-    error::{DecodeError, EncodeError},
+    error::{DecodeError, EncodeError, GraphSonError},
+    graphson::validate_type,
     specs::CoreType,
 };
 
 #[cfg(feature = "graph_son")]
-fn parse_java_duration(s: &str) -> Result<Duration, DecodeError> {
+fn parse_java_duration(s: &str) -> Result<Duration, GraphSonError> {
     let mut iter = s.chars();
-    iter.next().filter(|c| c.eq(&'P')).ok_or_else(|| {
-        DecodeError::DecodeError("parsing error of Duration/Period literal P not found".to_string())
-    })?;
+    iter.next()
+        .filter(|c| c.eq(&'P'))
+        .ok_or_else(|| GraphSonError::Parse("P not found".to_string()))?;
     let mut duration = Duration::zero();
     let mut date = true;
 
@@ -34,15 +35,15 @@ fn parse_java_duration(s: &str) -> Result<Duration, DecodeError> {
         if date {
             match qualifier {
                 "D" => {
-                    let days = numeric.parse::<i64>().map_err(|err| {
-                        DecodeError::DecodeError(format!("cannot parse years: {err}"))
-                    })?;
+                    let days = numeric
+                        .parse::<i64>()
+                        .map_err(|err| GraphSonError::Parse(err.to_string()))?;
                     duration = duration + Duration::days(days);
                 }
                 "T" => date = false,
 
                 rest => {
-                    return Err(DecodeError::DecodeError(format!(
+                    return Err(GraphSonError::Parse(format!(
                         "identifier {rest} not valid while parsing Date portion"
                     )))
                 }
@@ -50,28 +51,28 @@ fn parse_java_duration(s: &str) -> Result<Duration, DecodeError> {
         } else {
             match qualifier {
                 "H" => {
-                    let hours = numeric.parse::<i64>().map_err(|err| {
-                        DecodeError::DecodeError(format!("cannot parse years: {err}"))
-                    })?;
+                    let hours = numeric
+                        .parse::<i64>()
+                        .map_err(|err| GraphSonError::Parse(err.to_string()))?;
                     duration = duration + Duration::hours(hours);
                 }
                 "M" => {
-                    let minutes = numeric.parse::<i64>().map_err(|err| {
-                        DecodeError::DecodeError(format!("cannot parse years: {err}"))
-                    })?;
+                    let minutes = numeric
+                        .parse::<i64>()
+                        .map_err(|err| GraphSonError::Parse(err.to_string()))?;
                     duration = duration + Duration::minutes(minutes);
                 }
                 "S" => {
-                    let seconds = numeric.parse::<f64>().map_err(|err| {
-                        DecodeError::DecodeError(format!("cannot parse years: {err}"))
-                    })?;
+                    let seconds = numeric
+                        .parse::<f64>()
+                        .map_err(|err| GraphSonError::Parse(err.to_string()))?;
                     let nanos = (seconds.fract() * 1000. * 1000. * 1000.) as i64;
                     duration = duration
                         + Duration::seconds(seconds.floor() as i64)
                         + Duration::nanoseconds(nanos);
                 }
                 a => {
-                    return Err(DecodeError::DecodeError(format!(
+                    return Err(GraphSonError::Parse(format!(
                         "identifier {a} not valid while parsing Time portion"
                     )))
                 }
@@ -156,12 +157,10 @@ impl Period {
         Period::new(0, 0, 0)
     }
 
-    pub fn parse(s: &str) -> Result<Period, DecodeError> {
+    pub fn parse(s: &str) -> Result<Period, GraphSonError> {
         let mut iter = s.chars();
         iter.next().filter(|c| c.eq(&'P')).ok_or_else(|| {
-            DecodeError::DecodeError(
-                "parsing error of Duration/Period literal P not found".to_string(),
-            )
+            GraphSonError::Parse("parsing error of Duration/Period literal P not found".to_string())
         })?;
         let mut period = Period::zero();
         for pairs in s[1..].split_inclusive(['Y', 'M', 'W', 'D']) {
@@ -170,30 +169,30 @@ impl Period {
             match qualifier {
                 "Y" => {
                     let years = numeric.parse::<i32>().map_err(|err| {
-                        DecodeError::DecodeError(format!("cannot parse years: {err}"))
+                        GraphSonError::Parse(format!("cannot parse years: {err}"))
                     })?;
                     period.years += years
                 }
                 "M" => {
                     let months = numeric.parse::<i32>().map_err(|err| {
-                        DecodeError::DecodeError(format!("cannot parse months: {err}"))
+                        GraphSonError::Parse(format!("cannot parse months: {err}"))
                     })?;
                     period.months += months;
                 }
                 "W" => {
                     let weeks = numeric.parse::<i32>().map_err(|err| {
-                        DecodeError::DecodeError(format!("cannot parse weeks: {err}"))
+                        GraphSonError::Parse(format!("cannot parse weeks: {err}"))
                     })?;
                     period.days += weeks * 7;
                 }
                 "D" => {
-                    let days = numeric.parse::<i32>().map_err(|err| {
-                        DecodeError::DecodeError(format!("cannot parse days: {err}"))
-                    })?;
+                    let days = numeric
+                        .parse::<i32>()
+                        .map_err(|err| GraphSonError::Parse(format!("cannot parse days: {err}")))?;
                     period.days += days;
                 }
                 a => {
-                    return Err(DecodeError::DecodeError(format!(
+                    return Err(GraphSonError::Parse(format!(
                         "identifier {a} not valid while parsing Period "
                     )))
                 }
@@ -282,30 +281,25 @@ impl EncodeGraphSON for Duration {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Duration {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let s = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "gx:Duration"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                DecodeError::DecodeError("could not decode Duration type identifier".to_string())
-            })?;
+        let s = validate_type(j_val, "gx:Duration")?
+            .as_str()
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
 
         parse_java_duration(s)
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -364,36 +358,31 @@ impl EncodeGraphSON for MonthDay {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for MonthDay {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let s = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "gx:MonthDay"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                DecodeError::DecodeError("could not decode MonthDay type identifier".to_string())
-            })?;
+        let s = validate_type(j_val, "gx:MonthDay")?
+            .as_str()
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
         let month = s[2..4]
             .parse()
-            .map_err(|e| DecodeError::DecodeError(format!("month parse error: {e}")))?;
+            .map_err(|err| GraphSonError::Parse(format!("month parse error: {err}")))?;
         let day = s[5..]
             .parse()
-            .map_err(|e| DecodeError::DecodeError(format!("day parse error: {e}")))?;
+            .map_err(|err| GraphSonError::Parse(format!("month parse error: {err}")))?;
 
         Ok(MonthDay { month, day })
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -447,33 +436,28 @@ impl EncodeGraphSON for Year {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Year {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let s = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "gx:Year"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                DecodeError::DecodeError("could not decode Year type identifier".to_string())
-            })?;
+        let s = validate_type(j_val, "gx:Year")?
+            .as_str()
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
         let year = s
             .parse()
-            .map_err(|e| DecodeError::DecodeError(format!("year parse error: {e}")))?;
+            .map_err(|e| GraphSonError::Parse(format!("year parse error: {e}")))?;
 
         Ok(Year(year))
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -531,41 +515,37 @@ impl EncodeGraphSON for YearMonth {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for YearMonth {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let s = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "gx:YearMonth"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                DecodeError::DecodeError("could not decode YearMonth type identifier".to_string())
-            })?;
+        let s = validate_type(j_val, "gx:YearMonth")?
+            .as_str()
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
+
         if let Some((year, month)) = s.split_once('-') {
             let year = year
                 .parse()
-                .map_err(|e| DecodeError::DecodeError(format!("year parse error: {e}")))?;
+                .map_err(|e| GraphSonError::Parse(format!("year parse error: {e}")))?;
             let month = month
                 .parse()
-                .map_err(|e| DecodeError::DecodeError(format!("year parse error: {e}")))?;
+                .map_err(|e| GraphSonError::Parse(format!("year parse error: {e}")))?;
             Ok(YearMonth { year, month })
         } else {
-            Err(DecodeError::DecodeError(
+            Err(GraphSonError::Parse(
                 "YearMonth has wrong format".to_string(),
             ))
         }
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -627,33 +607,28 @@ impl EncodeGraphSON for NaiveTime {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for NaiveTime {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let s = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "gx:LocalTime"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                DecodeError::DecodeError("could not decode LocalTime type identifier".to_string())
-            })?;
+        let s = validate_type(j_val, "gx:LocalTime")?
+            .as_str()
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
 
         NaiveTime::parse_from_str(s, "%H:%M:%S")
             .or_else(|_| NaiveTime::parse_from_str(s, "%H:%M:%S.f"))
             .or_else(|_| NaiveTime::parse_from_str(s, "%H:%M"))
-            .map_err(|err| DecodeError::DecodeError(format!("cannot parse NaiveDate {err}")))
+            .map_err(|err| GraphSonError::Parse(format!("cannot parse NaiveDate {err}")))
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -719,31 +694,26 @@ impl EncodeGraphSON for NaiveDate {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for NaiveDate {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let s = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "gx:LocalDate"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                DecodeError::DecodeError("could not decode LocalDate type identifier".to_string())
-            })?;
+        let s = validate_type(j_val, "gx:LocalDate")?
+            .as_str()
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
 
         NaiveDate::parse_from_str(s, "%Y-%m-%d")
-            .map_err(|err| DecodeError::DecodeError(format!("cannot parse NaiveDate {err}")))
+            .map_err(|err| GraphSonError::Parse(format!("cannot parse NaiveDate {err}")))
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -803,35 +773,28 @@ impl EncodeGraphSON for NaiveDateTime {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for NaiveDateTime {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let s = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "gx:LocalDateTime"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                DecodeError::DecodeError(
-                    "could not decode LocalDateTime type identifier".to_string(),
-                )
-            })?;
+        let s = validate_type(j_val, "gx:LocalDateTime")?
+            .as_str()
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
 
         NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M")
             .or_else(|_| NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S"))
             .or_else(|_| NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S.f"))
-            .map_err(|err| DecodeError::DecodeError(format!("cannot parse NaiveDateTime {err}")))
+            .map_err(|err| GraphSonError::Parse(format!("cannot parse NaiveDateTime {err}")))
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -891,18 +854,14 @@ impl EncodeGraphSON for FixedOffset {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for FixedOffset {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let s = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "gx:ZoneOffset"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                DecodeError::DecodeError("could not decode ZoneOffset type identifier".to_string())
-            })?;
+        let s = validate_type(j_val, "gx:ZoneOffset")?
+            .as_str()
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
+
         let mut parsed = Parsed::new();
 
         parse(&mut parsed, s, [Item::Fixed(Fixed::TimezoneOffset)].iter())
@@ -923,17 +882,17 @@ impl DecodeGraphSON for FixedOffset {
                     FixedOffset::east(offset)
                 })
             })
-            .map_err(|err| DecodeError::DecodeError(format!("cannot parse FixedOffset {err}")))
+            .map_err(|err| GraphSonError::Parse(format!("cannot parse FixedOffset {err}")))
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -993,22 +952,17 @@ impl EncodeGraphSON for OffsetTime {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for OffsetTime {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let s = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "gx:OffsetTime"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                DecodeError::DecodeError("could not decode OffsetTime type identifier".to_string())
-            })?;
+        let s = validate_type(j_val, "gx:OffsetTime")?
+            .as_str()
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
 
         let time = NaiveTime::parse_from_str(s, "%H:%M:%S%z")
             .or_else(|_| NaiveTime::parse_from_str(s, "%H:%M:%S%.f%z"))
-            .map_err(|err| DecodeError::DecodeError(format!("cannot parse Time {err}")))?;
+            .map_err(|err| GraphSonError::Parse(format!("cannot parse Time {err}")))?;
 
         let mut parsed = Parsed::new();
         parse(
@@ -1016,21 +970,21 @@ impl DecodeGraphSON for OffsetTime {
             &s[s.len() - 6..], // TODO not safe
             [Item::Fixed(Fixed::TimezoneOffset)].iter(),
         )
-        .map_err(|err| DecodeError::DecodeError(format!("cannot parse ZoneOffset {err}")))?;
+        .map_err(|err| GraphSonError::Parse(format!("cannot parse ZoneOffset {err}")))?;
         let offset = parsed
             .to_fixed_offset()
-            .map_err(|err| DecodeError::DecodeError(format!("cannot parse ZoneOffset {err}")))?;
+            .map_err(|err| GraphSonError::Parse(format!("cannot parse ZoneOffset {err}")))?;
         Ok(OffsetTime { time, offset })
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -1094,34 +1048,28 @@ impl EncodeGraphSON for DateTime<FixedOffset> {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for DateTime<FixedOffset> {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let s = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "gx:OffsetDateTime"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                DecodeError::DecodeError(
-                    "could not decode OffsetDateTime type identifier".to_string(),
-                )
-            })?;
+        let s = validate_type(j_val, "gx:OffsetDateTime")?
+            .as_str()
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
+
         DateTime::parse_from_rfc3339(s)
             .or_else(|_| DateTime::parse_from_rfc2822(s))
             .or_else(|_| DateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f%:z"))
-            .map_err(|err| DecodeError::DecodeError(format!("cannot parse ZoneOffset {err}")))
+            .map_err(|err| GraphSonError::Parse(format!("cannot parse ZoneOffset {err}")))
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -1178,35 +1126,29 @@ impl EncodeGraphSON for ZonedDateTime {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for ZonedDateTime {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let s = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "gx:ZonedDateTime"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                DecodeError::DecodeError(
-                    "could not decode ZonedDateTime type identifier".to_string(),
-                )
-            })?;
+        let s = validate_type(j_val, "gx:ZonedDateTime")?
+            .as_str()
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
+
         let dt = DateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f%:z[%Z%:z]")
             .or_else(|_| DateTime::parse_from_rfc3339(s))
             .or_else(|_| DateTime::parse_from_rfc2822(s))
-            .map_err(|err| DecodeError::DecodeError(format!("cannot parse ZonedDateTime {err}")))?;
+            .map_err(|err| GraphSonError::Parse(format!("cannot parse ZonedDateTime {err}")))?;
         Ok(ZonedDateTime(dt))
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -1289,30 +1231,25 @@ impl EncodeGraphSON for Period {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Period {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let s = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "gx:Period"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                DecodeError::DecodeError("could not decode Period type identifier".to_string())
-            })?;
+        let s = validate_type(j_val, "gx:Period")?
+            .as_str()
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
 
         Period::parse(s)
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -1369,35 +1306,30 @@ impl EncodeGraphSON for Instant {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Instant {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let s = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "gx:Instant"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                DecodeError::DecodeError("could not decode Instant type identifier".to_string())
-            })?;
+        let s = validate_type(j_val, "gx:Instant")?
+            .as_str()
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
 
         let naive = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.fZ")
-            .map_err(|e| DecodeError::DecodeError(format!("cannot parse Instant: {e}")))?;
+            .map_err(|e| GraphSonError::Parse(format!("cannot parse Instant: {e}")))?;
         Ok(Instant {
             secs: naive.timestamp(),
             nanos: naive.nanosecond() as i32,
         })
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {

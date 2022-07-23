@@ -4,7 +4,12 @@ use std::fmt::Display;
 use crate::error::DecodeError;
 #[cfg(feature = "graph_binary")]
 use crate::specs::{self, CoreType};
-use crate::{conversion, GremlinValue};
+use crate::{
+    conversion,
+    error::GraphSonError,
+    graphson::{get_val_by_key_v2, get_val_by_key_v3, validate_type},
+    GremlinValue,
+};
 
 use super::{
     property::{self, Property},
@@ -209,24 +214,21 @@ impl EncodeGraphSON for Edge {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Edge {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Edge"))
-            .and_then(|map| map.get("@value"));
+        let value_object = validate_type(j_val, "g:Edge")?;
 
-        let id = val_by_key_v3!(object, "id", GremlinValue, "Edge")?;
-        let label = val_by_key_v3!(object, "label", String, "Edge")?;
-        let in_v_id = val_by_key_v3!(object, "inV", GremlinValue, "Edge")?;
-        let in_v_label = val_by_key_v3!(object, "inVLabel", String, "Edge")?;
-        let out_v_id = val_by_key_v3!(object, "outV", GremlinValue, "Edge")?;
-        let out_v_label = val_by_key_v3!(object, "outVLabel", String, "Edge")?;
+        let id = get_val_by_key_v3(value_object, "id", "Edge")?;
+        let label = get_val_by_key_v3(value_object, "label", "Edge")?;
+        let in_v_id = get_val_by_key_v3(value_object, "inV", "Edge")?;
+        let in_v_label = get_val_by_key_v3(value_object, "inVLabel", "Edge")?;
+        let out_v_id = get_val_by_key_v3(value_object, "outV", "Edge")?;
+        let out_v_label = get_val_by_key_v3(value_object, "outVLabel", "Edge")?;
 
-        let properties = object
-            .and_then(|map| map.get("properties"))
+        let properties = value_object
+            .get("properties")
             .and_then(|map| map.as_object())
             .map(|map| {
                 map.values()
@@ -247,25 +249,21 @@ impl DecodeGraphSON for Edge {
         })
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Edge"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_object());
+        let value_object = validate_type(j_val, "g:Edge")?;
 
-        let id = val_by_key_v2!(object, "id", GremlinValue, "Edge")?;
-        let label = val_by_key_v2!(object, "label", String, "Edge")?;
-        let in_v_id = val_by_key_v2!(object, "inV", GremlinValue, "Edge")?;
-        let in_v_label = val_by_key_v2!(object, "inVLabel", String, "Edge")?;
-        let out_v_id = val_by_key_v2!(object, "outV", GremlinValue, "Edge")?;
-        let out_v_label = val_by_key_v2!(object, "outVLabel", String, "Edge")?;
+        let id = get_val_by_key_v2(value_object, "id", "Edge")?;
+        let label = get_val_by_key_v2(value_object, "label", "Edge")?;
+        let in_v_id = get_val_by_key_v2(value_object, "inV", "Edge")?;
+        let in_v_label = get_val_by_key_v2(value_object, "inVLabel", "Edge")?;
+        let out_v_id = get_val_by_key_v2(value_object, "outV", "Edge")?;
+        let out_v_label = get_val_by_key_v2(value_object, "outVLabel", "Edge")?;
 
-        let properties = object
-            .and_then(|map| map.get("properties"))
+        let properties = value_object
+            .get("properties")
             .and_then(|map| map.as_object())
             .map(|map| {
                 map.iter()
@@ -289,7 +287,7 @@ impl DecodeGraphSON for Edge {
         })
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {

@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
-use crate::{conversion, specs::CoreType, GremlinValue};
+use crate::{
+    conversion, error::GraphSonError, graphson::validate_type, specs::CoreType, GremlinValue,
+};
 
 #[cfg(feature = "graph_binary")]
 use crate::graph_binary::{Decode, Encode};
@@ -207,19 +209,16 @@ impl EncodeGraphSON for Bytecode {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Bytecode {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         let mut steps = Vec::<Step>::new();
         let mut sources = Vec::<Source>::new();
-        let value_object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Bytecode"))
-            .and_then(|m| m.get("@value"));
-        let steps_iter = value_object
-            .and_then(|v| v.get("step"))
-            .and_then(|v| v.as_array());
+
+        let value_object = validate_type(j_val, "g:Bytecode")?;
+
+        let steps_iter = value_object.get("step").and_then(|v| v.as_array());
 
         if let Some(iter) = steps_iter {
             for inner in iter.iter().flat_map(|v| v.as_array()) {
@@ -227,11 +226,7 @@ impl DecodeGraphSON for Bytecode {
                 let name = inner
                     .first()
                     .and_then(|v| String::decode_v3(v).ok())
-                    .ok_or_else(|| {
-                        crate::error::DecodeError::DecodeError(
-                            "json error Bytecode v3 in error".to_string(),
-                        )
-                    })?;
+                    .ok_or_else(|| GraphSonError::KeyNotFound("first".to_string()))?;
                 for i in &inner[1..] {
                     step_args.push(GremlinValue::decode_v3(i)?)
                 }
@@ -242,9 +237,7 @@ impl DecodeGraphSON for Bytecode {
             }
         };
 
-        let source_iter = value_object
-            .and_then(|v| v.get("source"))
-            .and_then(|v| v.as_array());
+        let source_iter = value_object.get("source").and_then(|v| v.as_array());
 
         if let Some(iter) = source_iter {
             for inner in iter.iter().flat_map(|v| v.as_array()) {
@@ -252,11 +245,7 @@ impl DecodeGraphSON for Bytecode {
                 let name = inner
                     .first()
                     .and_then(|v| String::decode_v3(v).ok())
-                    .ok_or_else(|| {
-                        crate::error::DecodeError::DecodeError(
-                            "json error Bytecode v3 in error".to_string(),
-                        )
-                    })?;
+                    .ok_or_else(|| GraphSonError::KeyNotFound("first".to_string()))?;
                 for i in &inner[1..] {
                     source_args.push(GremlinValue::decode_v3(i)?)
                 }
@@ -269,14 +258,14 @@ impl DecodeGraphSON for Bytecode {
         Ok(Bytecode { steps, sources })
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {

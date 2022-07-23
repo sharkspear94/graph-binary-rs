@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Display};
 
-use crate::error::DecodeError;
+use crate::error::{DecodeError, GraphSonError};
+use crate::graphson::validate_type;
 use crate::GremlinValue;
 use crate::{conversion, specs::CoreType};
 
@@ -249,41 +250,35 @@ impl EncodeGraphSON for Metrics {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Metrics {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Metrics"));
+        let value_object = validate_type(j_val, "g:Metrics")?;
 
-        let metrics = val_by_key_v3!(object, "@value", HashMap<String,GremlinValue>, "Metrics")?;
+        let metrics = HashMap::<String, GremlinValue>::decode_v3(value_object)?;
 
         let duration = metrics
             .get("dur")
             .and_then(|v| v.get_cloned::<f64>())
             .map(|dur| (dur * 1000. * 1000.) as i64)
-            .ok_or_else(|| {
-                DecodeError::DecodeError("decoding duration in Metrics v3".to_string())
-            })?;
+            .ok_or_else(|| GraphSonError::KeyNotFound("dur".to_string()))?;
         let counts = metrics
             .get("counts")
             .and_then(|v| v.get_cloned::<HashMap<String, i64>>())
-            .ok_or_else(|| DecodeError::DecodeError("decoding counts in Metrics v3".to_string()))?;
+            .ok_or_else(|| GraphSonError::KeyNotFound("counts".to_string()))?;
         let name = metrics
             .get("name")
             .and_then(|v| v.get_cloned::<String>())
-            .ok_or_else(|| DecodeError::DecodeError("decoding name in Metrics v3".to_string()))?;
+            .ok_or_else(|| GraphSonError::KeyNotFound("name".to_string()))?;
         let annotations = metrics
             .get("annotations")
             .and_then(|v| v.get_cloned::<HashMap<String, GremlinValue>>())
-            .ok_or_else(|| {
-                DecodeError::DecodeError("decoding annotation in Metrics v3".to_string())
-            })?;
+            .ok_or_else(|| GraphSonError::KeyNotFound("annotation".to_string()))?;
         let id = metrics
             .get("id")
             .and_then(|v| v.get_cloned::<String>())
-            .ok_or_else(|| DecodeError::DecodeError("decoding id in Metrics v3".to_string()))?;
+            .ok_or_else(|| GraphSonError::KeyNotFound("id".to_string()))?;
 
         if let Some(nested_metrics) = metrics
             .get("metrics")
@@ -309,43 +304,35 @@ impl DecodeGraphSON for Metrics {
         }
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Metrics"));
+        let value_object = validate_type(j_val, "g:Metrics")?;
 
-        let metrics = val_by_key_v2!(object, "@value", HashMap<String,GremlinValue>, "Metrics")?;
+        let metrics = HashMap::<String, GremlinValue>::decode_v2(value_object)?;
 
         let duration = metrics
             .get("dur")
             .and_then(|v| v.get_cloned::<f64>())
             .map(|dur| (dur * 1000. * 1000.) as i64)
-            .ok_or_else(|| {
-                DecodeError::DecodeError("decoding duration in Metrics v2".to_string())
-            })?;
+            .ok_or_else(|| GraphSonError::KeyNotFound("dur".to_string()))?;
         let counts = metrics
             .get("counts")
             .and_then(|v| v.get_cloned::<HashMap<String, i64>>())
-            .ok_or_else(|| {
-                DecodeError::DecodeError("decoding counts in Metrics v32".to_string())
-            })?;
+            .ok_or_else(|| GraphSonError::KeyNotFound("counts".to_string()))?;
         let name = metrics
             .get("name")
             .and_then(|v| v.get_cloned::<String>())
-            .ok_or_else(|| DecodeError::DecodeError("decoding name in Metrics v32".to_string()))?;
+            .ok_or_else(|| GraphSonError::KeyNotFound("name".to_string()))?;
         let annotations = metrics
             .get("annotations")
             .and_then(|v| v.get_cloned::<HashMap<String, GremlinValue>>())
-            .ok_or_else(|| {
-                DecodeError::DecodeError("decoding annotation in Metrics v32".to_string())
-            })?;
+            .ok_or_else(|| GraphSonError::KeyNotFound("annotations".to_string()))?;
         let id = metrics
             .get("id")
             .and_then(|v| v.get_cloned::<String>())
-            .ok_or_else(|| DecodeError::DecodeError("decoding id in Metrics v2".to_string()))?;
+            .ok_or_else(|| GraphSonError::KeyNotFound("id".to_string()))?;
 
         if let Some(nested_metrics) = metrics
             .get("metrics")
@@ -371,7 +358,7 @@ impl DecodeGraphSON for Metrics {
         }
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -408,61 +395,47 @@ impl EncodeGraphSON for TraversalMetrics {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for TraversalMetrics {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:TraversalMetrics"));
+        let value_object = validate_type(j_val, "g:TraversalMetrics")?;
 
-        let metrics =
-            val_by_key_v3!(object, "@value", HashMap<String,GremlinValue>, "TraversalMetrics")?;
+        let metrics = HashMap::<String, GremlinValue>::decode_v3(value_object)?;
 
         let duration = metrics
             .get("dur")
             .and_then(|v| v.get_cloned::<f64>())
             .map(|dur| (dur * 1000. * 1000.) as i64)
-            .ok_or_else(|| {
-                DecodeError::DecodeError("decoding duration in TraversalMetrics v3".to_string())
-            })?;
+            .ok_or_else(|| GraphSonError::KeyNotFound("dur".to_string()))?;
         let metrics = metrics
             .get("metrics")
             .and_then(|v| v.get_cloned::<Vec<Metrics>>())
-            .ok_or_else(|| {
-                DecodeError::DecodeError("decoding duration in TraversalMetrics v3".to_string())
-            })?;
+            .ok_or_else(|| GraphSonError::KeyNotFound("metrics".to_string()))?;
         Ok(TraversalMetrics { duration, metrics })
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:TraversalMetrics"));
+        let value_object = validate_type(j_val, "g:Metrics")?;
 
-        let metrics =
-            val_by_key_v2!(object, "@value", HashMap<String,GremlinValue>, "TraversalMetrics")?;
+        let metrics = HashMap::<String, GremlinValue>::decode_v2(value_object)?;
 
         let duration = metrics
             .get("dur")
             .and_then(|v| v.get_cloned::<f64>())
             .map(|dur| (dur * 1000. * 1000.) as i64)
-            .ok_or_else(|| {
-                DecodeError::DecodeError("decoding duration in TraversalMetrics v2".to_string())
-            })?;
+            .ok_or_else(|| GraphSonError::KeyNotFound("du".to_string()))?;
         let metrics = metrics
             .get("metrics")
             .and_then(|v| v.get_cloned::<Vec<Metrics>>())
-            .ok_or_else(|| {
-                DecodeError::DecodeError("decoding duration in TraversalMetrics v2".to_string())
-            })?;
+            .ok_or_else(|| GraphSonError::KeyNotFound("metrics".to_string()))?;
         Ok(TraversalMetrics { duration, metrics })
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {

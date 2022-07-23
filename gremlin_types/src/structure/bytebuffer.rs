@@ -1,4 +1,8 @@
-use crate::{error::DecodeError, specs::CoreType};
+use crate::{
+    error::{DecodeError, GraphSonError},
+    graphson::validate_type,
+    specs::CoreType,
+};
 
 use std::ops::Deref;
 
@@ -81,30 +85,25 @@ impl EncodeGraphSON for ByteBuffer {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for ByteBuffer {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let inner: Vec<u8> = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "gx:ByteBuffer"))
-            .and_then(|v| v.get("@value"))
-            .and_then(|v| v.as_str())
+        let inner = validate_type(j_val, "gx:ByteBuffer")?
+            .as_str()
             .map(|s| s.chars().map(|c| c as u8).collect::<Vec<u8>>())
-            .ok_or_else(|| {
-                DecodeError::DecodeError("failed to decode ByteBuffer v3".to_string())
-            })?;
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
         Ok(ByteBuffer(inner))
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {

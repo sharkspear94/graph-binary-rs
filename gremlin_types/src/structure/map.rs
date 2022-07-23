@@ -2,7 +2,8 @@ use uuid::Uuid;
 
 use super::enums::{Direction, T};
 use crate::{
-    error::{DecodeError, EncodeError},
+    error::{DecodeError, EncodeError, GraphSonError},
+    graphson::validate_type,
     specs::CoreType,
     GremlinValue,
 };
@@ -229,23 +230,23 @@ impl EncodeGraphSON for MapKeys {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for MapKeys {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         let g_key = GremlinValue::decode_v3(j_val)?;
-        MapKeys::try_from(g_key)
+        MapKeys::try_from(g_key).map_err(|e| GraphSonError::TryFrom(e.to_string()))
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let s = String::decode_v2(j_val)?;
-        Ok(MapKeys::String(s))
+        let g_key = GremlinValue::decode_v2(j_val)?;
+        MapKeys::try_from(g_key).map_err(|e| GraphSonError::TryFrom(e.to_string()))
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -392,21 +393,20 @@ where
     K: DecodeGraphSON + ToString + std::cmp::Eq + std::hash::Hash,
     V: DecodeGraphSON,
 {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
+        let value_object = validate_type(j_val, "g:Map")?;
+
         let mut map_len = 0;
-        let iter = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Map"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|val| val.as_array())
+        let iter = value_object
+            .as_array()
             .map(|array| {
                 map_len = array.len() / 2;
                 array.iter()
             })
-            .ok_or_else(|| DecodeError::DecodeError("json error Map v3 in error".to_string()))?;
+            .ok_or_else(|| GraphSonError::WrongJsonType("array".to_string()))?;
 
         let mut map = HashMap::with_capacity(map_len);
         for (k, v) in iter.clone().zip(iter.skip(1)).step_by(2) {
@@ -418,7 +418,7 @@ where
         Ok(map)
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -429,7 +429,7 @@ where
                 map_len = map.len();
                 map.iter()
             })
-            .ok_or_else(|| DecodeError::DecodeError("json error Map v2 in error".to_string()))?;
+            .ok_or_else(|| GraphSonError::WrongJsonType("object".to_string()))?;
 
         let mut map = HashMap::with_capacity(map_len);
         for (k, v) in iter {
@@ -441,7 +441,7 @@ where
         Ok(map)
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -452,7 +452,7 @@ where
                 map_len = map.len();
                 map.iter()
             })
-            .ok_or_else(|| DecodeError::DecodeError("json error Map v1 in error".to_string()))?;
+            .ok_or_else(|| GraphSonError::WrongJsonType("object".to_string()))?;
 
         let mut map = HashMap::with_capacity(map_len);
         for (k, v) in iter {

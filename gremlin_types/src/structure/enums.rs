@@ -1,7 +1,12 @@
 use std::fmt::Display;
 use std::marker::PhantomData;
 
-use crate::{error::DecodeError, specs::CoreType, GremlinValue};
+use crate::{
+    error::{DecodeError, GraphSonError},
+    graphson::{get_val_by_key_v2, get_val_by_key_v3, validate_type},
+    specs::CoreType,
+    GremlinValue,
+};
 
 #[cfg(feature = "graph_binary")]
 use crate::graph_binary::{Decode, Encode};
@@ -445,19 +450,17 @@ impl<T> EncodeGraphSON for P<T> {
 
 #[cfg(feature = "graph_son")]
 impl<T> DecodeGraphSON for P<T> {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:P"))
-            .and_then(|map| map.get("@value"));
+        let value_object = validate_type(j_val, "g:P")?;
 
-        let predicate = val_by_key_v3!(object, "predicate", String, "P")?;
+        let predicate = get_val_by_key_v3::<String>(value_object, "predicate", "P")?;
+
         match predicate.as_ref() {
             "eq" | "neq" | "lt" | "lte" | "gt" | "gte" => {
-                let value = val_by_key_v3!(object, "value", GremlinValue, "P")?;
+                let value = get_val_by_key_v3(value_object, "value", "P")?;
                 Ok(P {
                     predicate,
                     value: vec![value],
@@ -465,7 +468,7 @@ impl<T> DecodeGraphSON for P<T> {
                 })
             }
             "between" | "inside" | "outside" | "within" | "without" => {
-                let value = val_by_key_v3!(object, "value", Vec<GremlinValue>, "P")?;
+                let value = get_val_by_key_v3(value_object, "value", "P")?;
                 Ok(P {
                     predicate,
                     value,
@@ -473,14 +476,10 @@ impl<T> DecodeGraphSON for P<T> {
                 })
             }
             "and" | "or" => {
-                let value_vec = object
-                    .and_then(|a| a.get("value"))
+                let value_vec = value_object
+                    .get("value")
                     .and_then(|a| a.as_array())
-                    .ok_or_else(|| {
-                        DecodeError::DecodeError(
-                            "and,or predicate in P does not as array as value".to_string(),
-                        )
-                    })?;
+                    .ok_or_else(|| GraphSonError::WrongJsonType("array".to_string()))?;
                 let mut value = Vec::with_capacity(value_vec.len());
                 for p in value_vec {
                     value.push(GremlinValue::decode_v3(p)?);
@@ -491,25 +490,20 @@ impl<T> DecodeGraphSON for P<T> {
                     marker: PhantomData,
                 })
             }
-            error => Err(DecodeError::DecodeError(format!(
-                "predicate :{error} in P is not valid"
-            ))),
+            rest => Err(GraphSonError::WrongFixedValue(format!("{rest}"))),
         }
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:P"))
-            .and_then(|map| map.get("@value"));
+        let value_object = validate_type(j_val, "g:P")?;
 
-        let predicate = val_by_key_v2!(object, "predicate", String, "P")?;
+        let predicate = get_val_by_key_v2::<String>(value_object, "predicate", "P")?;
         match predicate.as_ref() {
             "eq" | "neq" | "lt" | "lte" | "gt" | "gte" => {
-                let value = val_by_key_v2!(object, "value", GremlinValue, "P")?;
+                let value = get_val_by_key_v2(value_object, "value", "P")?;
                 Ok(P {
                     predicate,
                     value: vec![value],
@@ -517,7 +511,7 @@ impl<T> DecodeGraphSON for P<T> {
                 })
             }
             "between" | "inside" | "outside" | "within" | "without" => {
-                let value = val_by_key_v2!(object, "value", Vec<GremlinValue>, "P")?;
+                let value = get_val_by_key_v2(value_object, "value", "P")?;
                 Ok(P {
                     predicate,
                     value,
@@ -525,14 +519,10 @@ impl<T> DecodeGraphSON for P<T> {
                 })
             }
             "and" | "or" => {
-                let value_vec = object
-                    .and_then(|a| a.get("value"))
+                let value_vec = value_object
+                    .get("value")
                     .and_then(|a| a.as_array())
-                    .ok_or_else(|| {
-                        DecodeError::DecodeError(
-                            "and,or predicate in P does not as array as value".to_string(),
-                        )
-                    })?;
+                    .ok_or_else(|| GraphSonError::WrongJsonType("array".to_string()))?;
                 let mut value = Vec::with_capacity(value_vec.len());
                 for p in value_vec {
                     value.push(GremlinValue::decode_v2(p)?);
@@ -543,13 +533,11 @@ impl<T> DecodeGraphSON for P<T> {
                     marker: PhantomData,
                 })
             }
-            error => Err(DecodeError::DecodeError(format!(
-                "predicate :{error} in P is not valid"
-            ))),
+            rest => Err(GraphSonError::WrongFixedValue(format!("{rest}"))),
         }
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -826,43 +814,36 @@ impl EncodeGraphSON for TextP {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for TextP {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:TextP"))
-            .and_then(|m| m.get("@value"))
-            .and_then(|m| m.as_object());
+        let value_object = validate_type(j_val, "g:TextP")?;
 
-        let predicate = val_by_key_v3!(object, "predicate", String, "TextP")?;
-        let value = val_by_key_v3!(object, "value", GremlinValue, "TextP")?;
+        let predicate = get_val_by_key_v3(value_object, "predicate", "TextP")?;
+        let value = get_val_by_key_v3(value_object, "value", "TextP")?;
         Ok(TextP {
             predicate,
             value: vec![value],
         })
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:TextP"))
-            .and_then(|m| m.get("@value"))
-            .and_then(|m| m.as_object());
+        let value_object = validate_type(j_val, "g:TextP")?;
 
-        let predicate = val_by_key_v2!(object, "predicate", String, "TextP")?;
-        let value = val_by_key_v2!(object, "value", GremlinValue, "TextP")?;
+        let predicate = get_val_by_key_v2(value_object, "predicate", "TextP")?;
+        let value = get_val_by_key_v2(value_object, "value", "TextP")?;
+
         Ok(TextP {
             predicate,
             value: vec![value],
         })
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -1006,30 +987,23 @@ macro_rules! graph_son_impls {
             }
 
             impl DecodeGraphSON for $t {
-                fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+                fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
                 where
                     Self: std::marker::Sized,
                 {
-                    j_val
-                        .as_object()
-                        .filter(|map| validate_type_entry(*map, concat!("g:",stringify!($t))))
-                        .and_then(|map| map.get("@value"))
-                        .and_then(|value| value.as_str())
-                        .map(<$t>::try_from)
-                        .unwrap_or_else(||
-                            Err(DecodeError::DecodeError(
-                                concat!("g:",stringify!($t)).to_string()
-                            )))
+                    let value_object = validate_type(j_val, concat!("g:",stringify!($t)))?;
+                    let s = value_object.as_str().ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
+                    <$t>::try_from(s).map_err(|err| GraphSonError::TryFrom(err.to_string()))
                 }
 
-                fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+                fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
                 where
                     Self: std::marker::Sized,
                 {
                     Self::decode_v3(j_val)
                 }
 
-                fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+                fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
                 where
                     Self: std::marker::Sized,
                 {

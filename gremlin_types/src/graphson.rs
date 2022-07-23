@@ -5,7 +5,7 @@ use std::{collections::HashMap, net::IpAddr};
 use uuid::Uuid;
 
 use crate::{
-    error::DecodeError,
+    error::{DecodeError, GraphSonError},
     structure::{
         bytecode::Bytecode,
         edge::Edge,
@@ -44,15 +44,15 @@ pub trait EncodeGraphSON {
 
 #[cfg(feature = "graph_son")]
 pub trait DecodeGraphSON {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized;
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized;
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized;
 }
@@ -221,7 +221,7 @@ impl EncodeGraphSON for GremlinValue {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for GremlinValue {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -235,18 +235,14 @@ impl DecodeGraphSON for GremlinValue {
                 match o
                     .get("@type")
                     .and_then(|s| s.as_str())
-                    .ok_or_else(|| DecodeError::DecodeError("".to_string()))?
+                    .ok_or_else(|| GraphSonError::KeyNotFound("@type".to_string()))?
                 {
                     "g:Int32" => Ok(GremlinValue::Int(i32::decode_v3(j_val)?)),
                     "g:Int64" => Ok(GremlinValue::Long(i64::decode_v3(j_val)?)),
                     "g:Class" => Ok(GremlinValue::Class(
                         o.get("@value")
                             .and_then(|c| c.as_str())
-                            .ok_or_else(|| {
-                                crate::error::DecodeError::DecodeError(
-                                    "json error Class v3 in error".to_string(),
-                                )
-                            })
+                            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))
                             .map(|class| class.to_string())?,
                     )),
                     "g:Double" => Ok(GremlinValue::Double(f64::decode_v3(j_val)?)),
@@ -328,16 +324,17 @@ impl DecodeGraphSON for GremlinValue {
                     )),
                     #[cfg(feature = "extended")]
                     "gx:ZoneOffset" => Ok(GremlinValue::ZoneOffset(FixedOffset::decode_v3(j_val)?)),
-                    rest => Err(DecodeError::DecodeError(format!(
-                        "{rest} is not a valid Graphson V3 type identifier"
-                    ))),
+                    rest => Err(GraphSonError::WrongTypeIdentifier {
+                        expected: "a GremlinValue identifier".to_string(),
+                        found: rest.to_string(),
+                    }),
                 }
             }
             _ => todo!(),
         }
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -362,11 +359,7 @@ impl DecodeGraphSON for GremlinValue {
                         "g:Class" => Ok(GremlinValue::Class(
                             o.get("@value")
                                 .and_then(|c| c.as_str())
-                                .ok_or_else(|| {
-                                    crate::error::DecodeError::DecodeError(
-                                        "json error Class v3 in error".to_string(),
-                                    )
-                                })
+                                .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))
                                 .map(|class| class.to_string())?,
                         )),
                         "g:Double" => Ok(GremlinValue::Double(f64::decode_v2(j_val)?)),
@@ -454,9 +447,10 @@ impl DecodeGraphSON for GremlinValue {
                         "gx:ZoneOffset" => {
                             Ok(GremlinValue::ZoneOffset(FixedOffset::decode_v2(j_val)?))
                         }
-                        rest => Err(DecodeError::DecodeError(format!(
-                            "{rest} is not a valid Graphson V2 type identifier"
-                        ))),
+                        rest => Err(GraphSonError::WrongTypeIdentifier {
+                            expected: "a GremlinValue identifier".to_string(),
+                            found: rest.to_string(),
+                        }),
                     }
                 } else {
                     Ok(GremlinValue::Map(HashMap::decode_v2(j_val)?))
@@ -466,7 +460,7 @@ impl DecodeGraphSON for GremlinValue {
         }
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -539,6 +533,49 @@ macro_rules! val_by_key_v3 {
     };
 }
 
+#[macro_export]
+macro_rules! val_by_key_v3_new {
+    ($obj:expr,$key:literal,$expected:ty,$context:literal) => {
+        $obj.get($key)
+            .ok_or_else(|| GraphSonError::KeyNotFound(stringify!($key)))?
+
+        <$expected>::decode_v3(j_val).map_err(|e| GraphSonError::FieldError(context: $context.to_string(),source: e))?
+    };
+}
+
+pub fn get_val_by_key_v3<T: DecodeGraphSON>(
+    jval: &serde_json::Value,
+    key: &str,
+    context: &str,
+) -> Result<T, GraphSonError> {
+    let val = jval
+        .get(key)
+        .ok_or_else(|| GraphSonError::KeyNotFound(key.to_string()))?;
+    T::decode_v3(val)
+}
+
+pub fn get_val_by_key_v2<T: DecodeGraphSON>(
+    jval: &serde_json::Value,
+    key: &str,
+    context: &str,
+) -> Result<T, GraphSonError> {
+    let val = jval
+        .get(key)
+        .ok_or_else(|| GraphSonError::KeyNotFound(key.to_string()))?;
+    T::decode_v2(val)
+}
+
+pub fn get_val_by_key_v1<T: DecodeGraphSON>(
+    jval: &serde_json::Value,
+    key: &str,
+    context: &str,
+) -> Result<T, GraphSonError> {
+    let val = jval
+        .get(key)
+        .ok_or_else(|| GraphSonError::KeyNotFound(key.to_string()))?;
+    T::decode_v1(val)
+}
+
 #[cfg(feature = "graph_son")]
 pub fn validate_type_entry(
     map: &serde_json::Map<String, serde_json::Value>,
@@ -548,4 +585,24 @@ pub fn validate_type_entry(
         .and_then(|val| val.as_str())
         .filter(|s| s.eq(&type_value))
         .is_some()
+}
+
+pub fn validate_type<'a>(
+    jval: &'a serde_json::Value,
+    identifier: &str,
+) -> Result<&'a serde_json::Value, GraphSonError> {
+    let a = jval
+        .get("@type")
+        .ok_or_else(|| GraphSonError::KeyNotFound("@type".to_string()))?
+        .as_str()
+        .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
+    if a.ne(identifier) {
+        return Err(GraphSonError::WrongTypeIdentifier {
+            expected: identifier.to_string(),
+            found: a.to_string(),
+        });
+    }
+
+    jval.get("@value")
+        .ok_or_else(|| GraphSonError::KeyNotFound("@value".to_string()))
 }

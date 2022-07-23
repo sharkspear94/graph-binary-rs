@@ -1,5 +1,6 @@
 use crate::{
-    error::{DecodeError, EncodeError},
+    error::{DecodeError, EncodeError, GraphSonError},
+    graphson::validate_type,
     macros::{TryBorrowFrom, TryMutBorrowFrom},
     specs::CoreType,
 };
@@ -84,36 +85,30 @@ impl<T: EncodeGraphSON> EncodeGraphSON for Set<T> {
 
 #[cfg(feature = "graph_son")]
 impl<T: DecodeGraphSON> DecodeGraphSON for Set<T> {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let mut vec_len = 0;
-        let res = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Set"))
-            .and_then(|o| o.get("@value"))
-            .and_then(|val| val.as_array())
-            .map(|array| {
-                vec_len = array.len();
-                array.iter()
-            })
-            .ok_or_else(|| DecodeError::DecodeError("json error Set v3 in error".to_string()))?;
-        let mut result_vec = Vec::with_capacity(vec_len);
-        for element in res {
-            result_vec.push(T::decode_v3(element)?)
-        }
+        let value_object = validate_type(j_val, "g:Set")?;
+
+        let result_vec = value_object
+            .as_array()
+            .ok_or_else(|| GraphSonError::WrongJsonType("array".to_string()))?
+            .iter()
+            .map(|v| T::decode_v3(v))
+            .collect::<Result<Vec<_>, _>>()?;
+
         Ok(Set(result_vec))
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Ok(Set(Vec::<T>::decode_v2(j_val)?))
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -247,64 +242,42 @@ impl<T: EncodeGraphSON> EncodeGraphSON for Vec<T> {
 
 #[cfg(feature = "graph_son")]
 impl<T: DecodeGraphSON> DecodeGraphSON for Vec<T> {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let mut vec_len = 0;
-        let res = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:List"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|val| val.as_array())
-            .map(|array| {
-                vec_len = array.len();
-                array.iter()
-            })
-            .ok_or_else(|| DecodeError::DecodeError("json error List v3 in error".to_string()))?;
-        let mut result_vec = Vec::with_capacity(vec_len);
-        for element in res {
-            result_vec.push(T::decode_v3(element)?)
-        }
-        Ok(result_vec)
+        let value_object = validate_type(j_val, "g:List")?;
+
+        value_object
+            .as_array()
+            .ok_or_else(|| GraphSonError::WrongJsonType("array".to_string()))?
+            .iter()
+            .map(|v| T::decode_v3(v))
+            .collect::<Result<Vec<_>, _>>()
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let mut vec_len = 0;
-        let res = j_val
+        j_val
             .as_array()
-            .map(|array| {
-                vec_len = array.len();
-                array.iter()
-            })
-            .ok_or_else(|| DecodeError::DecodeError("json error List v2 in error".to_string()))?;
-        let mut result_vec = Vec::with_capacity(vec_len);
-        for element in res {
-            result_vec.push(T::decode_v2(element)?)
-        }
-        Ok(result_vec)
+            .ok_or_else(|| GraphSonError::WrongJsonType("array".to_string()))?
+            .iter()
+            .map(|v| T::decode_v2(v))
+            .collect::<Result<Vec<_>, _>>()
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let mut vec_len = 0;
-        let res = j_val
+        j_val
             .as_array()
-            .map(|array| {
-                vec_len = array.len();
-                array.iter()
-            })
-            .ok_or_else(|| DecodeError::DecodeError("json error List v1 in error".to_string()))?;
-        let mut result_vec = Vec::with_capacity(vec_len);
-        for element in res {
-            result_vec.push(T::decode_v1(element)?)
-        }
-        Ok(result_vec)
+            .ok_or_else(|| GraphSonError::WrongJsonType("array".to_string()))?
+            .iter()
+            .map(|v| T::decode_v1(v))
+            .collect::<Result<Vec<_>, _>>()
     }
 }
 

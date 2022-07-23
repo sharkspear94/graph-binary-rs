@@ -47,13 +47,21 @@ pub enum GraphSonError {
     SerdeJson(#[from] serde_json::error::Error),
     #[error("parsing string")]
     Parse(String),
-    #[error("@type value expected `{expected}` but found {}")]
-    WrongTypeIdentifier {
-        expected: &'static str,
-        found: String,
+    #[error("@type value expected `{expected}` but found `{found}`")]
+    WrongTypeIdentifier { expected: String, found: String },
+    #[error("expected key {0} not found")]
+    KeyNotFound(String),
+    #[error("Field decoding in `{context}` source `{source}`")]
+    FieldError {
+        context: String,
+        source: Box<GraphSonError>,
     },
-    #[error("Field decoding source `{source}`")]
-    FieldError { source: Box<GraphSonError> },
+    #[error("could not convert from: `{0}`")]
+    TryFrom(String),
+    #[error("expected Json type `{0}`")]
+    WrongJsonType(String),
+    #[error("expected fixed value: `{0}`")]
+    WrongFixedValue(String),
 }
 
 #[cfg(feature = "serde")]

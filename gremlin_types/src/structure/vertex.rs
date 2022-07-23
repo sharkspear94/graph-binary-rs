@@ -2,7 +2,8 @@ use std::{collections::HashMap, fmt::Display};
 
 use crate::{
     conversion,
-    error::DecodeError,
+    error::{DecodeError, GraphSonError},
+    graphson::{get_val_by_key_v2, get_val_by_key_v3, validate_type},
     specs::{self, CoreType},
     GremlinValue,
 };
@@ -156,29 +157,24 @@ impl EncodeGraphSON for Vertex {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Vertex {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let type_value_object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Vertex"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|o| o.as_object());
+        let value_object = validate_type(j_val, "g:Vertex")?;
 
-        let id = val_by_key_v3!(type_value_object, "id", GremlinValue, "Vertex")?;
+        let id = get_val_by_key_v3(value_object, "id", "Vertex")?;
+        let label = get_val_by_key_v3(value_object, "label", "Vertex")?;
 
-        let label = val_by_key_v3!(type_value_object, "label", String, "Vertex")?;
-
-        let properties = type_value_object
-            .and_then(|map| map.get("properties"))
+        let properties = value_object
+            .get("properties")
             .and_then(|obj| obj.as_object())
             .map(|map| {
                 map.values()
                     .flat_map(|val| val.as_array())
                     .flatten()
                     .map(DecodeGraphSON::decode_v3)
-                    .collect::<Result<Vec<VertexProperty>, DecodeError>>()
+                    .collect::<Result<Vec<_>, _>>()
             })
             .transpose()?;
         Ok(Vertex {
@@ -188,27 +184,24 @@ impl DecodeGraphSON for Vertex {
         })
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let type_value_object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Vertex"))
-            .and_then(|map| map.get("@value"));
+        let value_object = validate_type(j_val, "g:Vertex")?;
 
-        let id = val_by_key_v2!(type_value_object, "id", GremlinValue, "Vertex")?;
-        let label = val_by_key_v2!(type_value_object, "label", String, "Vertex")?;
+        let id = get_val_by_key_v2(value_object, "id", "Vertex")?;
+        let label = get_val_by_key_v2(value_object, "label", "Vertex")?;
 
-        let properties = type_value_object
-            .and_then(|map| map.get("properties"))
+        let properties = value_object
+            .get("properties")
             .and_then(|obj| obj.as_object())
             .map(|map| {
                 map.values()
                     .flat_map(|val| val.as_array())
                     .flatten()
                     .map(DecodeGraphSON::decode_v2)
-                    .collect::<Result<Vec<VertexProperty>, DecodeError>>()
+                    .collect::<Result<Vec<_>, _>>()
             })
             .transpose()?;
 
@@ -219,7 +212,7 @@ impl DecodeGraphSON for Vertex {
         })
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {

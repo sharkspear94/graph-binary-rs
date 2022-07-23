@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
 use super::{edge::Edge, vertex_property::VertexProperty};
+use crate::error::GraphSonError;
+use crate::graphson::{get_val_by_key_v1, get_val_by_key_v2, get_val_by_key_v3, validate_type};
 use crate::GremlinValue;
 use crate::{
     conversion,
@@ -186,18 +188,15 @@ impl EncodeGraphSON for Property {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Property {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Property"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_object());
+        let value_object = validate_type(j_val, "g:Property")?;
 
-        let key = val_by_key_v3!(object, "key", String, "Property")?;
-        let value = val_by_key_v3!(object, "value", GremlinValue, "Property")?;
+        let key = get_val_by_key_v3(value_object, "key", "Property")?;
+
+        let value = get_val_by_key_v3(value_object, "value", "Property")?;
 
         Ok(Property {
             key,
@@ -206,20 +205,17 @@ impl DecodeGraphSON for Property {
         })
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Property"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_object());
+        let value_object = validate_type(j_val, "g:Property")?;
 
-        let key = val_by_key_v2!(object, "key", String, "Property")?;
-        let value = val_by_key_v2!(object, "value", GremlinValue, "Property")?;
+        let key = get_val_by_key_v2(value_object, "key", "Property")?;
 
-        let parent = val_by_key_v2!(object, "element", EitherParent, "Property")?;
+        let value = get_val_by_key_v2(value_object, "value", "Property")?;
+
+        let parent = get_val_by_key_v2(value_object, "element", "Property")?;
 
         Ok(Property {
             key,
@@ -228,13 +224,13 @@ impl DecodeGraphSON for Property {
         })
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let object = j_val.as_object();
-        let key = val_by_key_v1!(object, "key", String, "Property")?;
-        let value = val_by_key_v1!(object, "value", GremlinValue, "Property")?;
+        let key = get_val_by_key_v1(j_val, "key", "Property")?;
+
+        let value = get_val_by_key_v1(j_val, "value", "Property")?;
 
         Ok(Property {
             key,
@@ -273,27 +269,22 @@ impl EncodeGraphSON for EitherParent {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for EitherParent {
-    fn decode_v3(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         unimplemented!()
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        if j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Edge"))
-            .is_some()
-        {
-            let obj = j_val.get("@value");
-            let id = val_by_key_v2!(obj, "id", GremlinValue, "EitherParent")?;
-            let label = val_by_key_v2!(obj, "label", String, "EitherParent")?;
-            let out_v_id = val_by_key_v2!(obj, "outV", GremlinValue, "EitherParent")?;
-            let in_v_id = val_by_key_v2!(obj, "inV", GremlinValue, "EitherParent")?;
+        if let Ok(value_object) = validate_type(j_val, "g:Edge") {
+            let id = get_val_by_key_v2(value_object, "id", "EitherParent")?;
+            let label = get_val_by_key_v2(value_object, "label", "EitherParent")?;
+            let out_v_id = get_val_by_key_v2(value_object, "outV", "EitherParent")?;
+            let in_v_id = get_val_by_key_v2(value_object, "inV", "EitherParent")?;
 
             Ok(EitherParent::Edge(Edge {
                 id: Box::new(id),
@@ -305,11 +296,7 @@ impl DecodeGraphSON for EitherParent {
                 parent: None,
                 properties: None,
             }))
-        } else if j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:VertexProperty"))
-            .is_some()
-        {
+        } else if let Ok(value_object) = validate_type(j_val, "g:VertexProperty") {
             // Not sure what VertexProptery looks like
             // let obj = j_val.get("@value");
             // let id = get_val_v2!(obj, "id", GremlinTypes, "EitherParent")?;
@@ -318,13 +305,13 @@ impl DecodeGraphSON for EitherParent {
             // let in_v_id = get_val_v2!(obj, "inV", GremlinTypes, "EitherParent")?;
             todo!("")
         } else {
-            Err(DecodeError::DecodeError(
-                "Property Parent/Element not found in decode Property v2".to_string(),
+            Err(GraphSonError::KeyNotFound(
+                "Edge or VertexProperty".to_string(),
             ))
         }
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {

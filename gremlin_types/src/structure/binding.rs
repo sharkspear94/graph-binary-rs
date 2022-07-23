@@ -1,6 +1,12 @@
 use std::fmt::Display;
 
-use crate::{conversion, error::DecodeError, specs::CoreType, GremlinValue};
+use crate::{
+    conversion,
+    error::{DecodeError, GraphSonError},
+    graphson::{get_val_by_key_v3, validate_type},
+    specs::CoreType,
+    GremlinValue,
+};
 
 #[cfg(feature = "graph_binary")]
 use crate::graph_binary::{Decode, Encode};
@@ -109,37 +115,29 @@ impl EncodeGraphSON for Binding {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Binding {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let mut key = String::new();
-        let value = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Binding"))
-            .map(|map| {
-                if let Some(s) = map.get("key").and_then(|s| s.as_str()) {
-                    key = s.to_string()
-                }
-                map
-            })
-            .and_then(|m| m.get("value"))
-            .and_then(|v| GremlinValue::decode_v3(v).ok())
-            .ok_or_else(|| DecodeError::DecodeError("json error f32 v3 in error".to_string()))?;
+        let value_object = validate_type(j_val, "g:Binding")?;
+
+        let key = get_val_by_key_v3(value_object, "key", "Binding")?;
+        let value = get_val_by_key_v3(value_object, "value", "Binding")?;
+
         Ok(Binding {
             key,
             value: Box::new(value),
         })
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {

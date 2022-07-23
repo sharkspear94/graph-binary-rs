@@ -2,6 +2,8 @@ use std::fmt::Display;
 
 use crate::{
     conversion,
+    error::GraphSonError,
+    graphson::{get_val_by_key_v2, get_val_by_key_v3, validate_type},
     specs::{self, CoreType},
     GremlinValue,
 };
@@ -299,21 +301,21 @@ impl EncodeGraphSON for GraphEdge {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for GraphEdge {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Ok(Edge::decode_v3(j_val)?.into())
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Ok(Edge::decode_v2(j_val)?.into())
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -350,39 +352,31 @@ impl EncodeGraphSON for Graph {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Graph {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let value_obj = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:tinker:graph"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_object());
+        let value_object = validate_type(j_val, "g:TinkerGraph")?;
 
-        let vertices = val_by_key_v3!(value_obj, "vertices", Vec<Vertex>, "TinkerGraph")?;
-        let edges = val_by_key_v3!(value_obj, "edges", Vec<GraphEdge>, "TinkerGraph")?;
+        let vertices = get_val_by_key_v3(value_object, "vertices", "TinkerGraph")?;
+        let edges = get_val_by_key_v3(value_object, "edges", "TinkerGraph")?;
 
         Ok(Graph { vertices, edges })
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let value_obj = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:tinker:graph"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|v| v.as_object());
+        let value_object = validate_type(j_val, "g:TinkerGraph")?;
 
-        let vertices = val_by_key_v2!(value_obj, "vertices", Vec<Vertex>, "TinkerGraph")?;
-        let edges = val_by_key_v2!(value_obj, "edges", Vec<GraphEdge>, "TinkerGraph")?;
+        let vertices = get_val_by_key_v2(value_object, "vertices", "TinkerGraph")?;
+        let edges = get_val_by_key_v2(value_object, "edges", "TinkerGraph")?;
 
         Ok(Graph { vertices, edges })
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, crate::error::DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {

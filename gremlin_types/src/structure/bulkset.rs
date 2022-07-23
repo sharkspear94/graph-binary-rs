@@ -1,6 +1,11 @@
 use std::fmt::Display;
 
-use crate::{error::DecodeError, specs::CoreType, GremlinValue};
+use crate::{
+    error::{DecodeError, GraphSonError},
+    graphson::validate_type,
+    specs::CoreType,
+    GremlinValue,
+};
 
 #[cfg(feature = "graph_binary")]
 use crate::graph_binary::{Decode, Encode};
@@ -83,16 +88,13 @@ impl EncodeGraphSON for BulkSet {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for BulkSet {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let value_object = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:BulkSet"))
-            .and_then(|m| m.get("@value"))
-            .and_then(|m| m.as_array())
-            .ok_or_else(|| DecodeError::DecodeError("".to_string()))?;
+        let value_object = validate_type(j_val, "g:BulkSet")?
+            .as_array()
+            .ok_or_else(|| GraphSonError::WrongJsonType("array".to_string()))?;
 
         let mut bulk_set = Vec::with_capacity(value_object.len() / 2);
         for (value, bulk) in value_object
@@ -107,14 +109,14 @@ impl DecodeGraphSON for BulkSet {
         Ok(BulkSet(bulk_set))
     }
 
-    fn decode_v2(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         unimplemented!("BulkSet in not supported in GraphSON V2")
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {

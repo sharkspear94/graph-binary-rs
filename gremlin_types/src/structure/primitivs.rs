@@ -1,3 +1,5 @@
+use crate::error::GraphSonError;
+use crate::graphson::validate_type;
 use crate::macros::{TryBorrowFrom, TryMutBorrowFrom};
 use crate::specs::CoreType;
 use crate::{conversion, GremlinValue};
@@ -77,24 +79,24 @@ impl EncodeGraphSON for String {
 }
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for String {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         j_val
             .as_str()
-            .ok_or_else(|| DecodeError::DecodeError("json error in String".to_string()))
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))
             .map(ToString::to_string)
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -182,33 +184,31 @@ impl Decode for u8 {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for u8 {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "gx:Byte"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|value| value.as_u64())
-            .ok_or_else(|| DecodeError::DecodeError("json error in Byte".to_string()))
+        let value_object = validate_type(j_val, "gx:Byte")?;
+        value_object
+            .as_u64()
+            .ok_or_else(|| GraphSonError::WrongJsonType("u64".to_string()))
             .map(|val| val as u8)
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         j_val
             .as_u64()
-            .ok_or_else(|| DecodeError::DecodeError("json error in Byte".to_string()))
+            .ok_or_else(|| GraphSonError::WrongJsonType("u64".to_string()))
             .map(|val| val as u8)
     }
 }
@@ -242,33 +242,31 @@ impl Decode for i16 {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for i16 {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "gx:Short"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|value| value.as_i64())
-            .ok_or_else(|| DecodeError::DecodeError("json error in i16".to_string()))
+        let value_object = validate_type(j_val, "gx:Short")?;
+        value_object
+            .as_i64()
+            .ok_or_else(|| GraphSonError::WrongJsonType("i64".to_string()))
             .map(|val| val as i16)
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         j_val
             .as_i64()
-            .ok_or_else(|| DecodeError::DecodeError("json error in i16".to_string()))
+            .ok_or_else(|| GraphSonError::WrongJsonType("i64".to_string()))
             .map(|val| val as i16)
     }
 }
@@ -301,33 +299,31 @@ impl Decode for i32 {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for i32 {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Int32"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|value| value.as_i64())
-            .ok_or_else(|| DecodeError::DecodeError("json error i32 v3 in error".to_string()))
-            .map(|t| t as i32)
+        let value_object = validate_type(j_val, "g:Int32")?;
+        value_object
+            .as_i64()
+            .ok_or_else(|| GraphSonError::WrongJsonType("i64".to_string()))
+            .map(|val| val as i32)
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         j_val
             .as_i64()
-            .ok_or_else(|| DecodeError::DecodeError("json error i32 v1 in error".to_string()))
+            .ok_or_else(|| GraphSonError::WrongJsonType("i64".to_string()))
             .map(|t| t as i32)
     }
 }
@@ -358,32 +354,30 @@ impl Decode for i64 {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for i64 {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Int64"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|value| value.as_i64())
-            .ok_or_else(|| DecodeError::DecodeError("json error in i64".to_string()))
+        let value_object = validate_type(j_val, "g:Int64")?;
+        value_object
+            .as_i64()
+            .ok_or_else(|| GraphSonError::WrongJsonType("i64".to_string()))
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         j_val
             .as_i64()
-            .ok_or_else(|| DecodeError::DecodeError("json error in i64 v1".to_string()))
+            .ok_or_else(|| GraphSonError::WrongJsonType("i64".to_string()))
     }
 }
 
@@ -416,22 +410,16 @@ impl Decode for f32 {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for f32 {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let val = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Float"))
-            .and_then(|map| map.get("@value"))
-            .ok_or_else(|| {
-                DecodeError::DecodeError("type identifier for f32 v3 failed".to_string())
-            })?;
+        let value_object = validate_type(j_val, "g:Float")?;
 
-        if let Some(res) = val.as_f64().map(|f| f as f32) {
+        if let Some(res) = value_object.as_f64().map(|f| f as f32) {
             return Ok(res);
         }
-        if let Some(res) = val.as_str().and_then(|s| match s {
+        if let Some(res) = value_object.as_str().and_then(|s| match s {
             "NaN" => Some(f32::NAN),
             "Infinity" => Some(f32::INFINITY),
             "-Infinity" => Some(f32::NEG_INFINITY),
@@ -439,26 +427,24 @@ impl DecodeGraphSON for f32 {
         }) {
             Ok(res)
         } else {
-            Err(DecodeError::DecodeError(
-                "json error f32 v3 in error".to_string(),
-            ))
+            Err(GraphSonError::WrongJsonType("f64 or str".to_string()))
         }
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         j_val
             .as_f64()
-            .ok_or_else(|| DecodeError::DecodeError("json error f32 v1 in error".to_string()))
+            .ok_or_else(|| GraphSonError::WrongJsonType("f64".to_string()))
             .map(|t| t as f32)
     }
 }
@@ -492,22 +478,16 @@ impl Decode for f64 {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for f64 {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let val = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:Double"))
-            .and_then(|map| map.get("@value"))
-            .ok_or_else(|| {
-                DecodeError::DecodeError("type identifier for f64 v3 failed".to_string())
-            })?;
+        let value_object = validate_type(j_val, "g:Double")?;
 
-        if let Some(res) = val.as_f64() {
+        if let Some(res) = value_object.as_f64() {
             return Ok(res);
         }
-        if let Some(res) = val.as_str().and_then(|s| match s {
+        if let Some(res) = value_object.as_str().and_then(|s| match s {
             "NaN" => Some(f64::NAN),
             "Infinity" => Some(f64::INFINITY),
             "-Infinity" => Some(f64::NEG_INFINITY),
@@ -515,26 +495,24 @@ impl DecodeGraphSON for f64 {
         }) {
             Ok(res)
         } else {
-            Err(DecodeError::DecodeError(
-                "json error f64 v3 in error".to_string(),
-            ))
+            Err(GraphSonError::WrongJsonType("f64 or str".to_string()))
         }
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         j_val
             .as_f64()
-            .ok_or_else(|| DecodeError::DecodeError("json error f64 v1 in error".to_string()))
+            .ok_or_else(|| GraphSonError::WrongJsonType("f64 or str".to_string()))
     }
 }
 
@@ -585,34 +563,32 @@ impl EncodeGraphSON for Uuid {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for Uuid {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "g:UUID"))
-            .and_then(|map| map.get("@value"))
-            .and_then(|value| value.as_str())
-            .and_then(|s| Uuid::from_str(s).ok())
-            .ok_or_else(|| DecodeError::DecodeError("json error Uuid v3 in error".to_string()))
+        let value_object = validate_type(j_val, "g:UUID")?;
+        let s = value_object
+            .as_str()
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
+        Uuid::from_str(s).map_err(|err| GraphSonError::TryFrom(err.to_string()))
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        j_val
+        let s = j_val
             .as_str()
-            .and_then(|s| Uuid::from_str(s).ok())
-            .ok_or_else(|| DecodeError::DecodeError("json error Uuid ".to_string()))
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
+        Uuid::from_str(s).map_err(|err| GraphSonError::TryFrom(err.to_string()))
     }
 }
 
@@ -683,23 +659,23 @@ impl EncodeGraphSON for bool {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for bool {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         j_val
             .as_bool()
-            .ok_or_else(|| DecodeError::DecodeError("json error bool".to_string()))
+            .ok_or_else(|| GraphSonError::WrongJsonType("bool".to_string()))
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -807,7 +783,7 @@ impl<T: EncodeGraphSON> EncodeGraphSON for Option<T> {
 
 #[cfg(feature = "graph_son")]
 impl<T: DecodeGraphSON> DecodeGraphSON for Option<T> {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -817,7 +793,7 @@ impl<T: DecodeGraphSON> DecodeGraphSON for Option<T> {
         }
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -827,7 +803,7 @@ impl<T: DecodeGraphSON> DecodeGraphSON for Option<T> {
         }
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {

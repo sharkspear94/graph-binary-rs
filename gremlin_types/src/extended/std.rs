@@ -8,7 +8,8 @@ use std::{
 use crate::graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON};
 use crate::{
     conversion,
-    error::{DecodeError, EncodeError},
+    error::{DecodeError, EncodeError, GraphSonError},
+    graphson::validate_type,
     specs::CoreType,
 };
 #[cfg(feature = "graph_son")]
@@ -85,7 +86,7 @@ impl Decode for char {
 }
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for char {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
@@ -95,24 +96,24 @@ impl DecodeGraphSON for char {
             .and_then(|map| map.get("@value"))
             .and_then(|value| value.as_str())
             .and_then(|s| s.chars().next()) //FIXME more than 1 char is not evaluated
-            .ok_or_else(|| DecodeError::DecodeError("json error in char".to_string()))
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         j_val
             .as_str()
             .and_then(|s| s.chars().next())
-            .ok_or_else(|| DecodeError::DecodeError("json error in char".to_string()))
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))
     }
 }
 
@@ -210,33 +211,29 @@ impl EncodeGraphSON for IpAddr {
 
 #[cfg(feature = "graph_son")]
 impl DecodeGraphSON for IpAddr {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
-        let str = j_val
-            .as_object()
-            .filter(|map| validate_type_entry(*map, "gx:InetAddress"))
-            .and_then(|v| v.get("@value"))
-            .and_then(|s| s.as_str())
-            .ok_or_else(|| {
-                DecodeError::DecodeError("could not decode InetAddress type identifier".to_string())
-            })?;
+        let value_object = validate_type(j_val, "gx:InetAddress")?;
 
-        match str {
+        match value_object
+            .as_str()
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?
+        {
             "localhost" => Ok(IpAddr::V4(Ipv4Addr::LOCALHOST)),
-            other => IpAddr::from_str(other).map_err(|e| DecodeError::DecodeError(e.to_string())),
+            other => IpAddr::from_str(other).map_err(|e| GraphSonError::Parse(e.to_string())),
         }
     }
 
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
         Self::decode_v3(j_val)
     }
 
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, DecodeError>
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
         Self: std::marker::Sized,
     {
