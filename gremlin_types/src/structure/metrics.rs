@@ -82,6 +82,24 @@ pub struct TraversalMetrics {
     pub metrics: Vec<Metrics>,
 }
 
+impl TraversalMetrics {
+    #[must_use]
+    pub fn new(dur: i64, metrics: Vec<Metrics>) -> TraversalMetrics {
+        TraversalMetrics {
+            duration: dur,
+            metrics,
+        }
+    }
+    #[must_use]
+    pub fn duration(&self) -> &i64 {
+        &self.duration
+    }
+    #[must_use]
+    pub fn metrics(&self) -> &Vec<Metrics> {
+        &self.metrics
+    }
+}
+
 #[cfg(feature = "graph_binary")]
 impl Encode for TraversalMetrics {
     fn type_code() -> u8 {
@@ -126,7 +144,10 @@ impl Display for TraversalMetrics {
         )?;
         let time_string = format!("{:.3}        -", self.duration as f64 / 1000. / 1000.); // from ns to ms
         let offset = 25 - time_string.len();
-        let s = String::from_iter((0..offset).map(|_| ' ').chain(time_string.chars()));
+        let s = (0..offset)
+            .map(|_| ' ')
+            .chain(time_string.chars())
+            .collect::<String>();
         writeln!(f, "{s}")
     }
 }
@@ -136,7 +157,7 @@ fn build_string(metrics: &Metrics, start_offset: usize) -> String {
 
     let mut name = metrics.name.clone();
     if name.len() > 50 - start_offset {
-        name.replace_range((47 - start_offset).., "...")
+        name.replace_range((47 - start_offset).., "...");
     }
     result_string.extend((0..start_offset).map(|_| ' ').chain(name.chars()));
     let element_count = metrics
@@ -179,7 +200,21 @@ fn build_string(metrics: &Metrics, start_offset: usize) -> String {
 impl EncodeGraphSON for Metrics {
     fn encode_v3(&self) -> serde_json::Value {
         let dur = self.duration as f64 / 1000. / 1000.;
-        if !self.nested_metrics.is_empty() {
+        if self.nested_metrics.is_empty() {
+            json!({
+                "@type" : "g:Metrics",
+                "@value" : {
+                    "@type" : "g:Map",
+                    "@value" : [
+                        "dur",dur.encode_v3(),
+                        "counts",self.counts.encode_v3(),
+                        "name",self.name.encode_v3(),
+                        "annotations", self.annotations.encode_v3(),
+                        "id",self.id.encode_v3(),
+                    ]
+            }
+            })
+        } else {
             json!({
                 "@type" : "g:Metrics",
                 "@value" : {
@@ -194,38 +229,12 @@ impl EncodeGraphSON for Metrics {
                     ]
             }
             })
-        } else {
-            json!({
-                "@type" : "g:Metrics",
-                "@value" : {
-                    "@type" : "g:Map",
-                    "@value" : [
-                        "dur",dur.encode_v3(),
-                        "counts",self.counts.encode_v3(),
-                        "name",self.name.encode_v3(),
-                        "annotations", self.annotations.encode_v3(),
-                        "id",self.id.encode_v3(),
-                    ]
-            }
-            })
         }
     }
 
     fn encode_v2(&self) -> serde_json::Value {
         let dur = self.duration as f64 / 1000. / 1000.;
-        if !self.nested_metrics.is_empty() {
-            json!({
-                "@type" : "g:Metrics",
-                "@value" : {
-                    "dur":dur.encode_v2(),
-                    "counts":self.counts.encode_v2(),
-                    "name":self.name.encode_v2(),
-                    "annotations": self.annotations.encode_v2(),
-                    "id":self.id.encode_v2(),
-                    "metrics":self.nested_metrics.encode_v2()
-            }
-            })
-        } else {
+        if self.nested_metrics.is_empty() {
             json!({
                 "@type" : "g:Metrics",
                 "@value" : {
@@ -235,6 +244,18 @@ impl EncodeGraphSON for Metrics {
                         "name":self.name.encode_v2(),
                         "annotations":self.annotations.encode_v2(),
                         "id":self.id.encode_v2(),
+            }
+            })
+        } else {
+            json!({
+                "@type" : "g:Metrics",
+                "@value" : {
+                    "dur":dur.encode_v2(),
+                    "counts":self.counts.encode_v2(),
+                    "name":self.name.encode_v2(),
+                    "annotations": self.annotations.encode_v2(),
+                    "id":self.id.encode_v2(),
+                    "metrics":self.nested_metrics.encode_v2()
             }
             })
         }
