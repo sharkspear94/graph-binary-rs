@@ -3,7 +3,7 @@ use crate::{
     macros::{TryBorrowFrom, TryMutBorrowFrom},
     specs::CoreType,
 };
-use std::ops::Deref;
+use std::fmt::Display;
 
 use crate::GremlinValue;
 
@@ -17,26 +17,39 @@ use crate::graphson::{validate_type, DecodeGraphSON, EncodeGraphSON};
 #[cfg(feature = "graph_son")]
 use serde_json::json;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Set<T>(Vec<T>);
 
-impl<T> Deref for Set<T> {
-    type Target = Vec<T>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 impl<T> Set<T> {
+    #[must_use]
     pub fn new(v: Vec<T>) -> Self {
         Set(v)
     }
+    #[must_use]
+    pub fn set(&self) -> &Vec<T> {
+        &self.0
+    }
 
+    #[must_use]
+    pub fn set_mut(&mut self) -> &mut Vec<T> {
+        &mut self.0
+    }
+    #[must_use]
     pub fn inner(self) -> Vec<T> {
         self.0
     }
 }
+
+impl<T: Display> Display for Set<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[")?;
+        for i in &self.0 {
+            write!(f, "{i},")?;
+        }
+        write!(f, "]")
+    }
+}
+
 #[cfg(feature = "graph_binary")]
 impl<T: Encode> Encode for Set<T> {
     fn type_code() -> u8 {
@@ -333,23 +346,6 @@ impl<T: EncodeGraphSON, const N: usize> EncodeGraphSON for [T; N] {
             .collect::<Vec<serde_json::Value>>())
     }
 }
-
-// impl<T: EncodeGraphSON> EncodeGraphSON for (T, T) {
-//     fn encode_v3(&self) -> serde_json::Value {
-//         json!({
-//             "@type" : "g:List",
-//             "@value" : [self.0.encode_v3(),self.1.encode_v3()]
-//         })
-//     }
-
-//     fn encode_v2(&self) -> serde_json::Value {
-//         json!([self.0.encode_v2(), self.1.encode_v2()])
-//     }
-
-//     fn encode_v1(&self) -> serde_json::Value {
-//         json!([self.0.encode_v2(), self.1.encode_v2()])
-//     }
-// }
 
 #[test]
 fn vec_decode_test() {

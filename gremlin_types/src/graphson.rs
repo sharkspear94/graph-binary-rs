@@ -80,7 +80,7 @@ impl EncodeGraphSON for GremlinValue {
             GremlinValue::Double(val) => val.encode_v3(),
             GremlinValue::Float(val) => val.encode_v3(),
             GremlinValue::List(val) => val.encode_v3(),
-            GremlinValue::Set(val) => val.encode_v3(), // FIXME
+            GremlinValue::Set(val) => val.encode_v3(),
             GremlinValue::Map(val) => val.encode_v3(),
             GremlinValue::Uuid(val) => val.encode_v3(),
             GremlinValue::Edge(val) => val.encode_v3(),
@@ -167,7 +167,7 @@ impl EncodeGraphSON for GremlinValue {
             GremlinValue::Double(val) => val.encode_v2(),
             GremlinValue::Float(val) => val.encode_v2(),
             GremlinValue::List(val) => val.encode_v2(),
-            GremlinValue::Set(val) => val.encode_v2(), // FIXME
+            GremlinValue::Set(val) => val.encode_v2(),
             GremlinValue::Map(val) => val.encode_v2(),
             GremlinValue::Uuid(val) => val.encode_v2(),
             GremlinValue::Edge(val) => val.encode_v2(),
@@ -364,7 +364,7 @@ impl DecodeGraphSON for GremlinValue {
                     }),
                 }
             }
-            _ => Err(GraphSonError::WrongJsonType("arr".to_string())),
+            _ => Err(GraphSonError::WrongJsonType("arr/num".to_string())),
         }
     }
 
@@ -394,7 +394,7 @@ impl DecodeGraphSON for GremlinValue {
                             o.get("@value")
                                 .and_then(|c| c.as_str())
                                 .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))
-                                .map(|class| class.to_string())?,
+                                .map(ToString::to_string)?,
                         )),
                         "g:Date" => Ok(GremlinValue::Date(
                             o.get("@value")
@@ -504,7 +504,7 @@ impl DecodeGraphSON for GremlinValue {
                     Ok(GremlinValue::Map(HashMap::decode_v2(j_val)?))
                 }
             }
-            _ => Err(GraphSonError::WrongJsonType("arr".to_string())),
+            serde_json::Value::Number(_) => Err(GraphSonError::WrongJsonType("number".to_string())),
         }
     }
 
@@ -591,7 +591,7 @@ macro_rules! val_by_key_v3_new {
     };
 }
 
-pub fn get_val_by_key_v3<T: DecodeGraphSON>(
+pub(crate) fn get_val_by_key_v3<T: DecodeGraphSON>(
     jval: &serde_json::Value,
     key: &str,
     context: &str,
@@ -602,7 +602,7 @@ pub fn get_val_by_key_v3<T: DecodeGraphSON>(
     T::decode_v3(val)
 }
 
-pub fn get_val_by_key_v2<T: DecodeGraphSON>(
+pub(crate) fn get_val_by_key_v2<T: DecodeGraphSON>(
     jval: &serde_json::Value,
     key: &str,
     context: &str,
@@ -613,7 +613,7 @@ pub fn get_val_by_key_v2<T: DecodeGraphSON>(
     T::decode_v2(val)
 }
 
-pub fn get_val_by_key_v1<T: DecodeGraphSON>(
+pub(crate) fn get_val_by_key_v1<T: DecodeGraphSON>(
     jval: &serde_json::Value,
     key: &str,
     _context: &str,
@@ -625,7 +625,7 @@ pub fn get_val_by_key_v1<T: DecodeGraphSON>(
 }
 
 #[cfg(feature = "graph_son")]
-pub fn validate_type_entry(
+pub(crate) fn validate_type_entry(
     map: &serde_json::Map<String, serde_json::Value>,
     type_value: &str,
 ) -> bool {
@@ -635,7 +635,7 @@ pub fn validate_type_entry(
         .is_some()
 }
 
-pub fn validate_type<'a>(
+pub(crate) fn validate_type<'a>(
     jval: &'a serde_json::Value,
     identifier: &str,
 ) -> Result<&'a serde_json::Value, GraphSonError> {
