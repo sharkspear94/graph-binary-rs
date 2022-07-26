@@ -1,7 +1,6 @@
 use crate::specs::CoreType;
 
 use std::fmt::Display;
-use std::ops::Deref;
 
 #[cfg(feature = "graph_binary")]
 use crate::graph_binary::{Decode, Encode};
@@ -17,15 +16,20 @@ use serde_json::json;
 pub struct ByteBuffer(Vec<u8>);
 
 impl ByteBuffer {
+    #[must_use]
     pub fn new(buf: &[u8]) -> Self {
-        ByteBuffer(Vec::from_iter(buf.iter().copied()))
+        ByteBuffer(buf.to_vec())
     }
-}
-
-impl Deref for ByteBuffer {
-    type Target = Vec<u8>;
-
-    fn deref(&self) -> &Self::Target {
+    #[must_use]
+    pub fn bytes(&self) -> &Vec<u8> {
+        &self.0
+    }
+    #[must_use]
+    pub fn bytes_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.0
+    }
+    #[must_use]
+    pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
 }
@@ -79,7 +83,7 @@ impl EncodeGraphSON for ByteBuffer {
     fn encode_v3(&self) -> serde_json::Value {
         json!({
           "@type" : "gx:ByteBuffer",
-          "@value" : String::from_iter(self.0.iter().map(|byte| *byte as char))
+          "@value" : self.0.iter().map(|byte| *byte as char).collect::<String>()
         })
     }
 
