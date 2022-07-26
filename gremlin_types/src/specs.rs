@@ -40,12 +40,12 @@ pub const CORE_TYPE_BOOLEAN: u8 = 0x27;
 pub const CORE_TYPE_TEXT_P: u8 = 0x28;
 pub const CORE_TYPE_TRAVERSAL_STRATEGY: u8 = 0x29;
 pub const CORE_TYPE_BULK_SET: u8 = 0x2a;
-pub const CORE_TYPE_TREE: u8 = 0x2b;
+// pub const CORE_TYPE_TREE: u8 = 0x2b;
 pub const CORE_TYPE_METRICS: u8 = 0x2c;
 pub const CORE_TYPE_TRAVERSAL_METRICS: u8 = 0x2d;
 pub const CORE_TYPE_MERGE: u8 = 0x2e;
 pub const CORE_TYPE_UNSPECIFIED_NULL: u8 = 0xfe;
-pub const CORE_TYPE_CUSTOM: u8 = 0x00;
+// pub const CORE_TYPE_CUSTOM: u8 = 0x00;
 
 #[cfg(feature = "extended")]
 pub const EXTENDED_TYPE_CHAR: u8 = 0x80;
