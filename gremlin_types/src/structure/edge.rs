@@ -14,8 +14,6 @@ use super::{
 #[cfg(feature = "graph_binary")]
 use crate::graph_binary::{Decode, Encode};
 
-
-
 #[cfg(feature = "graph_son")]
 use crate::error::GraphSonError;
 #[cfg(feature = "graph_son")]

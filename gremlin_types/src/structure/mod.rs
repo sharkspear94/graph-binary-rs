@@ -10,6 +10,7 @@ pub mod property;
 mod binding;
 
 pub use self::binding::Binding;
+pub mod bigint;
 pub mod bulkset;
 pub mod bytebuffer;
 pub mod bytecode;
@@ -21,4 +22,3 @@ pub mod path;
 pub mod traverser;
 pub mod tree;
 pub mod vertex_property;
-pub mod bigint;
