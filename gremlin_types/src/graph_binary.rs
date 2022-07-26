@@ -107,8 +107,7 @@ impl GremlinValue {
             GremlinValue::Boolean(val) => val.encode(writer),
             GremlinValue::TextP(val) => val.encode(writer),
             GremlinValue::TraversalStrategy(val) => val.encode(writer),
-            GremlinValue::BulkSet(_) => todo!(),
-            GremlinValue::Tree(_) => todo!(),
+            GremlinValue::BulkSet(val) => val.encode(writer),
             GremlinValue::Metrics(val) => val.encode(writer),
             GremlinValue::TraversalMetrics(val) => val.encode(writer),
             GremlinValue::Merge(val) => val.encode(writer),
@@ -246,7 +245,6 @@ fn decode<R: Read>(reader: &mut R) -> Result<GremlinValue, DecodeError> {
         (CoreType::TraversalStrategy, _) => Ok(GremlinValue::TraversalStrategy(
             TraversalStrategy::partial_decode(reader)?,
         )),
-        (CoreType::Tree, _) => todo!(),
         (CoreType::Metrics, _) => Ok(GremlinValue::Metrics(Metrics::partial_decode(reader)?)),
 
         (CoreType::TraversalMetrics, _) => Ok(GremlinValue::TraversalMetrics(
@@ -299,7 +297,6 @@ fn decode<R: Read>(reader: &mut R) -> Result<GremlinValue, DecodeError> {
         (CoreType::ZoneOffset, _) => Ok(GremlinValue::ZoneOffset(FixedOffset::partial_decode(
             reader,
         )?)),
-        (_, _) => todo!("not yet implemented"),
     }
 }
 

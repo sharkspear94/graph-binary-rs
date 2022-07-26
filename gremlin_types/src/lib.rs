@@ -29,7 +29,7 @@ use structure::list::Set;
 use structure::map::MapKeys;
 pub use structure::Binding;
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 use std::fmt::Display;
 
 use crate::macros::{TryBorrowFrom, TryMutBorrowFrom};
@@ -95,7 +95,6 @@ pub enum GremlinValue {
     TextP(TextP),
     TraversalStrategy(TraversalStrategy),
     BulkSet(BulkSet),
-    Tree(BTreeSet<GremlinValue>),
     Metrics(Metrics),
     TraversalMetrics(TraversalMetrics),
     Merge(Merge),
@@ -266,13 +265,12 @@ impl Display for GremlinValue {
             GremlinValue::BigInteger(val) => write!(f, "BigInteger::{val}"),
             GremlinValue::Traverser(val) => write!(f, "Traverser::{val}"),
             GremlinValue::Byte(val) => write!(f, "{val}_u8"),
-            GremlinValue::ByteBuffer(val) => todo!(),
+            GremlinValue::ByteBuffer(val) => write!(f, "ByteBuffer::{val}_u8"),
             GremlinValue::Short(val) => write!(f, "{val}_i16"),
             GremlinValue::Boolean(val) => write!(f, "{val}"),
             GremlinValue::TextP(val) => write!(f, "TextP::{val}"),
             GremlinValue::TraversalStrategy(val) => write!(f, "TraversalStrategy::{val}"),
             GremlinValue::BulkSet(val) => write!(f, "BulkSet::{val}"),
-            GremlinValue::Tree(val) => todo!(),
             GremlinValue::Metrics(val) => write!(f, "{val}"),
             GremlinValue::TraversalMetrics(val) => write!(f, "{val}"),
             GremlinValue::Merge(val) => write!(f, "Merge::{val}"),

@@ -8,8 +8,9 @@ use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
-    error::{DecodeError, GraphSonError},
+    error::GraphSonError,
     structure::{
+        bytebuffer::ByteBuffer,
         bytecode::Bytecode,
         edge::Edge,
         enums::{
@@ -319,7 +320,7 @@ impl DecodeGraphSON for GremlinValue {
                     "gx:BigDecimal" => Ok(GremlinValue::BigDecimal(BigDecimal::decode_v3(j_val)?)),
                     "gx:BigInteger" => Ok(GremlinValue::BigInteger(BigInt::decode_v3(j_val)?)),
                     "gx:Byte" => Ok(GremlinValue::Byte(u8::decode_v3(j_val)?)),
-                    // "gx:ByteBuffer" => Ok(GremlinTypes::ByteBuffer(ByteBuffer::decode_v3(j_val)?)),
+                    "gx:ByteBuffer" => Ok(GremlinValue::ByteBuffer(ByteBuffer::decode_v3(j_val)?)),
                     "gx:Int16" => Ok(GremlinValue::Short(i16::decode_v3(j_val)?)),
                     #[cfg(feature = "extended")]
                     "gx:Char" => Ok(GremlinValue::Char(char::decode_v3(j_val)?)),
@@ -363,7 +364,7 @@ impl DecodeGraphSON for GremlinValue {
                     }),
                 }
             }
-            _ => todo!(),
+            _ => Err(GraphSonError::WrongJsonType("arr".to_string())),
         }
     }
 
@@ -448,7 +449,9 @@ impl DecodeGraphSON for GremlinValue {
                         }
                         "gx:BigInteger" => Ok(GremlinValue::BigInteger(BigInt::decode_v2(j_val)?)),
                         "gx:Byte" => Ok(GremlinValue::Byte(u8::decode_v2(j_val)?)),
-                        // "gx:ByteBuffer" => Ok(GremlinTypes::ByteBuffer(ByteBuffer::decode_v2(j_val)?)),
+                        "gx:ByteBuffer" => {
+                            Ok(GremlinValue::ByteBuffer(ByteBuffer::decode_v2(j_val)?))
+                        }
                         "gx:Int16" => Ok(GremlinValue::Short(i16::decode_v2(j_val)?)),
                         #[cfg(feature = "extended")]
                         "gx:Char" => Ok(GremlinValue::Char(char::decode_v2(j_val)?)),
@@ -501,7 +504,7 @@ impl DecodeGraphSON for GremlinValue {
                     Ok(GremlinValue::Map(HashMap::decode_v2(j_val)?))
                 }
             }
-            _ => todo!(),
+            _ => Err(GraphSonError::WrongJsonType("arr".to_string())),
         }
     }
 

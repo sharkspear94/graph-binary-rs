@@ -1,5 +1,6 @@
 use crate::specs::CoreType;
 
+use std::fmt::Display;
 use std::ops::Deref;
 
 #[cfg(feature = "graph_binary")]
@@ -26,6 +27,16 @@ impl Deref for ByteBuffer {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl Display for ByteBuffer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[")?;
+        for i in &self.0 {
+            write!(f, "{i},")?;
+        }
+        write!(f, "]")
     }
 }
 
