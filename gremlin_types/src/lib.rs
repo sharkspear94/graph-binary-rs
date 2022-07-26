@@ -25,6 +25,7 @@ use extended::chrono::{Instant, MonthDay, OffsetTime, Period, Year, YearMonth, Z
 
 use num::BigInt;
 use structure::enums::P;
+use structure::list::Set;
 use structure::map::MapKeys;
 pub use structure::Binding;
 
@@ -61,7 +62,7 @@ pub enum GremlinValue {
     Double(f64),
     Float(f32),
     List(Vec<GremlinValue>),
-    Set(Vec<GremlinValue>),
+    Set(Set<GremlinValue>),
     Map(HashMap<MapKeys, GremlinValue>),
     Uuid(Uuid),
     Edge(Edge),
@@ -228,7 +229,7 @@ impl Display for GremlinValue {
             }
             GremlinValue::Set(val) => {
                 write!(f, "Set::[")?;
-                for i in val {
+                for i in val.iter() {
                     writeln!(f, " {i},")?;
                 }
                 write!(f, "]")

@@ -12,6 +12,7 @@ use crate::structure::enums::{
 };
 use crate::structure::graph::Graph;
 use crate::structure::lambda::Lambda;
+use crate::structure::list::Set;
 use crate::structure::map::MapKeys;
 use crate::structure::metrics::{Metrics, TraversalMetrics};
 use crate::structure::path::Path;
@@ -22,6 +23,8 @@ use crate::structure::vertex_property::VertexProperty;
 use crate::Binding;
 use crate::GremlinValue;
 use crate::{specs::CoreType, structure::edge::Edge};
+use bigdecimal::BigDecimal;
+use num::BigInt;
 use uuid::Uuid;
 
 #[cfg(feature = "extended")]
@@ -60,8 +63,14 @@ impl GremlinValue {
             GremlinValue::Int(val) => val.encode(writer),
             GremlinValue::Long(val) => val.encode(writer),
             GremlinValue::String(val) => val.encode(writer),
-            GremlinValue::Date(_) => todo!(),
-            GremlinValue::Timestamp(_) => todo!(),
+            GremlinValue::Date(val) => {
+                writer.write_all(&[0x04, 0x0])?;
+                val.partial_encode(writer)
+            }
+            GremlinValue::Timestamp(val) => {
+                writer.write_all(&[0x05, 0x0])?;
+                val.partial_encode(writer)
+            }
             GremlinValue::Class(val) => val.encode(writer),
             GremlinValue::Double(val) => val.encode(writer),
             GremlinValue::Float(val) => val.encode(writer),
@@ -90,8 +99,8 @@ impl GremlinValue {
             GremlinValue::Scope(val) => val.encode(writer),
             GremlinValue::T(val) => val.encode(writer),
             GremlinValue::Traverser(val) => val.encode(writer),
-            // GraphBinary::BigDecimal(_) => todo!(),
-            // GraphBinary::BigInteger(_) => todo!(),
+            GremlinValue::BigDecimal(val) => val.encode(writer),
+            GremlinValue::BigInteger(val) => val.encode(writer),
             GremlinValue::Byte(val) => val.encode(writer),
             GremlinValue::ByteBuffer(val) => val.encode(writer),
             GremlinValue::Short(val) => val.encode(writer),
@@ -186,11 +195,13 @@ fn decode<R: Read>(reader: &mut R) -> Result<GremlinValue, DecodeError> {
         (CoreType::Int32, _) => Ok(GremlinValue::Int(i32::partial_decode(reader)?)),
         (CoreType::Long, _) => Ok(GremlinValue::Long(i64::partial_decode(reader)?)),
         (CoreType::String, _) => Ok(GremlinValue::String(String::partial_decode(reader)?)),
+        (CoreType::Date, _) => Ok(GremlinValue::Date(i64::partial_decode(reader)?)),
+        (CoreType::Timestamp, _) => Ok(GremlinValue::Timestamp(i64::partial_decode(reader)?)),
         (CoreType::Class, _) => Ok(GremlinValue::Class(String::partial_decode(reader)?)),
         (CoreType::Double, _) => Ok(GremlinValue::Double(f64::partial_decode(reader)?)),
         (CoreType::Float, _) => Ok(GremlinValue::Float(f32::partial_decode(reader)?)),
         (CoreType::List, _) => Ok(GremlinValue::List(Vec::partial_decode(reader)?)),
-        (CoreType::Set, _) => Ok(GremlinValue::Set(Vec::partial_decode(reader)?)),
+        (CoreType::Set, _) => Ok(GremlinValue::Set(Set::partial_decode(reader)?)),
         (CoreType::Map, _) => Ok(GremlinValue::Map(
             HashMap::<MapKeys, GremlinValue>::partial_decode(reader)?,
         )),
@@ -218,6 +229,10 @@ fn decode<R: Read>(reader: &mut R) -> Result<GremlinValue, DecodeError> {
         (CoreType::P, _) => Ok(GremlinValue::P(P::partial_decode(reader)?)),
         (CoreType::Scope, _) => Ok(GremlinValue::Scope(Scope::partial_decode(reader)?)),
         (CoreType::T, _) => Ok(GremlinValue::T(T::partial_decode(reader)?)),
+        (CoreType::BigDecimal, _) => Ok(GremlinValue::BigDecimal(BigDecimal::partial_decode(
+            reader,
+        )?)),
+        (CoreType::BigInteger, _) => Ok(GremlinValue::BigInteger(BigInt::partial_decode(reader)?)),
         (CoreType::Barrier, _) => Ok(GremlinValue::Barrier(Barrier::partial_decode(reader)?)),
         (CoreType::Binding, _) => Ok(GremlinValue::Binding(Binding::partial_decode(reader)?)),
         (CoreType::ByteCode, _) => Ok(GremlinValue::Bytecode(Bytecode::partial_decode(reader)?)),

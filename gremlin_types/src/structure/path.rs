@@ -1,8 +1,5 @@
 use std::fmt::Display;
 
-use crate::error::{DecodeError, GraphSonError};
-
-use crate::graphson::{get_val_by_key_v2, get_val_by_key_v3, validate_type};
 use crate::GremlinValue;
 use crate::{conversion, specs::CoreType};
 
@@ -12,9 +9,10 @@ use super::list::Set;
 use crate::graph_binary::{Decode, Encode};
 
 #[cfg(feature = "graph_son")]
-use crate::{
-    graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON},
-    val_by_key_v2, val_by_key_v3,
+use crate::error::GraphSonError;
+#[cfg(feature = "graph_son")]
+use crate::graphson::{
+    get_val_by_key_v2, get_val_by_key_v3, validate_type, DecodeGraphSON, EncodeGraphSON,
 };
 
 #[cfg(feature = "graph_son")]

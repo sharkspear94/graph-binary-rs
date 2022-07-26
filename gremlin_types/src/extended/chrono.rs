@@ -11,12 +11,14 @@ use serde_json::json;
 
 #[cfg(feature = "graph_binary")]
 use crate::graph_binary::{Decode, Encode};
+
 #[cfg(feature = "graph_son")]
-use crate::graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON};
+use crate::error::GraphSonError;
+#[cfg(feature = "graph_son")]
+use crate::graphson::{validate_type, DecodeGraphSON, EncodeGraphSON};
 use crate::{
     conversion,
-    error::{DecodeError, EncodeError, GraphSonError},
-    graphson::validate_type,
+    error::{DecodeError, EncodeError},
     specs::CoreType,
 };
 
@@ -157,6 +159,7 @@ impl Period {
         Period::new(0, 0, 0)
     }
 
+    #[cfg(feature = "graph_son")]
     pub fn parse(s: &str) -> Result<Period, GraphSonError> {
         let mut iter = s.chars();
         iter.next().filter(|c| c.eq(&'P')).ok_or_else(|| {

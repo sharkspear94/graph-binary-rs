@@ -1,5 +1,4 @@
 use std::collections::hash_map::IntoIter;
-use std::vec;
 
 use serde::de::{MapAccess, SeqAccess, Visitor};
 use serde::Deserialize;
@@ -38,7 +37,7 @@ impl<'de> serde::de::Deserializer<'de> for Deserializer {
                 value: None,
             }),
             GremlinValue::Set(v) => visitor.visit_seq(SeqDeser {
-                iter: v.into_iter(),
+                iter: v.inner().into_iter(),
             }),
             GremlinValue::Byte(v) => visitor.visit_u8(v),
             GremlinValue::Short(v) => visitor.visit_i16(v),
@@ -91,11 +90,11 @@ impl<'de> serde::de::Deserializer<'de> for Deserializer {
     }
 }
 
-struct SeqDeser {
-    iter: vec::IntoIter<GremlinValue>,
+struct SeqDeser<T> {
+    iter: T,
 }
 
-impl<'de> SeqAccess<'de> for SeqDeser {
+impl<'de, I: Iterator<Item = GremlinValue>> SeqAccess<'de> for SeqDeser<I> {
     type Error = DecodeError;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>

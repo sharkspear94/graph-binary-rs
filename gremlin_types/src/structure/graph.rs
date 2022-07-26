@@ -2,13 +2,9 @@ use std::fmt::Display;
 
 use crate::{
     conversion,
-    error::GraphSonError,
-    graphson::{get_val_by_key_v2, get_val_by_key_v3, validate_type},
     specs::{self, CoreType},
     GremlinValue,
 };
-
-use crate::error::DecodeError;
 
 use super::{edge::Edge, property::Property, vertex::Vertex, vertex_property::VertexProperty};
 
@@ -16,9 +12,10 @@ use super::{edge::Edge, property::Property, vertex::Vertex, vertex_property::Ver
 use crate::graph_binary::{Decode, Encode};
 
 #[cfg(feature = "graph_son")]
-use crate::{
-    graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON},
-    val_by_key_v2, val_by_key_v3,
+use crate::error::GraphSonError;
+#[cfg(feature = "graph_son")]
+use crate::graphson::{
+    get_val_by_key_v2, get_val_by_key_v3, validate_type, DecodeGraphSON, EncodeGraphSON,
 };
 
 #[cfg(feature = "graph_son")]

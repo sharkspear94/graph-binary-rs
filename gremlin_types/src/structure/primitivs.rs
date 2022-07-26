@@ -1,5 +1,3 @@
-use crate::error::GraphSonError;
-use crate::graphson::validate_type;
 use crate::macros::{TryBorrowFrom, TryMutBorrowFrom};
 use crate::specs::CoreType;
 use crate::{conversion, GremlinValue};
@@ -11,13 +9,15 @@ use std::str::FromStr;
 
 #[cfg(any(feature = "graph_son", feature = "graph_binary"))]
 use crate::error::DecodeError;
+#[cfg(feature = "graph_son")]
+use crate::error::GraphSonError;
 #[cfg(feature = "graph_binary")]
 use crate::graph_binary::{encode_null_object, Decode, Encode};
 
 #[cfg(feature = "graph_binary")]
 use crate::error::EncodeError;
 #[cfg(feature = "graph_son")]
-use crate::graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON};
+use crate::graphson::{validate_type, DecodeGraphSON, EncodeGraphSON};
 #[cfg(feature = "graph_son")]
 use serde_json::json;
 #[cfg(feature = "graph_binary")]

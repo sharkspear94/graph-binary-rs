@@ -21,3 +21,4 @@ pub mod path;
 pub mod traverser;
 pub mod tree;
 pub mod vertex_property;
+pub mod bigint;

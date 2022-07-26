@@ -1,6 +1,5 @@
 use crate::{
-    error::{DecodeError, EncodeError, GraphSonError},
-    graphson::validate_type,
+    error::{DecodeError, EncodeError},
     macros::{TryBorrowFrom, TryMutBorrowFrom},
     specs::CoreType,
 };
@@ -12,7 +11,9 @@ use crate::GremlinValue;
 use crate::graph_binary::{Decode, Encode};
 
 #[cfg(feature = "graph_son")]
-use crate::graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON};
+use crate::error::GraphSonError;
+#[cfg(feature = "graph_son")]
+use crate::graphson::{validate_type, DecodeGraphSON, EncodeGraphSON};
 #[cfg(feature = "graph_son")]
 use serde_json::json;
 
@@ -30,6 +31,10 @@ impl<T> Deref for Set<T> {
 impl<T> Set<T> {
     pub fn new(v: Vec<T>) -> Self {
         Set(v)
+    }
+
+    pub fn inner(self) -> Vec<T> {
+        self.0
     }
 }
 #[cfg(feature = "graph_binary")]
@@ -158,7 +163,7 @@ impl<T: TryFrom<GremlinValue>> TryFrom<GremlinValue> for Vec<T> {
 
     fn try_from(value: GremlinValue) -> Result<Self, Self::Error> {
         match value {
-            GremlinValue::List(list) | GremlinValue::Set(list) => Ok(list
+            GremlinValue::List(list) => Ok(list
                 .into_iter()
                 .filter_map(|gb| gb.try_into().ok())
                 .collect()),
@@ -170,7 +175,7 @@ impl<T: TryFrom<GremlinValue>> TryFrom<GremlinValue> for Vec<T> {
 impl TryBorrowFrom for Vec<GremlinValue> {
     fn try_borrow_from(graph_binary: &GremlinValue) -> Option<&Self> {
         match graph_binary {
-            GremlinValue::List(list) | GremlinValue::Set(list) => Some(list),
+            GremlinValue::List(list) => Some(list),
             _ => None,
         }
     }
@@ -179,7 +184,7 @@ impl TryBorrowFrom for Vec<GremlinValue> {
 impl TryMutBorrowFrom for Vec<GremlinValue> {
     fn try_mut_borrow_from(graph_binary: &mut GremlinValue) -> Option<&mut Self> {
         match graph_binary {
-            GremlinValue::List(val) | GremlinValue::Set(val) => Some(val),
+            GremlinValue::List(val) => Some(val),
             _ => None,
         }
     }

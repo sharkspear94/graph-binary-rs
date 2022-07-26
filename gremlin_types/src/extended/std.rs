@@ -5,11 +5,12 @@ use std::{
 };
 
 #[cfg(feature = "graph_son")]
-use crate::graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON};
+use crate::error::GraphSonError;
+#[cfg(feature = "graph_son")]
+use crate::graphson::{validate_type, validate_type_entry, DecodeGraphSON, EncodeGraphSON};
 use crate::{
     conversion,
-    error::{DecodeError, EncodeError, GraphSonError},
-    graphson::validate_type,
+    error::{DecodeError, EncodeError},
     specs::CoreType,
 };
 #[cfg(feature = "graph_son")]

@@ -4,12 +4,7 @@ use std::fmt::Display;
 use crate::error::DecodeError;
 #[cfg(feature = "graph_binary")]
 use crate::specs::{self, CoreType};
-use crate::{
-    conversion,
-    error::GraphSonError,
-    graphson::{get_val_by_key_v2, get_val_by_key_v3, validate_type},
-    GremlinValue,
-};
+use crate::{conversion, GremlinValue};
 
 use super::{
     property::{self, Property},
@@ -19,10 +14,13 @@ use super::{
 #[cfg(feature = "graph_binary")]
 use crate::graph_binary::{Decode, Encode};
 
+
+
 #[cfg(feature = "graph_son")]
-use crate::{
-    graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON},
-    val_by_key_v2, val_by_key_v3,
+use crate::error::GraphSonError;
+#[cfg(feature = "graph_son")]
+use crate::graphson::{
+    get_val_by_key_v2, get_val_by_key_v3, validate_type, DecodeGraphSON, EncodeGraphSON,
 };
 
 #[cfg(feature = "graph_son")]

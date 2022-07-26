@@ -1,17 +1,14 @@
 use std::fmt::Display;
 
-use crate::{
-    error::{DecodeError, GraphSonError},
-    graphson::validate_type,
-    specs::CoreType,
-    GremlinValue,
-};
+use crate::{error::DecodeError, specs::CoreType, GremlinValue};
 
 #[cfg(feature = "graph_binary")]
 use crate::graph_binary::{Decode, Encode};
 
 #[cfg(feature = "graph_son")]
-use crate::graphson::{validate_type_entry, DecodeGraphSON, EncodeGraphSON};
+use crate::error::GraphSonError;
+#[cfg(feature = "graph_son")]
+use crate::graphson::{validate_type, DecodeGraphSON, EncodeGraphSON};
 #[cfg(feature = "graph_son")]
 use serde_json::json;
 

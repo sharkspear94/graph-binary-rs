@@ -2,6 +2,9 @@ use std::{collections::HashMap, net::IpAddr};
 
 // use crate::extended::chrono::{MonthDay, OffsetTime, Year, YearMonth};
 
+use bigdecimal::BigDecimal;
+use num::BigInt;
+use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
@@ -64,6 +67,14 @@ impl EncodeGraphSON for GremlinValue {
             GremlinValue::Int(val) => val.encode_v3(),
             GremlinValue::Long(val) => val.encode_v3(),
             GremlinValue::String(val) => val.encode_v3(),
+            GremlinValue::Date(val) => json!({
+              "@type" : "g:Date",
+              "@value" : val
+            }),
+            GremlinValue::Timestamp(val) => json!({
+              "@type" : "g:Timestamp",
+              "@value" : val
+            }),
             GremlinValue::Class(val) => val.encode_v3(),
             GremlinValue::Double(val) => val.encode_v3(),
             GremlinValue::Float(val) => val.encode_v3(),
@@ -91,6 +102,8 @@ impl EncodeGraphSON for GremlinValue {
             GremlinValue::P(val) => val.encode_v3(),
             GremlinValue::Scope(val) => val.encode_v3(),
             GremlinValue::T(val) => val.encode_v3(),
+            GremlinValue::BigInteger(val) => val.encode_v3(),
+            GremlinValue::BigDecimal(val) => val.encode_v3(),
             GremlinValue::Traverser(val) => val.encode_v3(),
             GremlinValue::Byte(val) => val.encode_v3(),
             GremlinValue::ByteBuffer(val) => val.encode_v3(),
@@ -141,6 +154,14 @@ impl EncodeGraphSON for GremlinValue {
             GremlinValue::Int(val) => val.encode_v2(),
             GremlinValue::Long(val) => val.encode_v2(),
             GremlinValue::String(val) => val.encode_v2(),
+            GremlinValue::Date(val) => json!({
+              "@type" : "g:Date",
+              "@value" : val
+            }),
+            GremlinValue::Timestamp(val) => json!({
+              "@type" : "g:Timestamp",
+              "@value" : val
+            }),
             GremlinValue::Class(val) => val.encode_v2(),
             GremlinValue::Double(val) => val.encode_v2(),
             GremlinValue::Float(val) => val.encode_v2(),
@@ -168,6 +189,8 @@ impl EncodeGraphSON for GremlinValue {
             GremlinValue::P(val) => val.encode_v2(),
             GremlinValue::Scope(val) => val.encode_v2(),
             GremlinValue::T(val) => val.encode_v2(),
+            GremlinValue::BigInteger(val) => val.encode_v2(),
+            GremlinValue::BigDecimal(val) => val.encode_v2(),
             GremlinValue::Traverser(val) => val.encode_v2(),
             GremlinValue::Byte(val) => val.encode_v2(),
             GremlinValue::ByteBuffer(val) => val.encode_v2(),
@@ -245,6 +268,16 @@ impl DecodeGraphSON for GremlinValue {
                             .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))
                             .map(|class| class.to_string())?,
                     )),
+                    "g:Date" => Ok(GremlinValue::Date(
+                        o.get("@value")
+                            .and_then(|c| c.as_i64())
+                            .ok_or_else(|| GraphSonError::WrongJsonType("i64".to_string()))?,
+                    )),
+                    "g:Timestamp" => Ok(GremlinValue::Timestamp(
+                        o.get("@value")
+                            .and_then(|c| c.as_i64())
+                            .ok_or_else(|| GraphSonError::WrongJsonType("i64".to_string()))?,
+                    )),
                     "g:Double" => Ok(GremlinValue::Double(f64::decode_v3(j_val)?)),
                     "g:Float" => Ok(GremlinValue::Float(f32::decode_v3(j_val)?)),
                     "g:List" => Ok(GremlinValue::List(Vec::<GremlinValue>::decode_v3(j_val)?)),
@@ -283,8 +316,8 @@ impl DecodeGraphSON for GremlinValue {
                         TraversalMetrics::decode_v3(j_val)?,
                     )),
                     "g:Traverser" => Ok(GremlinValue::Traverser(Traverser::decode_v3(j_val)?)),
-                    // "gx:BigDecimal" => Ok(GremlinTypes::BigDecimal(BigDecimal::decode_v3(j_val)?)),
-                    // "gx:BigInteger" => Ok(GremlinTypes::BigInteger(BigInteger::decode_v3(j_val)?)),
+                    "gx:BigDecimal" => Ok(GremlinValue::BigDecimal(BigDecimal::decode_v3(j_val)?)),
+                    "gx:BigInteger" => Ok(GremlinValue::BigInteger(BigInt::decode_v3(j_val)?)),
                     "gx:Byte" => Ok(GremlinValue::Byte(u8::decode_v3(j_val)?)),
                     // "gx:ByteBuffer" => Ok(GremlinTypes::ByteBuffer(ByteBuffer::decode_v3(j_val)?)),
                     "gx:Int16" => Ok(GremlinValue::Short(i16::decode_v3(j_val)?)),
@@ -362,6 +395,16 @@ impl DecodeGraphSON for GremlinValue {
                                 .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))
                                 .map(|class| class.to_string())?,
                         )),
+                        "g:Date" => Ok(GremlinValue::Date(
+                            o.get("@value")
+                                .and_then(|c| c.as_i64())
+                                .ok_or_else(|| GraphSonError::WrongJsonType("i64".to_string()))?,
+                        )),
+                        "g:Timestamp" => Ok(GremlinValue::Timestamp(
+                            o.get("@value")
+                                .and_then(|c| c.as_i64())
+                                .ok_or_else(|| GraphSonError::WrongJsonType("i64".to_string()))?,
+                        )),
                         "g:Double" => Ok(GremlinValue::Double(f64::decode_v2(j_val)?)),
                         "g:Float" => Ok(GremlinValue::Float(f32::decode_v2(j_val)?)),
                         "g:List" => Ok(GremlinValue::List(Vec::<GremlinValue>::decode_v2(j_val)?)),
@@ -400,8 +443,10 @@ impl DecodeGraphSON for GremlinValue {
                             TraversalMetrics::decode_v2(j_val)?,
                         )),
                         "g:Traverser" => Ok(GremlinValue::Traverser(Traverser::decode_v2(j_val)?)),
-                        // "gx:BigDecimal" => Ok(GremlinTypes::BigDecimal(BigDecimal::decode_v2(j_val)?)),
-                        // "gx:BigInteger" => Ok(GremlinTypes::BigInteger(BigInteger::decode_v2(j_val)?)),
+                        "gx:BigDecimal" => {
+                            Ok(GremlinValue::BigDecimal(BigDecimal::decode_v2(j_val)?))
+                        }
+                        "gx:BigInteger" => Ok(GremlinValue::BigInteger(BigInt::decode_v2(j_val)?)),
                         "gx:Byte" => Ok(GremlinValue::Byte(u8::decode_v2(j_val)?)),
                         // "gx:ByteBuffer" => Ok(GremlinTypes::ByteBuffer(ByteBuffer::decode_v2(j_val)?)),
                         "gx:Int16" => Ok(GremlinValue::Short(i16::decode_v2(j_val)?)),
@@ -548,9 +593,9 @@ pub fn get_val_by_key_v3<T: DecodeGraphSON>(
     key: &str,
     context: &str,
 ) -> Result<T, GraphSonError> {
-    let val = jval
-        .get(key)
-        .ok_or_else(|| GraphSonError::KeyNotFound(key.to_string()))?;
+    let val = jval.get(key).ok_or_else(|| {
+        GraphSonError::KeyNotFound(format!("{key} not found during graphson decode {context}"))
+    })?;
     T::decode_v3(val)
 }
 
@@ -559,16 +604,16 @@ pub fn get_val_by_key_v2<T: DecodeGraphSON>(
     key: &str,
     context: &str,
 ) -> Result<T, GraphSonError> {
-    let val = jval
-        .get(key)
-        .ok_or_else(|| GraphSonError::KeyNotFound(key.to_string()))?;
+    let val = jval.get(key).ok_or_else(|| {
+        GraphSonError::KeyNotFound(format!("{key} not found during graphson decode {context}"))
+    })?;
     T::decode_v2(val)
 }
 
 pub fn get_val_by_key_v1<T: DecodeGraphSON>(
     jval: &serde_json::Value,
     key: &str,
-    context: &str,
+    _context: &str,
 ) -> Result<T, GraphSonError> {
     let val = jval
         .get(key)
