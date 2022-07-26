@@ -326,8 +326,8 @@ impl EncodeGraphSON for Graph {
         json!({
             "@type" : "tinker:graph",
             "@value" : {
-                "vertices": self.vertices.iter().map(|vertex| vertex.encode_v3()).collect::<Vec<serde_json::Value>>(),
-                "edges": self.edges.iter().map(|edge| edge.encode_v3()).collect::<Vec<serde_json::Value>>()
+                "vertices": self.vertices.iter().map(EncodeGraphSON::encode_v3).collect::<Vec<serde_json::Value>>(),
+                "edges": self.edges.iter().map(EncodeGraphSON::encode_v3).collect::<Vec<serde_json::Value>>()
              }
         })
     }
@@ -336,8 +336,8 @@ impl EncodeGraphSON for Graph {
         json!({
             "@type" : "tinker:graph",
             "@value" : {
-                "vertices": self.vertices.iter().map(|vertex| vertex.encode_v2()).collect::<Vec<serde_json::Value>>(),
-                "edges": self.edges.iter().map(|edge| edge.encode_v2()).collect::<Vec<serde_json::Value>>()
+                "vertices": self.vertices.iter().map(EncodeGraphSON::encode_v2).collect::<Vec<serde_json::Value>>(),
+                "edges": self.edges.iter().map(EncodeGraphSON::encode_v2).collect::<Vec<serde_json::Value>>()
              }
         })
     }

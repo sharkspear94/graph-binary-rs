@@ -37,6 +37,7 @@ pub struct Edge {
 }
 
 impl Edge {
+    #[must_use]
     pub fn new(label: &str) -> Self {
         Edge {
             id: Box::new(GremlinValue::UnspecifiedNullObject),

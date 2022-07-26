@@ -28,7 +28,7 @@ impl Display for Step {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, r#"["{}""#, self.name)?;
         for step in &self.values {
-            write!(f, ", {step}")?
+            write!(f, ", {step}")?;
         }
         write!(f, "]")
     }
@@ -44,13 +44,14 @@ impl Display for Source {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, r#"["{}""#, self.name)?;
         for source in &self.values {
-            write!(f, ", {source}")?
+            write!(f, ", {source}")?;
         }
         write!(f, "]")
     }
 }
 
 impl Bytecode {
+    #[must_use]
     pub fn new() -> Self {
         Bytecode::default()
     }
@@ -72,7 +73,7 @@ impl Bytecode {
             .steps
             .last_mut()
             .expect("Bytecode step cannot be extended without prior step");
-        last.values.extend(values.map(Into::into))
+        last.values.extend(values.map(Into::into));
     }
 
     pub fn add_to_last_step(&mut self, value: impl Into<GremlinValue>) {
@@ -80,7 +81,7 @@ impl Bytecode {
             .steps
             .last_mut()
             .expect("Bytecode step cannot be extended without prior step");
-        last.values.push(value.into())
+        last.values.push(value.into());
     }
 
     pub fn extend_last_source(&mut self, values: impl Iterator<Item = impl Into<GremlinValue>>) {
@@ -88,7 +89,7 @@ impl Bytecode {
             .sources
             .last_mut()
             .expect("Bytecode source cannot be extended without prior step");
-        last.values.extend(values.map(Into::into))
+        last.values.extend(values.map(Into::into));
     }
 
     pub fn add_to_last_source(&mut self, value: impl Into<GremlinValue>) {
@@ -96,7 +97,7 @@ impl Bytecode {
             .sources
             .last_mut()
             .expect("Bytecode source cannot be extended without prior step");
-        last.values.push(value.into())
+        last.values.push(value.into());
     }
 }
 
@@ -186,7 +187,7 @@ impl EncodeGraphSON for Bytecode {
             .iter()
             .map(|s| {
                 let mut inner = vec![s.name.encode_v3()];
-                inner.extend(s.values.iter().map(|item| item.encode_v3()));
+                inner.extend(s.values.iter().map(EncodeGraphSON::encode_v3));
                 inner
             })
             .collect();
@@ -228,31 +229,31 @@ impl DecodeGraphSON for Bytecode {
                     .and_then(|v| String::decode_v3(v).ok())
                     .ok_or_else(|| GraphSonError::KeyNotFound("first".to_string()))?;
                 for i in &inner[1..] {
-                    step_args.push(GremlinValue::decode_v3(i)?)
+                    step_args.push(GremlinValue::decode_v3(i)?);
                 }
                 steps.push(Step {
                     name,
                     values: step_args,
-                })
+                });
             }
         };
 
         let source_iter = value_object.get("source").and_then(|v| v.as_array());
 
         if let Some(iter) = source_iter {
-            for inner in iter.iter().flat_map(|v| v.as_array()) {
+            for inner in iter.iter().filter_map(|v| v.as_array()) {
                 let mut source_args = Vec::<GremlinValue>::new();
                 let name = inner
                     .first()
                     .and_then(|v| String::decode_v3(v).ok())
                     .ok_or_else(|| GraphSonError::KeyNotFound("first".to_string()))?;
                 for i in &inner[1..] {
-                    source_args.push(GremlinValue::decode_v3(i)?)
+                    source_args.push(GremlinValue::decode_v3(i)?);
                 }
                 sources.push(Source {
                     name,
                     values: source_args,
-                })
+                });
             }
         };
         Ok(Bytecode { steps, sources })

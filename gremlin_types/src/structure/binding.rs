@@ -19,19 +19,24 @@ pub struct Binding {
 }
 
 impl Binding {
+    #[must_use]
     pub fn new(key: &str, value: impl Into<GremlinValue>) -> Self {
         Binding {
             key: key.to_owned(),
             value: Box::new(value.into()),
         }
     }
-
+    #[must_use]
     pub fn key(&self) -> &str {
         &self.key
     }
-
+    #[must_use]
     pub fn value(&self) -> &GremlinValue {
         &self.value
+    }
+    #[must_use]
+    pub fn value_mut(&mut self) -> &mut GremlinValue {
+        &mut self.value
     }
 }
 

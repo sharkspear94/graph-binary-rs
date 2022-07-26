@@ -50,7 +50,7 @@ use crate::structure::vertex::Vertex;
 use crate::structure::vertex_property::VertexProperty;
 use uuid::Uuid;
 
-/// All possible Values supported in the [GraphBinary serialization format](https://tinkerpop.apache.org/docs/current/dev/io/#graphbinary)
+/// All possible Values supported in the [graphbinary serialization format](https://tinkerpop.apache.org/docs/current/dev/io/#graphbinary)
 #[derive(Debug, PartialEq, Clone)]
 pub enum GremlinValue {
     Int(i32),
@@ -133,8 +133,8 @@ pub enum GremlinValue {
 }
 
 impl GremlinValue {
-    /// Returns an Option of an owned value if the Type was the `GremlinValue` variant.
-    /// Returns None if GremlinValue enum holds another Type
+    /// Returns an Option of an owned value if the Type is the `GremlinValue` variant.
+    /// Returns None if `GremlinValue` enum holds another Type
     ///
     /// ```
     /// # use gremlin_types::GremlinValue;
@@ -146,12 +146,13 @@ impl GremlinValue {
     /// assert_eq!(None, gb2.get::<String>());
     ///
     /// ```
+    #[must_use]
     pub fn get<T: TryFrom<GremlinValue>>(self) -> Option<T> {
         T::try_from(self).ok()
     }
 
-    /// Returns an Option of an cloned value if the Type was the `GremlinValue` variant.
-    /// Returns None if GremlinValue enum holds another Type
+    /// Returns an Option of an cloned value if the Type is the `GremlinValue` variant.
+    /// Returns None if `GremlinValue` enum holds another Type
     ///
     /// ```
     /// # use gremlin_types::GremlinValue;
@@ -163,10 +164,11 @@ impl GremlinValue {
     /// assert_eq!(None, gb2.get::<String>());
     ///
     /// ```
+    #[must_use]
     pub fn get_cloned<T: TryFrom<GremlinValue>>(&self) -> Option<T> {
         T::try_from(self.clone()).ok()
     }
-    /// Returns an Option of the borrowed value if the Type was the `GremlinValue` variant.
+    /// Returns an Option of the borrowed value if the Type is the `GremlinValue` variant.
     /// Returns None if `GremlinValue` enum holds another Type
     ///
     /// ```
@@ -179,11 +181,12 @@ impl GremlinValue {
     /// assert_eq!(None, gb.get_ref::<bool>());
     ///
     /// ```
+    #[must_use]
     pub fn get_ref<T: TryBorrowFrom + ?Sized>(&self) -> Option<&T> {
         T::try_borrow_from(self)
     }
 
-    /// Returns an Option of the mutable borrowed value if the Type was the `GremlinValue` variant.
+    /// Returns an Option of the mutable borrowed value if the Type is the `GremlinValue` variant.
     /// Returns None if `GremlinValue` enum holds another Type
     ///
     /// ```
@@ -198,10 +201,11 @@ impl GremlinValue {
     /// assert_eq!(None, gb.get_ref::<bool>());
     ///
     /// ```
+    #[must_use]
     pub fn get_ref_mut<T: TryMutBorrowFrom + ?Sized>(&mut self) -> Option<&mut T> {
         T::try_mut_borrow_from(self)
     }
-
+    #[must_use]
     pub fn to_option(self) -> Option<GremlinValue> {
         match self {
             GremlinValue::UnspecifiedNullObject => None,
@@ -226,13 +230,7 @@ impl Display for GremlinValue {
                 }
                 write!(f, "]")
             }
-            GremlinValue::Set(val) => {
-                write!(f, "Set::[")?;
-                for i in val.iter() {
-                    writeln!(f, " {i},")?;
-                }
-                write!(f, "]")
-            }
+            GremlinValue::Set(val) => write!(f, "Set::{val}"),
             GremlinValue::Map(val) => {
                 write!(f, "Map::[")?;
                 for (key, value) in val {

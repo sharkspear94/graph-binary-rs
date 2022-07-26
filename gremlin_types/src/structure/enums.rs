@@ -278,6 +278,7 @@ pub struct P<T> {
 }
 
 impl<T: Into<GremlinValue>> P<T> {
+    #[must_use]
     pub fn eq(a: T) -> P<T> {
         P {
             predicate: "eq".to_string(),
@@ -286,6 +287,7 @@ impl<T: Into<GremlinValue>> P<T> {
         }
     }
 
+    #[must_use]
     pub fn neq(a: T) -> P<T> {
         P {
             predicate: "neq".to_string(),
@@ -294,6 +296,7 @@ impl<T: Into<GremlinValue>> P<T> {
         }
     }
 
+    #[must_use]
     pub fn gt(a: T) -> P<T> {
         P {
             predicate: "gt".to_string(),
@@ -302,6 +305,7 @@ impl<T: Into<GremlinValue>> P<T> {
         }
     }
 
+    #[must_use]
     pub fn gte(a: T) -> P<T> {
         P {
             predicate: "gte".to_string(),
@@ -310,6 +314,7 @@ impl<T: Into<GremlinValue>> P<T> {
         }
     }
 
+    #[must_use]
     pub fn lt(a: T) -> P<T> {
         P {
             predicate: "lt".to_string(),
@@ -318,6 +323,7 @@ impl<T: Into<GremlinValue>> P<T> {
         }
     }
 
+    #[must_use]
     pub fn lte(a: T) -> P<T> {
         P {
             predicate: "lte".to_string(),
@@ -326,6 +332,7 @@ impl<T: Into<GremlinValue>> P<T> {
         }
     }
 
+    #[must_use]
     pub fn between(first: T, second: T) -> P<T> {
         P {
             predicate: "between".to_string(),
@@ -334,6 +341,7 @@ impl<T: Into<GremlinValue>> P<T> {
         }
     }
 
+    #[must_use]
     pub fn inside(first: T, second: T) -> P<T> {
         P {
             predicate: "inside".to_string(),
@@ -342,6 +350,7 @@ impl<T: Into<GremlinValue>> P<T> {
         }
     }
 
+    #[must_use]
     pub fn outside(first: T, second: T) -> P<T> {
         P {
             predicate: "outside".to_string(),
@@ -350,6 +359,7 @@ impl<T: Into<GremlinValue>> P<T> {
         }
     }
 
+    #[must_use]
     pub fn within(values: Vec<T>) -> P<T> {
         P {
             predicate: "within".to_string(),
@@ -358,6 +368,7 @@ impl<T: Into<GremlinValue>> P<T> {
         }
     }
 
+    #[must_use]
     pub fn without(values: Vec<T>) -> P<T> {
         P {
             predicate: "without".to_string(),
@@ -366,6 +377,7 @@ impl<T: Into<GremlinValue>> P<T> {
         }
     }
 
+    #[must_use]
     pub fn and(self, f: P<T>) -> P<T> {
         P {
             predicate: "and".to_string(),
@@ -374,6 +386,7 @@ impl<T: Into<GremlinValue>> P<T> {
         }
     }
 
+    #[must_use]
     pub fn or(self, f: P<T>) -> P<T> {
         P {
             predicate: "or".to_string(),
@@ -405,7 +418,7 @@ impl<T> EncodeGraphSON for P<T> {
                 "@type" : "g:P",
                 "@value" : {
                     "predicate" : self.predicate,
-                    "value":  self.value.iter().map(|t|t.encode_v3()).collect::<Vec<serde_json::Value>>()
+                    "value":  self.value.iter().map(EncodeGraphSON::encode_v3).collect::<Vec<serde_json::Value>>()
                 }
             }),
             _ => panic!("predicate in P not known"),
@@ -432,7 +445,7 @@ impl<T> EncodeGraphSON for P<T> {
                 "@type" : "g:P",
                 "@value" : {
                     "predicate" : self.predicate,
-                    "value":  self.value.iter().map(|t|t.encode_v2()).collect::<Vec<serde_json::Value>>()
+                    "value":  self.value.iter().map(EncodeGraphSON::encode_v2).collect::<Vec<serde_json::Value>>()
                 }
             }),
             _ => panic!("predicate in P not known"),
@@ -474,7 +487,7 @@ impl<T> DecodeGraphSON for P<T> {
             "and" | "or" => {
                 let value_vec = value_object
                     .get("value")
-                    .and_then(|a| a.as_array())
+                    .and_then(serde_json::Value::as_array)
                     .ok_or_else(|| GraphSonError::WrongJsonType("array".to_string()))?;
                 let mut value = Vec::with_capacity(value_vec.len());
                 for p in value_vec {
@@ -519,7 +532,7 @@ impl<T> DecodeGraphSON for P<T> {
             "and" | "or" => {
                 let value_vec = value_object
                     .get("value")
-                    .and_then(|a| a.as_array())
+                    .and_then(serde_json::Value::as_array)
                     .ok_or_else(|| GraphSonError::WrongJsonType("array".to_string()))?;
                 let mut value = Vec::with_capacity(value_vec.len());
                 for p in value_vec {
@@ -675,48 +688,56 @@ impl From<TextP> for GremlinValue {
 }
 
 impl TextP {
+    #[must_use]
     pub fn starting_with(val: &str) -> Self {
         TextP {
             predicate: "startingWith".to_string(),
             value: vec![val.into()],
         }
     }
+    #[must_use]
     pub fn not_starting_with(val: &str) -> Self {
         TextP {
             predicate: "notStartingWith".to_string(),
             value: vec![val.into()],
         }
     }
+    #[must_use]
     pub fn ending_with(val: &str) -> Self {
         TextP {
             predicate: "endingWith".to_string(),
             value: vec![val.into()],
         }
     }
+    #[must_use]
     pub fn not_ending_with(val: &str) -> Self {
         TextP {
             predicate: "notEndingWith".to_string(),
             value: vec![val.into()],
         }
     }
+    #[must_use]
     pub fn containing(val: &str) -> Self {
         TextP {
             predicate: "containing".to_string(),
             value: vec![val.into()],
         }
     }
+    #[must_use]
     pub fn not_containing(val: &str) -> Self {
         TextP {
             predicate: "notContaining".to_string(),
             value: vec![val.into()],
         }
     }
+    #[must_use]
     pub fn regex(val: &str) -> Self {
         TextP {
             predicate: "regex".to_string(),
             value: vec![val.into()],
         }
     }
+    #[must_use]
     pub fn not_regex(val: &str) -> Self {
         TextP {
             predicate: "notRegex".to_string(),
@@ -724,6 +745,7 @@ impl TextP {
         }
     }
 
+    #[must_use]
     pub fn and(self, text_p: TextP) -> P<TextP> {
         P {
             predicate: "and".to_string(),
@@ -732,6 +754,7 @@ impl TextP {
         }
     }
 
+    #[must_use]
     pub fn or(self, text_p: TextP) -> P<TextP> {
         P {
             predicate: "or".to_string(),

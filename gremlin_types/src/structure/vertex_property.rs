@@ -252,7 +252,7 @@ impl DecodeGraphSON for VertexProperty {
             value: Box::new(value),
             parent: Some(Vertex {
                 id: Box::new(vertex_id),
-                label: Default::default(),
+                label: String::default(),
                 properties: None,
             }),
             properties,

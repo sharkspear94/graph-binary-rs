@@ -12,7 +12,7 @@ use crate::graphson::{get_val_by_key_v3, validate_type, DecodeGraphSON, EncodeGr
 #[cfg(feature = "graph_son")]
 use serde_json::json;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Hash)]
 pub struct Lambda {
     pub language: String,
     pub script: String,
@@ -20,6 +20,7 @@ pub struct Lambda {
 }
 
 impl Lambda {
+    #[must_use]
     pub fn new(script: &str) -> Self {
         Lambda {
             language: "gremlin-groovy".to_string(),

@@ -142,8 +142,6 @@ impl GremlinValue {
             GremlinValue::ZonedDateTime(val) => val.encode(writer),
             #[cfg(feature = "extended")]
             GremlinValue::ZoneOffset(val) => val.encode(writer),
-            // GraphBinary::Custom => todo!(),
-            // _ =>  Bytes::new()
         }
     }
 }
