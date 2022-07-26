@@ -28,6 +28,7 @@ pub struct Vertex {
 }
 
 impl Vertex {
+    #[must_use]
     pub fn new<ID: Into<GremlinValue>>(
         id: ID,
         label: &str,
@@ -38,6 +39,15 @@ impl Vertex {
             label: label.to_owned(),
             properties,
         }
+    }
+    #[must_use]
+    pub fn id(&self) -> &GremlinValue {
+        &self.id
+    }
+
+    #[must_use]
+    pub fn label(&self) -> &String {
+        &self.label
     }
 }
 
@@ -99,7 +109,7 @@ impl EncodeGraphSON for Vertex {
             for property in properties {
                 if map.contains_key(&property.label) {
                     let v = map.get_mut(&property.label).unwrap();
-                    v.push(property.encode_v3())
+                    v.push(property.encode_v3());
                 } else {
                     map.insert(property.label.clone(), vec![property.encode_v3()]);
                 }
@@ -127,7 +137,7 @@ impl EncodeGraphSON for Vertex {
             for property in properties {
                 if map.contains_key(&property.label) {
                     let v = map.get_mut(&property.label).unwrap();
-                    v.push(property.encode_v2())
+                    v.push(property.encode_v2());
                 } else {
                     map.insert(property.label.clone(), vec![property.encode_v2()]);
                 }

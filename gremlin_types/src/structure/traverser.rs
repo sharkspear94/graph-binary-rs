@@ -20,6 +20,25 @@ pub struct Traverser {
     pub value: Box<GremlinValue>,
 }
 
+impl Traverser {
+    #[must_use]
+    pub fn new(bulk: i64, value: GremlinValue) -> Traverser {
+        Traverser {
+            bulk,
+            value: Box::new(value),
+        }
+    }
+    #[must_use]
+    pub fn bulk(&self) -> &i64 {
+        &self.bulk
+    }
+
+    #[must_use]
+    pub fn value(&self) -> &GremlinValue {
+        &self.value
+    }
+}
+
 impl Display for Traverser {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "bulk:{},{}", self.bulk, self.value)
@@ -32,6 +51,7 @@ pub struct TraverserIter<'a> {
 }
 
 impl Traverser {
+    #[must_use]
     pub fn iter(&self) -> TraverserIter {
         TraverserIter {
             bulk: self.bulk as usize,

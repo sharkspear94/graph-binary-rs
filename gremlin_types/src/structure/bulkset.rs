@@ -15,6 +15,21 @@ use serde_json::json;
 #[derive(Debug, PartialEq, Clone)]
 pub struct BulkSet(Vec<(GremlinValue, i64)>);
 
+impl BulkSet {
+    #[must_use]
+    pub fn new(vec: Vec<(GremlinValue, i64)>) -> BulkSet {
+        BulkSet(vec)
+    }
+    #[must_use]
+    pub fn bulk_set(&self) -> &Vec<(GremlinValue, i64)> {
+        &self.0
+    }
+    #[must_use]
+    pub fn bulk_set_mut(&mut self) -> &mut Vec<(GremlinValue, i64)> {
+        &mut self.0
+    }
+}
+
 #[cfg(feature = "graph_binary")]
 impl Encode for BulkSet {
     fn type_code() -> u8 {
@@ -63,7 +78,7 @@ impl EncodeGraphSON for BulkSet {
         let mut j_vec = Vec::with_capacity(self.0.len() * 2);
         for (value, bulk) in &self.0 {
             j_vec.push(value.encode_v3());
-            j_vec.push(bulk.encode_v3())
+            j_vec.push(bulk.encode_v3());
         }
 
         json!(

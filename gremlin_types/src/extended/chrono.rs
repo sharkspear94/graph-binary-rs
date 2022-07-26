@@ -174,7 +174,7 @@ impl Period {
                     let years = numeric.parse::<i32>().map_err(|err| {
                         GraphSonError::Parse(format!("cannot parse years: {err}"))
                     })?;
-                    period.years += years
+                    period.years += years;
                 }
                 "M" => {
                     let months = numeric.parse::<i32>().map_err(|err| {
