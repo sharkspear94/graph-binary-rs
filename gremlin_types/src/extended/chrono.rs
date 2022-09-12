@@ -1133,14 +1133,24 @@ impl DecodeGraphSON for ZonedDateTime {
     where
         Self: std::marker::Sized,
     {
-        let s = validate_type(j_val, "gx:ZonedDateTime")?
+        let mut s = validate_type(j_val, "gx:ZonedDateTime")?
             .as_str()
             .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
+        if let Some(len) = s.find('[') {
+            s = &s[..len];
+        } else {
+            return Err(GraphSonError::Parse(format!(
+                "cannot parse ZonedDateTime: [ not found"
+            )));
+        }
 
-        let dt = DateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f%:z[%Z%:z]")
-            .or_else(|_| DateTime::parse_from_rfc3339(s))
-            .or_else(|_| DateTime::parse_from_rfc2822(s))
-            .map_err(|err| GraphSonError::Parse(format!("cannot parse ZonedDateTime {err}")))?;
+        let dt =
+            DateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f%:z") //FIXME
+                // .or_else(|_| DateTime::parse_from_rfc3339(s))
+                // .or_else(|_| DateTime::parse_from_rfc2822(s))
+                .map_err(|err| {
+                    GraphSonError::Parse(format!("cannot parse ZonedDateTime: {err}"))
+                })?;
         Ok(ZonedDateTime(dt))
     }
 
@@ -1580,13 +1590,13 @@ fn zoned_date_time_offset_encode_v3() {
 #[test]
 fn zoned_date_time_offset_decode_v3() {
     let s =
-        r#"{"@type":"gx:ZonedDateTime","@value":"2016-12-23T12:12:24.000000000+02:00GMT+02:00"}"#;
+        r#"{"@type":"gx:ZonedDateTime","@value":"2016-12-23T12:12:24.000000036+02:00[GMT+02:00]"}"#;
 
     let v = serde_json::from_str(s).unwrap();
     let res = ZonedDateTime::decode_v3(&v).unwrap();
     assert_eq!(
         res,
-        ZonedDateTime(DateTime::parse_from_rfc3339("2016-12-23T12:12:24.000000000+02:00").unwrap())
+        ZonedDateTime(DateTime::parse_from_rfc3339("2016-12-23T12:12:24.000000036+02:00").unwrap())
     )
 }
 

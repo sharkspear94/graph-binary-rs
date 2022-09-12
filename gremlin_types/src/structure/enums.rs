@@ -578,7 +578,7 @@ impl<T> Encode for P<T> {
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
-        self.predicate.encode(writer)?;
+        self.predicate.partial_encode(writer)?;
         self.value.partial_encode(writer)
     }
 }
@@ -774,7 +774,7 @@ impl Encode for TextP {
         &self,
         writer: &mut W,
     ) -> Result<(), crate::error::EncodeError> {
-        self.predicate.encode(writer)?;
+        self.predicate.partial_encode(writer)?;
         self.value.partial_encode(writer)
     }
 }

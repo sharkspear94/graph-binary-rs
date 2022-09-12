@@ -1,4 +1,4 @@
-mod error;
+pub mod error;
 #[cfg(feature = "graph_binary")]
 pub mod graph_binary;
 mod macros;

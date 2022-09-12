@@ -297,12 +297,17 @@ impl DecodeGraphSON for EitherParent {
             }))
         } else if let Ok(value_object) = validate_type(j_val, "g:VertexProperty") {
             // Not sure what VertexProptery looks like
-            // let obj = j_val.get("@value");
-            // let id = get_val_v2!(obj, "id", GremlinTypes, "EitherParent")?;
-            // let label = get_val_v2!(obj, "label", String, "EitherParent")?;
-            // let out_v_id = get_val_v2!(obj, "outV", GremlinTypes, "EitherParent")?;
-            // let in_v_id = get_val_v2!(obj, "inV", GremlinTypes, "EitherParent")?;
-            todo!("")
+            let id = get_val_by_key_v2(value_object, "id", "EitherParent")?;
+            let label = get_val_by_key_v2(value_object, "label", "EitherParent")?;
+            // let out_v_id = get_val_by_key_v2(value_object, "outV", "EitherParent")?;
+            // let in_v_id = get_val_by_key_v2(value_object, "inV", "EitherParent")?;
+            Ok(EitherParent::VertexProperty(VertexProperty {
+                id: Box::new(id),
+                label,
+                value: Box::new(GremlinValue::UnspecifiedNullObject),
+                parent: None,
+                properties: None,
+            }))
         } else {
             Err(GraphSonError::KeyNotFound(
                 "Edge or VertexProperty".to_string(),

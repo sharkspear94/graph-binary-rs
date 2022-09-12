@@ -3,3 +3,5 @@ Cargo.lock
 test.sh
 /gremlin_types/target
 /gremlin_types/Cargo.lock
+/driver/target
+/driver/Cargo.lock
