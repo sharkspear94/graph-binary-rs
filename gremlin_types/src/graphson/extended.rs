@@ -1,3 +1,8 @@
+use std::{
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+    str::FromStr,
+};
+
 use chrono::{
     format::{parse, Fixed, Item, Numeric, Pad, Parsed},
     DateTime, Duration, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, Timelike,
@@ -9,7 +14,7 @@ use crate::{
     extended::chrono::{Instant, MonthDay, OffsetTime, Period, Year, YearMonth, ZonedDateTime},
 };
 
-use super::{validate_type, DecodeGraphSON, EncodeGraphSON};
+use super::{validate_type, validate_type_entry, DecodeGraphSON, EncodeGraphSON};
 
 fn parse_java_duration(s: &str) -> Result<Duration, GraphSonError> {
     let mut iter = s.chars();
@@ -736,6 +741,109 @@ impl DecodeGraphSON for ZonedDateTime {
     }
 }
 
+impl DecodeGraphSON for char {
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
+    where
+        Self: std::marker::Sized,
+    {
+        j_val
+            .as_object()
+            .filter(|map| validate_type_entry(*map, "gx:Char"))
+            .and_then(|map| map.get("@value"))
+            .and_then(|value| value.as_str())
+            .and_then(|s| s.chars().next()) //FIXME more than 1 char is not evaluated
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))
+    }
+
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
+    where
+        Self: std::marker::Sized,
+    {
+        Self::decode_v3(j_val)
+    }
+
+    fn decode_v1(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
+    where
+        Self: std::marker::Sized,
+    {
+        j_val
+            .as_str()
+            .and_then(|s| s.chars().next())
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))
+    }
+}
+
+impl EncodeGraphSON for char {
+    fn encode_v3(&self) -> serde_json::Value {
+        json!({
+            "@type": "gx:Char",
+            "@value": self
+        })
+    }
+
+    fn encode_v2(&self) -> serde_json::Value {
+        json!({
+            "@type": "gx:Char",
+            "@value": self
+        })
+    }
+
+    fn encode_v1(&self) -> serde_json::Value {
+        todo!()
+    }
+}
+
+impl EncodeGraphSON for IpAddr {
+    fn encode_v3(&self) -> serde_json::Value {
+        json!({
+            "@type" : "gx:InetAddress",
+            "@value" : self.to_string()
+        })
+    }
+
+    fn encode_v2(&self) -> serde_json::Value {
+        json!({
+            "@type" : "gx:InetAddress",
+            "@value" : self.to_string()
+        })
+    }
+
+    fn encode_v1(&self) -> serde_json::Value {
+        todo!()
+    }
+}
+
+impl DecodeGraphSON for IpAddr {
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
+    where
+        Self: std::marker::Sized,
+    {
+        let value_object = validate_type(j_val, "gx:InetAddress")?;
+
+        match value_object
+            .as_str()
+            .ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?
+        {
+            "localhost" => Ok(IpAddr::V4(Ipv4Addr::LOCALHOST)),
+            other => IpAddr::from_str(other).map_err(|e| GraphSonError::Parse(e.to_string())),
+        }
+    }
+
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
+    where
+        Self: std::marker::Sized,
+    {
+        Self::decode_v3(j_val)
+    }
+
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
+    where
+        Self: std::marker::Sized,
+    {
+        todo!()
+    }
+}
+
 #[test]
 fn local_date_encode_v3() {
     let expected = r#"{"@type":"gx:LocalDate","@value":"2022-06-13"}"#;
@@ -1062,4 +1170,40 @@ fn instant_no_nanos_decode_v3() {
     let v = serde_json::from_str(s).unwrap();
     let res = Instant::decode_v3(&v).unwrap();
     assert_eq!(res, expected);
+}
+
+#[test]
+fn ip_encode_v3() {
+    let expected = r#"{"@type":"gx:InetAddress","@value":"167.123.5.1"}"#;
+
+    let v = IpAddr::from_str("167.123.5.1").unwrap().encode_v3();
+    let res = serde_json::to_string(&v).unwrap();
+    assert_eq!(res, expected);
+}
+
+#[test]
+fn ip_decode_v3() {
+    let s = r#"{
+        "@type" : "gx:InetAddress",
+        "@value" : "localhost"
+      }"#;
+
+    let v = serde_json::from_str(s).unwrap();
+    let res = IpAddr::decode_v3(&v).unwrap();
+    assert_eq!(res, IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))
+}
+
+#[test]
+fn ip_v6_decode_v3() {
+    let s = r#"{
+        "@type" : "gx:InetAddress",
+        "@value" : "2001:0db8:85a3:08d3:1319:8a2e:0370:7347"
+      }"#;
+
+    let v = serde_json::from_str(s).unwrap();
+    let res = IpAddr::decode_v3(&v).unwrap();
+    assert_eq!(
+        res,
+        IpAddr::V6(Ipv6Addr::from_str("2001:0db8:85a3:08d3:1319:8a2e:0370:7347").unwrap())
+    )
 }
