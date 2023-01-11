@@ -1,19 +1,7 @@
 use std::fmt::Display;
 use std::marker::PhantomData;
 
-use crate::{error::DecodeError, specs::CoreType, GremlinValue};
-
-#[cfg(feature = "graph_binary")]
-use crate::graph_binary::{Decode, Encode};
-
-#[cfg(feature = "graph_son")]
-use crate::error::GraphSonError;
-#[cfg(feature = "graph_son")]
-use crate::graphson::{
-    get_val_by_key_v2, get_val_by_key_v3, validate_type, DecodeGraphSON, EncodeGraphSON,
-};
-#[cfg(feature = "graph_son")]
-use serde_json::json;
+use crate::{error::DecodeError, GremlinValue};
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
 pub enum Barrier {
@@ -32,7 +20,7 @@ impl TryFrom<&str> for Barrier {
 }
 
 impl Barrier {
-    fn as_str(&self) -> &str {
+    pub(crate) const fn as_str(&self) -> &str {
         match self {
             Barrier::NormSack => "normSack",
         }
@@ -60,7 +48,7 @@ impl TryFrom<&str> for Cardinality {
 }
 
 impl Cardinality {
-    fn as_str(&self) -> &str {
+    pub(crate) const fn as_str(&self) -> &str {
         match self {
             Cardinality::List => "list",
             Cardinality::Set => "set",
@@ -76,7 +64,7 @@ pub enum Column {
 }
 
 impl Column {
-    fn as_str(&self) -> &str {
+    pub(crate) const fn as_str(&self) -> &str {
         match self {
             Column::Keys => "keys",
             Column::Values => "values",
@@ -117,7 +105,7 @@ impl TryFrom<&str> for Direction {
 }
 
 impl Direction {
-    fn as_str(&self) -> &str {
+    pub(crate) const fn as_str(&self) -> &str {
         match self {
             Direction::Both => "BOTH",
             Direction::In => "IN",
@@ -142,7 +130,7 @@ pub enum Operator {
 }
 
 impl Operator {
-    fn as_str(&self) -> &str {
+    pub(crate) const fn as_str(&self) -> &str {
         match self {
             Operator::AddAll => "addAll",
             Operator::And => "and",
@@ -201,7 +189,7 @@ impl TryFrom<&str> for Order {
 }
 
 impl Order {
-    fn as_str(&self) -> &str {
+    pub(crate) const fn as_str(&self) -> &str {
         match self {
             Order::Shuffle => "shuffle",
             Order::Asc => "asc",
@@ -229,7 +217,7 @@ impl TryFrom<&str> for Pick {
 }
 
 impl Pick {
-    fn as_str(&self) -> &str {
+    pub(crate) const fn as_str(&self) -> &str {
         match self {
             Pick::Any => "any",
             Pick::None => "none",
@@ -260,7 +248,7 @@ impl TryFrom<&str> for Pop {
 }
 
 impl Pop {
-    fn as_str(&self) -> &str {
+    pub(crate) const fn as_str(&self) -> &str {
         match self {
             Pop::All => "all",
             Pop::First => "first",
@@ -272,9 +260,9 @@ impl Pop {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct P<T> {
-    predicate: String,
-    value: Vec<GremlinValue>,
-    marker: PhantomData<T>,
+    pub(crate) predicate: String,
+    pub(crate) value: Vec<GremlinValue>,
+    pub(crate) marker: PhantomData<T>,
 }
 
 impl<T: Into<GremlinValue>> P<T> {
@@ -396,209 +384,11 @@ impl<T: Into<GremlinValue>> P<T> {
     }
 }
 
-#[cfg(feature = "graph_son")]
-impl<T> EncodeGraphSON for P<T> {
-    fn encode_v3(&self) -> serde_json::Value {
-        match self.predicate.as_str() {
-            "eq" | "neq" | "lt" | "lte" | "gt" | "gte" => json!({
-                "@type" : "g:P",
-                "@value" : {
-                    "predicate" : self.predicate,
-                    "value": self.value[0].encode_v3()
-                }
-            }),
-            "between" | "inside" | "outside" | "within" | "without" => json!({
-                "@type" : "g:P",
-                "@value" :{
-                    "predicate" : self.predicate,
-                    "value":  self.value.encode_v3()
-                }
-            }),
-            "and" | "or" => json!({
-                "@type" : "g:P",
-                "@value" : {
-                    "predicate" : self.predicate,
-                    "value":  self.value.iter().map(EncodeGraphSON::encode_v3).collect::<Vec<serde_json::Value>>()
-                }
-            }),
-            _ => panic!("predicate in P not known"),
-        }
-    }
-
-    fn encode_v2(&self) -> serde_json::Value {
-        match self.predicate.as_str() {
-            "eq" | "neq" | "lt" | "lte" | "gt" | "gte" => json!({
-                "@type" : "g:P",
-                "@value" : {
-                    "predicate" : self.predicate,
-                    "value": self.value[0].encode_v2()
-                }
-            }),
-            "between" | "inside" | "outside" | "within" | "without" => json!({
-                "@type" : "g:P",
-                "@value" :{
-                    "predicate" : self.predicate,
-                    "value":  self.value.encode_v2()
-                }
-            }),
-            "and" | "or" => json!({
-                "@type" : "g:P",
-                "@value" : {
-                    "predicate" : self.predicate,
-                    "value":  self.value.iter().map(EncodeGraphSON::encode_v2).collect::<Vec<serde_json::Value>>()
-                }
-            }),
-            _ => panic!("predicate in P not known"),
-        }
-    }
-
-    fn encode_v1(&self) -> serde_json::Value {
-        todo!()
-    }
-}
-
-#[cfg(feature = "graph_son")]
-impl<T> DecodeGraphSON for P<T> {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
-    where
-        Self: std::marker::Sized,
-    {
-        let value_object = validate_type(j_val, "g:P")?;
-
-        let predicate = get_val_by_key_v3::<String>(value_object, "predicate", "P")?;
-
-        match predicate.as_ref() {
-            "eq" | "neq" | "lt" | "lte" | "gt" | "gte" => {
-                let value = get_val_by_key_v3(value_object, "value", "P")?;
-                Ok(P {
-                    predicate,
-                    value: vec![value],
-                    marker: PhantomData,
-                })
-            }
-            "between" | "inside" | "outside" | "within" | "without" => {
-                let value = get_val_by_key_v3(value_object, "value", "P")?;
-                Ok(P {
-                    predicate,
-                    value,
-                    marker: PhantomData,
-                })
-            }
-            "and" | "or" => {
-                let value_vec = value_object
-                    .get("value")
-                    .and_then(serde_json::Value::as_array)
-                    .ok_or_else(|| GraphSonError::WrongJsonType("expected array".to_string()))?;
-                let mut value = Vec::with_capacity(value_vec.len());
-                for p in value_vec {
-                    value.push(GremlinValue::decode_v3(p)?);
-                }
-                Ok(P {
-                    predicate,
-                    value,
-                    marker: PhantomData,
-                })
-            }
-            rest => Err(GraphSonError::WrongFixedValue(format!(
-                "predicate not valid found: {rest}"
-            ))),
-        }
-    }
-
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
-    where
-        Self: std::marker::Sized,
-    {
-        let value_object = validate_type(j_val, "g:P")?;
-
-        let predicate = get_val_by_key_v2::<String>(value_object, "predicate", "P")?;
-        match predicate.as_ref() {
-            "eq" | "neq" | "lt" | "lte" | "gt" | "gte" => {
-                let value = get_val_by_key_v2(value_object, "value", "P")?;
-                Ok(P {
-                    predicate,
-                    value: vec![value],
-                    marker: PhantomData,
-                })
-            }
-            "between" | "inside" | "outside" | "within" | "without" => {
-                let value = get_val_by_key_v2(value_object, "value", "P")?;
-                Ok(P {
-                    predicate,
-                    value,
-                    marker: PhantomData,
-                })
-            }
-            "and" | "or" => {
-                let value_vec = value_object
-                    .get("value")
-                    .and_then(serde_json::Value::as_array)
-                    .ok_or_else(|| GraphSonError::WrongJsonType("array".to_string()))?;
-                let mut value = Vec::with_capacity(value_vec.len());
-                for p in value_vec {
-                    value.push(GremlinValue::decode_v2(p)?);
-                }
-                Ok(P {
-                    predicate,
-                    value,
-                    marker: PhantomData,
-                })
-            }
-            rest => Err(GraphSonError::WrongFixedValue(format!(
-                "predicate not valid found: {rest}"
-            ))),
-        }
-    }
-
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
-    where
-        Self: std::marker::Sized,
-    {
-        todo!()
-    }
-}
-
 impl<T: Into<GremlinValue>> From<P<T>> for GremlinValue {
     fn from(p: P<T>) -> Self {
         GremlinValue::P(P {
             predicate: p.predicate,
             value: p.value,
-            marker: PhantomData,
-        })
-    }
-}
-
-#[cfg(feature = "graph_binary")]
-impl<T> Encode for P<T> {
-    fn type_code() -> u8 {
-        CoreType::P.into()
-    }
-
-    fn partial_encode<W: std::io::Write>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), crate::error::EncodeError> {
-        self.predicate.partial_encode(writer)?;
-        self.value.partial_encode(writer)
-    }
-}
-
-#[cfg(feature = "graph_binary")]
-impl<T> Decode for P<T> {
-    fn expected_type_code() -> u8 {
-        CoreType::P.into()
-    }
-
-    fn partial_decode<R: std::io::Read>(reader: &mut R) -> Result<Self, DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        let predicate = String::decode(reader)?;
-        let value = Vec::<GremlinValue>::partial_decode(reader)?;
-
-        Ok(P {
-            predicate,
-            value,
             marker: PhantomData,
         })
     }
@@ -622,7 +412,7 @@ pub enum Scope {
 }
 
 impl Scope {
-    fn as_str(&self) -> &str {
+    pub(crate) const fn as_str(&self) -> &str {
         match self {
             Scope::Local => "local",
             Scope::Global => "global",
@@ -651,7 +441,7 @@ pub enum T {
 }
 
 impl T {
-    fn as_str(&self) -> &str {
+    pub(crate) const fn as_str(&self) -> &str {
         match self {
             T::Id => "id",
             T::Key => "key",
@@ -677,8 +467,8 @@ impl TryFrom<&str> for T {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TextP {
-    predicate: String,
-    value: Vec<GremlinValue>,
+    pub(crate) predicate: String,
+    pub(crate) value: Vec<GremlinValue>,
 }
 
 impl From<TextP> for GremlinValue {
@@ -764,38 +554,6 @@ impl TextP {
     }
 }
 
-#[cfg(feature = "graph_binary")]
-impl Encode for TextP {
-    fn type_code() -> u8 {
-        CoreType::TextP.into()
-    }
-
-    fn partial_encode<W: std::io::Write>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), crate::error::EncodeError> {
-        self.predicate.partial_encode(writer)?;
-        self.value.partial_encode(writer)
-    }
-}
-
-#[cfg(feature = "graph_binary")]
-impl Decode for TextP {
-    fn expected_type_code() -> u8 {
-        CoreType::TextP.into()
-    }
-
-    fn partial_decode<R: std::io::Read>(reader: &mut R) -> Result<Self, DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        let predicate = String::decode(reader)?;
-        let value = Vec::<GremlinValue>::partial_decode(reader)?;
-
-        Ok(TextP { predicate, value })
-    }
-}
-
 impl Display for TextP {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "predicate {}", self.predicate)?;
@@ -807,73 +565,6 @@ impl Display for TextP {
     }
 }
 
-#[cfg(feature = "graph_son")]
-impl EncodeGraphSON for TextP {
-    //FIXME need testing if values can be more than one
-    fn encode_v3(&self) -> serde_json::Value {
-        json!({
-          "@type" : "g:TextP",
-          "@value" : {
-            "predicate" : self.predicate,
-            "value" : self.value[0].encode_v3()
-          }
-        })
-    }
-
-    fn encode_v2(&self) -> serde_json::Value {
-        json!({
-          "@type" : "g:TextP",
-          "@value" : {
-            "predicate" : self.predicate,
-            "value" : self.value[0].encode_v2()
-          }
-        })
-    }
-
-    fn encode_v1(&self) -> serde_json::Value {
-        todo!()
-    }
-}
-
-#[cfg(feature = "graph_son")]
-impl DecodeGraphSON for TextP {
-    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
-    where
-        Self: std::marker::Sized,
-    {
-        let value_object = validate_type(j_val, "g:TextP")?;
-
-        let predicate = get_val_by_key_v3(value_object, "predicate", "TextP")?;
-        let value = get_val_by_key_v3(value_object, "value", "TextP")?;
-        Ok(TextP {
-            predicate,
-            value: vec![value],
-        })
-    }
-
-    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
-    where
-        Self: std::marker::Sized,
-    {
-        let value_object = validate_type(j_val, "g:TextP")?;
-
-        let predicate = get_val_by_key_v2(value_object, "predicate", "TextP")?;
-        let value = get_val_by_key_v2(value_object, "value", "TextP")?;
-
-        Ok(TextP {
-            predicate,
-            value: vec![value],
-        })
-    }
-
-    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
-    where
-        Self: std::marker::Sized,
-    {
-        todo!()
-    }
-}
-
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
 pub enum Merge {
     OnCreate,
@@ -881,7 +572,7 @@ pub enum Merge {
 }
 
 impl Merge {
-    fn as_str(&self) -> &str {
+    pub(crate) const fn as_str(&self) -> &str {
         match self {
             Merge::OnCreate => "onCreate",
             Merge::OnMatch => "onMatch",
@@ -899,39 +590,6 @@ impl TryFrom<&str> for Merge {
             _ => Err(DecodeError::ConvertError("Merge".to_string())),
         }
     }
-}
-
-#[cfg(feature = "graph_binary")]
-#[macro_export]
-macro_rules! graph_binary_impls {
-    (  $($t:ident),*$(,)? ) => {
-
-        $(
-        impl Encode for $t {
-            fn type_code() -> u8 {
-                CoreType::$t.into()
-            }
-
-            fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), $crate::error::EncodeError> {
-                self.as_str().encode(writer)
-            }
-        }
-
-        impl Decode for $t {
-
-            fn expected_type_code() -> u8 {
-                CoreType::$t.into()
-            }
-
-            fn partial_decode<R: std::io::Read>(reader: &mut R) -> Result<Self, $crate::error::DecodeError>
-            where
-                Self: std::marker::Sized,
-            {
-                $t::try_from(String::decode(reader)?.as_str())
-            }
-        }
-    )*
-    };
 }
 
 #[macro_export]
@@ -985,73 +643,6 @@ macro_rules! enum_conversion {
     }
 }
 
-#[cfg(feature = "graph_son")]
-macro_rules! graph_son_impls {
-    (  $($t:ident),*$(,)?) => {
-
-        $(
-
-            impl EncodeGraphSON for $t {
-                fn encode_v3(&self) -> serde_json::Value {
-                    json!({
-
-                        "@type" : concat!("g:",stringify!($t)),
-                        "@value" : self.as_str(),
-                    })
-                }
-
-                fn encode_v2(&self) -> serde_json::Value {
-                    self.encode_v3()
-                }
-
-                fn encode_v1(&self) -> serde_json::Value {
-                    todo!()
-                }
-            }
-
-            impl DecodeGraphSON for $t {
-                fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
-                where
-                    Self: std::marker::Sized,
-                {
-                    let value_object = validate_type(j_val, concat!("g:",stringify!($t)))?;
-                    let s = value_object.as_str().ok_or_else(|| GraphSonError::WrongJsonType("str".to_string()))?;
-                    <$t>::try_from(s).map_err(|err| GraphSonError::TryFrom(err.to_string()))
-                }
-
-                fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
-                where
-                    Self: std::marker::Sized,
-                {
-                    Self::decode_v3(j_val)
-                }
-
-                fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
-                where
-                    Self: std::marker::Sized,
-                {
-                    todo!()
-                }
-            }
-        )*
-    }
-}
-
-#[cfg(feature = "graph_binary")]
-graph_binary_impls!(
-    Barrier,
-    Cardinality,
-    Column,
-    Direction,
-    Operator,
-    Order,
-    Pick,
-    Pop,
-    Scope,
-    T,
-    Merge
-);
-
 enum_conversion!(
     Barrier,
     Cardinality,
@@ -1065,192 +656,3 @@ enum_conversion!(
     T,
     Merge
 );
-
-#[cfg(feature = "graph_son")]
-graph_son_impls!(
-    Barrier,
-    Cardinality,
-    Column,
-    Direction,
-    Merge,
-    Operator,
-    Order,
-    Pick,
-    Pop,
-    Scope,
-    T,
-);
-
-#[test]
-fn t_decode_test() {
-    let reader = vec![0x03, 0x0, 0x0, 0x0, 0x0, 0x02, b'i', b'd'];
-
-    let p = T::partial_decode(&mut &reader[..]);
-
-    assert_eq!(T::Id, p.unwrap());
-}
-
-#[test]
-fn p_decode() {
-    let reader = vec![
-        0x03, 0x0, 0x0, 0x0, 0x0, 0x07, b'w', b'i', b't', b'h', b'o', b'u', b't', 0x0, 0x0, 0x0,
-        0x03, 0x1, 0x0, 0x0, 0x0, 0x0, 0x01, 0x01, 0x0, 0x0, 0x0, 0x0, 0x2, 0x01, 0x00, 0x0, 0x0,
-        0x0, 0x3,
-    ];
-
-    let p = P::<GremlinValue>::partial_decode(&mut &reader[..]);
-
-    assert_eq!(P::without(vec![1.into(), 2.into(), 3.into()]), p.unwrap());
-}
-
-#[test]
-fn p_decode_inside() {
-    let reader = vec![
-        0x03, 0x0, 0x0, 0x0, 0x0, 0x06, b'i', b'n', b's', b'i', b'd', b'e', 0x0, 0x0, 0x0, 0x02,
-        0x1, 0x0, 0x0, 0x0, 0x0, 0x01, 0x01, 0x0, 0x0, 0x0, 0x0, 0xff,
-    ];
-
-    let p = P::<i32>::partial_decode(&mut &reader[..]);
-
-    assert_eq!(P::inside(1, 255), p.unwrap());
-}
-
-#[test]
-fn p_encode() {
-    let expected = [
-        0x03, 0x0, 0x0, 0x0, 0x0, 0x07, b'b', b'e', b't', b'w', b'e', b'e', b'n', 0x0, 0x0, 0x0,
-        0x02, 0x1, 0x0, 0x0, 0x0, 0x0, 0x01, 0x01, 0x0, 0x0, 0x0, 0x0, 0x0a,
-    ];
-
-    let p = P::between(1, 10);
-    let mut w = vec![];
-    p.partial_encode(&mut w).unwrap();
-
-    assert_eq!(w, expected);
-}
-
-#[test]
-fn p_encode_v3() {
-    let expected = r#"{"@type":"g:P","@value":{"predicate":"between","value":{"@type":"g:List","@value":[{"@type":"g:Int32","@value":1},{"@type":"g:Int32","@value":10}]}}}"#;
-
-    let p = P::between(1, 10);
-
-    let res = serde_json::to_string(&p.encode_v3()).unwrap();
-
-    assert_eq!(res, expected);
-}
-
-#[test]
-fn p_decode_v3() {
-    let s = r#"{"@type":"g:P","@value":{"predicate":"between","value":{"@type":"g:List","@value":[{"@type":"g:Int32","@value":1},{"@type":"g:Int32","@value":10}]}}}"#;
-
-    let expected = P::between(1, 10);
-
-    let v = serde_json::from_str(s).unwrap();
-    let res = P::decode_v3(&v).unwrap();
-    assert_eq!(res, expected);
-}
-
-#[test]
-fn p_and_decode_v3() {
-    let s = r#"{
-        "@type" : "g:P",
-        "@value" : {
-          "predicate" : "or",
-          "value" : [ {
-            "@type" : "g:P",
-            "@value" : {
-              "predicate" : "eq",
-              "value" : {
-                "@type" : "g:Int32",
-                "@value" : 0
-              }
-            }
-          }, {
-            "@type" : "g:P",
-            "@value" : {
-              "predicate" : "gt",
-              "value" : {
-                "@type" : "g:Int32",
-                "@value" : 10
-              }
-            }
-          } ]
-        }
-      }"#;
-
-    let expected = P::eq(0).or(P::gt(10));
-
-    let v = serde_json::from_str(s).unwrap();
-    let res = P::decode_v3(&v).unwrap();
-    assert_eq!(res, expected);
-}
-
-#[test]
-fn p_encode_v2() {
-    let expected = r#"{"@type":"g:P","@value":{"predicate":"between","value":[{"@type":"g:Int32","@value":1},{"@type":"g:Int32","@value":10}]}}"#;
-
-    let p = P::between(1, 10);
-
-    let res = serde_json::to_string(&p.encode_v2()).unwrap();
-
-    assert_eq!(res, expected);
-}
-
-#[test]
-fn p_decode_v2() {
-    let s = r#"{"@type":"g:P","@value":{"predicate":"between","value":[{"@type":"g:Int32","@value":1},{"@type":"g:Int32","@value":10}]}}"#;
-
-    let expected = P::between(1, 10);
-
-    let v = serde_json::from_str(s).unwrap();
-    let res = P::decode_v2(&v).unwrap();
-    assert_eq!(res, expected);
-}
-
-#[test]
-fn p_and_decode_v2() {
-    let s = r#"{
-        "@type" : "g:P",
-        "@value" : {
-          "predicate" : "and",
-          "value" : [ {
-            "@type" : "g:P",
-            "@value" : {
-              "predicate" : "gt",
-              "value" : {
-                "@type" : "g:Int32",
-                "@value" : 0
-              }
-            }
-          }, {
-            "@type" : "g:P",
-            "@value" : {
-              "predicate" : "lt",
-              "value" : {
-                "@type" : "g:Int32",
-                "@value" : 10
-              }
-            }
-          } ]
-        }
-      }"#;
-
-    let expected = P::gt(0).and(P::lt(10));
-
-    let v = serde_json::from_str(s).unwrap();
-    let res = P::decode_v2(&v).unwrap();
-    assert_eq!(res, expected);
-}
-
-#[test]
-fn text_p_decode() {
-    let reader = vec![
-        0x28, 0x00, 0x03, 0x0, 0x0, 0x0, 0x0, 0x0c, b's', b't', b'a', b'r', b't', b'i', b'n', b'g',
-        b'W', b'i', b't', b'h', 0x0, 0x0, 0x0, 0x01, 0x3, 0x0, 0x0, 0x0, 0x0, 0x04, b't', b'e',
-        b's', b't',
-    ];
-
-    let p = TextP::decode(&mut &reader[..]).unwrap();
-    assert_eq!(p, TextP::starting_with("test"));
-}
