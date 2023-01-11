@@ -1,21 +1,21 @@
 use std::{collections::HashMap, net::IpAddr};
 
-// use crate::extended::chrono::{MonthDay, OffsetTime, Year, YearMonth};
-
 use bigdecimal::BigDecimal;
+use chrono::{DateTime, Duration, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use num::BigInt;
 use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
     error::GraphSonError,
+    extended::chrono::{Instant, MonthDay, OffsetTime, Period, Year, YearMonth, ZonedDateTime},
     structure::{
         bytebuffer::ByteBuffer,
         bytecode::Bytecode,
         edge::Edge,
         enums::{
             Barrier, Cardinality, Column, Direction, Merge, Operator, Order, Pick, Pop, Scope,
-            TextP, T,
+            TextP, P, T,
         },
         graph::Graph,
         lambda::Lambda,
@@ -26,18 +26,13 @@ use crate::{
         vertex::Vertex,
         vertex_property::VertexProperty,
     },
-    Binding,
+    Binding, GremlinValue,
 };
-use crate::{structure::enums::P, GremlinValue};
 
-#[cfg(feature = "extended")]
-use crate::extended::chrono::{
-    Instant, MonthDay, OffsetTime, Period, Year, YearMonth, ZonedDateTime,
-};
-#[cfg(feature = "extended")]
-use chrono::{DateTime, Duration, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
+pub mod extended;
+mod std_collections;
+mod structures;
 
-#[cfg(feature = "graph_son")]
 pub trait EncodeGraphSON {
     fn encode_v3(&self) -> serde_json::Value;
 
@@ -46,7 +41,6 @@ pub trait EncodeGraphSON {
     fn encode_v1(&self) -> serde_json::Value;
 }
 
-#[cfg(feature = "graph_son")]
 pub trait DecodeGraphSON {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where

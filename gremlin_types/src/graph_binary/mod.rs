@@ -12,7 +12,7 @@ use crate::structure::enums::{
 };
 use crate::structure::graph::Graph;
 use crate::structure::lambda::Lambda;
-use crate::structure::list::Set;
+use crate::structure::set::Set;
 use crate::structure::map::MapKeys;
 use crate::structure::metrics::{Metrics, TraversalMetrics};
 use crate::structure::path::Path;
@@ -26,6 +26,10 @@ use crate::{specs::CoreType, structure::edge::Edge};
 use bigdecimal::BigDecimal;
 use num::BigInt;
 use uuid::Uuid;
+
+pub mod extended;
+mod std_collections;
+pub mod structures;
 
 #[cfg(feature = "extended")]
 use crate::extended::chrono::{
@@ -57,8 +61,101 @@ pub fn encode_null_object<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
     Ok(())
 }
 
-impl GremlinValue {
-    pub fn build_fq_bytes<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+pub trait Decode {
+    fn expected_type_code() -> u8;
+
+    fn partial_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized;
+
+    fn decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let mut buf = [255_u8; 2];
+        reader.read_exact(&mut buf)?;
+        match (buf[0], buf[1]) {
+            (code, 0) if code == Self::expected_type_code() => Self::partial_decode(reader),
+            (t, value_flag) => Err(DecodeError::DecodeError(format!(
+                "Type Code Error, expected type {:#X}, found {:#X} and value_flag {:#X}",
+                Self::expected_type_code(),
+                t,
+                value_flag
+            ))),
+        }
+    }
+
+    fn nullable_decode<R: Read>(reader: &mut R) -> Result<Option<Self>, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let mut buf = [255_u8; 1];
+        reader.read_exact(&mut buf)?;
+        match buf[0] {
+            0 => Ok(Self::partial_decode(reader).ok()),
+            1 => Ok(None),
+            err => Err(DecodeError::DecodeError(format!(
+                "found {} expected 0 or 1",
+                err
+            ))),
+        }
+    }
+}
+
+pub trait Encode {
+    fn type_code() -> u8;
+
+    fn partial_encode<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError>;
+
+    fn null_encode<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
+        writer.write_all(&[Self::type_code(), ValueFlag::Null.into()])?;
+        Ok(())
+    }
+
+    fn encode<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+        writer.write_all(&[Self::type_code(), ValueFlag::Set.into()])?;
+        self.partial_encode(writer)
+    }
+
+    fn nullable_encode<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+        writer.write_all(&[ValueFlag::Set.into()])?;
+        self.partial_encode(writer)
+    }
+    fn write_partial_nullable_bytes<W: Write>(&self, _writer: &mut W) -> Result<(), EncodeError> {
+        unimplemented!("this Method should only be called from Option<T>")
+    }
+}
+
+impl Decode for GremlinValue {
+    fn partial_decode<R: Read>(_reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        unimplemented!("partial decode is not supported for GraphBinary")
+    }
+
+    fn expected_type_code() -> u8 {
+        unimplemented!("expected type code is not supported for GraphBinary")
+    }
+
+    fn decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        decode(reader)
+    }
+}
+
+impl Encode for GremlinValue {
+    fn type_code() -> u8 {
+        unimplemented!("")
+    }
+
+    fn partial_encode<W: Write>(&self, _writer: &mut W) -> Result<(), EncodeError> {
+        unimplemented!("partial decode is not supported for GraphBinary")
+    }
+
+    fn encode<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
         match self {
             GremlinValue::Int(val) => val.encode(writer),
             GremlinValue::Long(val) => val.encode(writer),
@@ -142,41 +239,8 @@ impl GremlinValue {
             GremlinValue::ZonedDateTime(val) => val.encode(writer),
             #[cfg(feature = "extended")]
             GremlinValue::ZoneOffset(val) => val.encode(writer),
+            GremlinValue::Custom(_) => todo!(),
         }
-    }
-}
-
-impl Decode for GremlinValue {
-    fn partial_decode<R: Read>(_reader: &mut R) -> Result<Self, DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        unimplemented!("partial decode is not supported for GraphBinary")
-    }
-
-    fn expected_type_code() -> u8 {
-        unimplemented!("expected type code is not supported for GraphBinary")
-    }
-
-    fn decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        decode(reader)
-    }
-}
-
-impl Encode for GremlinValue {
-    fn type_code() -> u8 {
-        unimplemented!("")
-    }
-
-    fn partial_encode<W: Write>(&self, _writer: &mut W) -> Result<(), EncodeError> {
-        unimplemented!("partial decode is not supported for GraphBinary")
-    }
-
-    fn encode<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
-        self.build_fq_bytes(writer)
     }
 }
 
@@ -295,6 +359,7 @@ fn decode<R: Read>(reader: &mut R) -> Result<GremlinValue, DecodeError> {
         (CoreType::ZoneOffset, _) => Ok(GremlinValue::ZoneOffset(FixedOffset::partial_decode(
             reader,
         )?)),
+        _ => Err(DecodeError::DecodeError(format!(""))),
     }
 }
 
@@ -325,70 +390,5 @@ impl From<ValueFlag> for u8 {
             ValueFlag::Set => 0,
             ValueFlag::Null => 1,
         }
-    }
-}
-
-pub trait Decode {
-    fn expected_type_code() -> u8;
-
-    fn partial_decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
-    where
-        Self: std::marker::Sized;
-
-    fn decode<R: Read>(reader: &mut R) -> Result<Self, DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        let mut buf = [255_u8; 2];
-        reader.read_exact(&mut buf)?;
-        match (buf[0], buf[1]) {
-            (code, 0) if code == Self::expected_type_code() => Self::partial_decode(reader),
-            (t, value_flag) => Err(DecodeError::DecodeError(format!(
-                "Type Code Error, expected type {:#X}, found {:#X} and value_flag {:#X}",
-                Self::expected_type_code(),
-                t,
-                value_flag
-            ))),
-        }
-    }
-
-    fn nullable_decode<R: Read>(reader: &mut R) -> Result<Option<Self>, DecodeError>
-    where
-        Self: std::marker::Sized,
-    {
-        let mut buf = [255_u8; 1];
-        reader.read_exact(&mut buf)?;
-        match buf[0] {
-            0 => Ok(Self::partial_decode(reader).ok()),
-            1 => Ok(None),
-            err => Err(DecodeError::DecodeError(format!(
-                "found {} expected 0 or 1",
-                err
-            ))),
-        }
-    }
-}
-
-pub trait Encode {
-    fn type_code() -> u8;
-
-    fn partial_encode<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError>;
-
-    fn null_encode<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
-        writer.write_all(&[Self::type_code(), ValueFlag::Null.into()])?;
-        Ok(())
-    }
-
-    fn encode<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
-        writer.write_all(&[Self::type_code(), ValueFlag::Set.into()])?;
-        self.partial_encode(writer)
-    }
-
-    fn nullable_encode<W: Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
-        writer.write_all(&[ValueFlag::Set.into()])?;
-        self.partial_encode(writer)
-    }
-    fn write_partial_nullable_bytes<W: Write>(&self, _writer: &mut W) -> Result<(), EncodeError> {
-        unimplemented!("this Method should only be called from Option<T>")
     }
 }

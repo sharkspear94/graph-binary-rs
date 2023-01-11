@@ -1,7 +1,7 @@
 pub mod edge;
-pub mod list;
 pub mod map;
 pub mod primitivs;
+pub mod set;
 
 pub mod vertex;
 
@@ -10,7 +10,6 @@ pub mod property;
 mod binding;
 
 pub use self::binding::Binding;
-pub mod bigint;
 pub mod bulkset;
 pub mod bytebuffer;
 pub mod bytecode;

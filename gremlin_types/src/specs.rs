@@ -1,85 +1,70 @@
-pub const CORE_TYPE_INT: u8 = 0x01;
-pub const CORE_TYPE_LONG: u8 = 0x02;
-pub const CORE_TYPE_STRING: u8 = 0x03;
-pub const CORE_TYPE_DATE: u8 = 0x04;
-pub const CORE_TYPE_TIMESTAMP: u8 = 0x05;
-pub const CORE_TYPE_CLASS: u8 = 0x06;
-pub const CORE_TYPE_DOUBLE: u8 = 0x07;
-pub const CORE_TYPE_FLOAT: u8 = 0x08;
-pub const CORE_TYPE_LIST: u8 = 0x09;
-pub const CORE_TYPE_MAP: u8 = 0x0a;
-pub const CORE_TYPE_SET: u8 = 0x0b;
-pub const CORE_TYPE_UUID: u8 = 0x0c;
-pub const CORE_TYPE_EDGE: u8 = 0x0d;
-pub const CORE_TYPE_PATH: u8 = 0x0e;
-pub const CORE_TYPE_PROPERTY: u8 = 0x0f;
-pub const CORE_TYPE_TINKERGRAPH: u8 = 0x10;
-pub const CORE_TYPE_VERTEX: u8 = 0x11;
-pub const CORE_TYPE_VERTEX_PROPERTY: u8 = 0x12;
-pub const CORE_TYPE_BARRIER: u8 = 0x13;
-pub const CORE_TYPE_BINDING: u8 = 0x14;
-pub const CORE_TYPE_BYTECODE: u8 = 0x15;
-pub const CORE_TYPE_CARDINALITY: u8 = 0x16;
-pub const CORE_TYPE_COLUMN: u8 = 0x17;
-pub const CORE_TYPE_DIRECTION: u8 = 0x18;
-pub const CORE_TYPE_OPERATOR: u8 = 0x19;
-pub const CORE_TYPE_ORDER: u8 = 0x1a;
-pub const CORE_TYPE_PICK: u8 = 0x1b;
-pub const CORE_TYPE_POP: u8 = 0x1c;
-pub const CORE_TYPE_LAMBDA: u8 = 0x1d;
-pub const CORE_TYPE_P: u8 = 0x1e;
-pub const CORE_TYPE_SCOPE: u8 = 0x1f;
-pub const CORE_TYPE_T: u8 = 0x20;
-pub const CORE_TYPE_TRAVERSER: u8 = 0x21;
-pub const CORE_TYPE_BIG_DECIMAL: u8 = 0x22;
-pub const CORE_TYPE_BIG_INTEGER: u8 = 0x23;
-pub const CORE_TYPE_BYTE: u8 = 0x24;
-pub const CORE_TYPE_BYTE_BUFFER: u8 = 0x25;
-pub const CORE_TYPE_SHORT: u8 = 0x26;
-pub const CORE_TYPE_BOOLEAN: u8 = 0x27;
-pub const CORE_TYPE_TEXT_P: u8 = 0x28;
-pub const CORE_TYPE_TRAVERSAL_STRATEGY: u8 = 0x29;
-pub const CORE_TYPE_BULK_SET: u8 = 0x2a;
-// pub const CORE_TYPE_TREE: u8 = 0x2b;
-pub const CORE_TYPE_METRICS: u8 = 0x2c;
-pub const CORE_TYPE_TRAVERSAL_METRICS: u8 = 0x2d;
-pub const CORE_TYPE_MERGE: u8 = 0x2e;
-pub const CORE_TYPE_UNSPECIFIED_NULL: u8 = 0xfe;
-// pub const CORE_TYPE_CUSTOM: u8 = 0x00;
+const CORE_TYPE_INT: u8 = 0x01;
+const CORE_TYPE_LONG: u8 = 0x02;
+const CORE_TYPE_STRING: u8 = 0x03;
+const CORE_TYPE_DATE: u8 = 0x04;
+const CORE_TYPE_TIMESTAMP: u8 = 0x05;
+const CORE_TYPE_CLASS: u8 = 0x06;
+const CORE_TYPE_DOUBLE: u8 = 0x07;
+const CORE_TYPE_FLOAT: u8 = 0x08;
+const CORE_TYPE_LIST: u8 = 0x09;
+const CORE_TYPE_MAP: u8 = 0x0a;
+const CORE_TYPE_SET: u8 = 0x0b;
+const CORE_TYPE_UUID: u8 = 0x0c;
+const CORE_TYPE_EDGE: u8 = 0x0d;
+const CORE_TYPE_PATH: u8 = 0x0e;
+const CORE_TYPE_PROPERTY: u8 = 0x0f;
+const CORE_TYPE_TINKERGRAPH: u8 = 0x10;
+const CORE_TYPE_VERTEX: u8 = 0x11;
+const CORE_TYPE_VERTEX_PROPERTY: u8 = 0x12;
+const CORE_TYPE_BARRIER: u8 = 0x13;
+const CORE_TYPE_BINDING: u8 = 0x14;
+const CORE_TYPE_BYTECODE: u8 = 0x15;
+const CORE_TYPE_CARDINALITY: u8 = 0x16;
+const CORE_TYPE_COLUMN: u8 = 0x17;
+const CORE_TYPE_DIRECTION: u8 = 0x18;
+const CORE_TYPE_OPERATOR: u8 = 0x19;
+const CORE_TYPE_ORDER: u8 = 0x1a;
+const CORE_TYPE_PICK: u8 = 0x1b;
+const CORE_TYPE_POP: u8 = 0x1c;
+const CORE_TYPE_LAMBDA: u8 = 0x1d;
+const CORE_TYPE_P: u8 = 0x1e;
+const CORE_TYPE_SCOPE: u8 = 0x1f;
+const CORE_TYPE_T: u8 = 0x20;
+const CORE_TYPE_TRAVERSER: u8 = 0x21;
+const CORE_TYPE_BIG_DECIMAL: u8 = 0x22;
+const CORE_TYPE_BIG_INTEGER: u8 = 0x23;
+const CORE_TYPE_BYTE: u8 = 0x24;
+const CORE_TYPE_BYTE_BUFFER: u8 = 0x25;
+const CORE_TYPE_SHORT: u8 = 0x26;
+const CORE_TYPE_BOOLEAN: u8 = 0x27;
+const CORE_TYPE_TEXT_P: u8 = 0x28;
+const CORE_TYPE_TRAVERSAL_STRATEGY: u8 = 0x29;
+const CORE_TYPE_BULK_SET: u8 = 0x2a;
+// const CORE_TYPE_TREE: u8 = 0x2b;
+const CORE_TYPE_METRICS: u8 = 0x2c;
+const CORE_TYPE_TRAVERSAL_METRICS: u8 = 0x2d;
+const CORE_TYPE_MERGE: u8 = 0x2e;
+const CORE_TYPE_UNSPECIFIED_NULL: u8 = 0xfe;
+const CORE_TYPE_CUSTOM: u8 = 0x00;
 
-#[cfg(feature = "extended")]
-pub const EXTENDED_TYPE_CHAR: u8 = 0x80;
-#[cfg(feature = "extended")]
-pub const EXTENDED_TYPE_DURATION: u8 = 0x81;
-#[cfg(feature = "extended")]
-pub const EXTENDED_TYPE_INET_ADDRESS: u8 = 0x82;
-#[cfg(feature = "extended")]
-pub const EXTENDED_TYPE_INSTANT: u8 = 0x83;
-#[cfg(feature = "extended")]
-pub const EXTENDED_TYPE_LOCAL_DATE: u8 = 0x84;
-#[cfg(feature = "extended")]
-pub const EXTENDED_TYPE_LOCAL_DATETIME: u8 = 0x85;
-#[cfg(feature = "extended")]
-pub const EXTENDED_TYPE_LOCAL_TIME: u8 = 0x86;
-#[cfg(feature = "extended")]
-pub const EXTENDED_TYPE_MONTH_DAY: u8 = 0x87;
-#[cfg(feature = "extended")]
-pub const EXTENDED_TYPE_OFFSET_DATETIME: u8 = 0x88;
-#[cfg(feature = "extended")]
-pub const EXTENDED_TYPE_OFFSET_TIME: u8 = 0x89;
-#[cfg(feature = "extended")]
-pub const EXTENDED_TYPE_PERIOD: u8 = 0x8a;
-#[cfg(feature = "extended")]
-pub const EXTENDED_TYPE_YEAR: u8 = 0x8b;
-#[cfg(feature = "extended")]
-pub const EXTENDED_TYPE_YEAR_MONTH: u8 = 0x8c;
-#[cfg(feature = "extended")]
-pub const EXTENDED_TYPE_ZONED_DATETIME: u8 = 0x8d;
-#[cfg(feature = "extended")]
-pub const EXTENDED_TYPE_ZONED_OFFSET: u8 = 0x8f;
+const EXTENDED_TYPE_CHAR: u8 = 0x80;
+const EXTENDED_TYPE_DURATION: u8 = 0x81;
+const EXTENDED_TYPE_INET_ADDRESS: u8 = 0x82;
+const EXTENDED_TYPE_INSTANT: u8 = 0x83;
+const EXTENDED_TYPE_LOCAL_DATE: u8 = 0x84;
+const EXTENDED_TYPE_LOCAL_DATETIME: u8 = 0x85;
+const EXTENDED_TYPE_LOCAL_TIME: u8 = 0x86;
+const EXTENDED_TYPE_MONTH_DAY: u8 = 0x87;
+const EXTENDED_TYPE_OFFSET_DATETIME: u8 = 0x88;
+const EXTENDED_TYPE_OFFSET_TIME: u8 = 0x89;
+const EXTENDED_TYPE_PERIOD: u8 = 0x8a;
+const EXTENDED_TYPE_YEAR: u8 = 0x8b;
+const EXTENDED_TYPE_YEAR_MONTH: u8 = 0x8c;
+const EXTENDED_TYPE_ZONED_DATETIME: u8 = 0x8d;
+const EXTENDED_TYPE_ZONED_OFFSET: u8 = 0x8f;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum CoreType {
+pub(crate) enum CoreType {
     Int32,
     Long,
     String,
@@ -126,38 +111,23 @@ pub enum CoreType {
     Metrics,
     TraversalMetrics,
     Merge,
-
+    Custom,
     UnspecifiedNullObject,
-    // extended types
-    #[cfg(feature = "extended")]
+
     Char,
-    #[cfg(feature = "extended")]
     Duration,
-    #[cfg(feature = "extended")]
     InetAddress,
-    #[cfg(feature = "extended")]
     Instant,
-    #[cfg(feature = "extended")]
     LocalDate,
-    #[cfg(feature = "extended")]
     LocalDateTime,
-    #[cfg(feature = "extended")]
     LocalTime,
-    #[cfg(feature = "extended")]
     MonthDay,
-    #[cfg(feature = "extended")]
     OffsetDateTime,
-    #[cfg(feature = "extended")]
     OffsetTime,
-    #[cfg(feature = "extended")]
     Period,
-    #[cfg(feature = "extended")]
     Year,
-    #[cfg(feature = "extended")]
     YearMonth,
-    #[cfg(feature = "extended")]
     ZonedDateTime,
-    #[cfg(feature = "extended")]
     ZoneOffset,
 }
 
@@ -210,36 +180,23 @@ impl From<CoreType> for u8 {
             CoreType::TraversalMetrics => CORE_TYPE_TRAVERSAL_METRICS,
             CoreType::BulkSet => CORE_TYPE_BULK_SET,
             CoreType::Merge => CORE_TYPE_MERGE,
+            CoreType::Custom => CORE_TYPE_CUSTOM,
             CoreType::UnspecifiedNullObject => CORE_TYPE_UNSPECIFIED_NULL,
-            #[cfg(feature = "extended")]
+
             CoreType::Char => EXTENDED_TYPE_CHAR,
-            #[cfg(feature = "extended")]
             CoreType::Duration => EXTENDED_TYPE_DURATION,
-            #[cfg(feature = "extended")]
             CoreType::InetAddress => EXTENDED_TYPE_INET_ADDRESS,
-            #[cfg(feature = "extended")]
             CoreType::Instant => EXTENDED_TYPE_INSTANT,
-            #[cfg(feature = "extended")]
             CoreType::LocalDate => EXTENDED_TYPE_LOCAL_DATE,
-            #[cfg(feature = "extended")]
             CoreType::LocalDateTime => EXTENDED_TYPE_LOCAL_DATETIME,
-            #[cfg(feature = "extended")]
             CoreType::LocalTime => EXTENDED_TYPE_LOCAL_TIME,
-            #[cfg(feature = "extended")]
             CoreType::MonthDay => EXTENDED_TYPE_MONTH_DAY,
-            #[cfg(feature = "extended")]
             CoreType::OffsetDateTime => EXTENDED_TYPE_OFFSET_DATETIME,
-            #[cfg(feature = "extended")]
             CoreType::OffsetTime => EXTENDED_TYPE_OFFSET_TIME,
-            #[cfg(feature = "extended")]
             CoreType::Period => EXTENDED_TYPE_PERIOD,
-            #[cfg(feature = "extended")]
             CoreType::Year => EXTENDED_TYPE_YEAR,
-            #[cfg(feature = "extended")]
             CoreType::YearMonth => EXTENDED_TYPE_YEAR_MONTH,
-            #[cfg(feature = "extended")]
             CoreType::ZonedDateTime => EXTENDED_TYPE_ZONED_DATETIME,
-            #[cfg(feature = "extended")]
             CoreType::ZoneOffset => EXTENDED_TYPE_ZONED_OFFSET,
         }
     }
@@ -299,36 +256,22 @@ impl TryFrom<u8> for CoreType {
             CORE_TYPE_TRAVERSAL_METRICS => Ok(CoreType::TraversalMetrics),
             CORE_TYPE_MERGE => Ok(CoreType::Merge),
             CORE_TYPE_UNSPECIFIED_NULL => Ok(CoreType::UnspecifiedNullObject),
-            // CORE_TYPE_CUSTOM => Ok(CoreType::),
-            #[cfg(feature = "extended")]
+            CORE_TYPE_CUSTOM => Ok(CoreType::Custom),
             EXTENDED_TYPE_CHAR => Ok(CoreType::Char),
-            #[cfg(feature = "extended")]
+
             EXTENDED_TYPE_DURATION => Ok(CoreType::Duration),
-            #[cfg(feature = "extended")]
             EXTENDED_TYPE_INET_ADDRESS => Ok(CoreType::InetAddress),
-            #[cfg(feature = "extended")]
             EXTENDED_TYPE_INSTANT => Ok(CoreType::Instant),
-            #[cfg(feature = "extended")]
             EXTENDED_TYPE_LOCAL_DATE => Ok(CoreType::LocalDate),
-            #[cfg(feature = "extended")]
             EXTENDED_TYPE_LOCAL_DATETIME => Ok(CoreType::LocalDateTime),
-            #[cfg(feature = "extended")]
             EXTENDED_TYPE_LOCAL_TIME => Ok(CoreType::LocalTime),
-            #[cfg(feature = "extended")]
             EXTENDED_TYPE_MONTH_DAY => Ok(CoreType::MonthDay),
-            #[cfg(feature = "extended")]
             EXTENDED_TYPE_OFFSET_DATETIME => Ok(CoreType::OffsetDateTime),
-            #[cfg(feature = "extended")]
             EXTENDED_TYPE_OFFSET_TIME => Ok(CoreType::OffsetTime),
-            #[cfg(feature = "extended")]
             EXTENDED_TYPE_PERIOD => Ok(CoreType::Period),
-            #[cfg(feature = "extended")]
             EXTENDED_TYPE_YEAR => Ok(CoreType::Year),
-            #[cfg(feature = "extended")]
             EXTENDED_TYPE_YEAR_MONTH => Ok(CoreType::YearMonth),
-            #[cfg(feature = "extended")]
             EXTENDED_TYPE_ZONED_DATETIME => Ok(CoreType::ZonedDateTime),
-            #[cfg(feature = "extended")]
             EXTENDED_TYPE_ZONED_OFFSET => Ok(CoreType::ZoneOffset),
             rest => Err(DecodeError::ConvertError(format!("found {rest}"))),
         }

@@ -15,7 +15,7 @@ use crate::graphson::{
 #[cfg(feature = "graph_son")]
 use serde_json::json;
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
 pub enum Barrier {
     NormSack,
 }
@@ -39,7 +39,7 @@ impl Barrier {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
 pub enum Cardinality {
     List,
     Set,
@@ -69,7 +69,7 @@ impl Cardinality {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
 pub enum Column {
     Keys,
     Values,
@@ -96,7 +96,7 @@ impl TryFrom<&str> for Column {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
 pub enum Direction {
     Both,
     In,
@@ -126,7 +126,7 @@ impl Direction {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
 pub enum Operator {
     AddAll,
     And,
@@ -180,7 +180,7 @@ impl TryFrom<&str> for Operator {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
 pub enum Order {
     Shuffle,
     Asc,
@@ -210,7 +210,7 @@ impl Order {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
 pub enum Pick {
     Any,
     None,
@@ -237,7 +237,7 @@ impl Pick {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
 pub enum Pop {
     All,
     First,
@@ -488,7 +488,7 @@ impl<T> DecodeGraphSON for P<T> {
                 let value_vec = value_object
                     .get("value")
                     .and_then(serde_json::Value::as_array)
-                    .ok_or_else(|| GraphSonError::WrongJsonType("array".to_string()))?;
+                    .ok_or_else(|| GraphSonError::WrongJsonType("expected array".to_string()))?;
                 let mut value = Vec::with_capacity(value_vec.len());
                 for p in value_vec {
                     value.push(GremlinValue::decode_v3(p)?);
@@ -615,7 +615,7 @@ impl Display for P<GremlinValue> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
 pub enum Scope {
     Local,
     Global,
@@ -642,7 +642,7 @@ impl TryFrom<&str> for Scope {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
 pub enum T {
     Id,
     Key,
@@ -874,7 +874,7 @@ impl DecodeGraphSON for TextP {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, PartialOrd, Ord)]
 pub enum Merge {
     OnCreate,
     OnMatch,
