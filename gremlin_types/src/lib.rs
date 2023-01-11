@@ -13,11 +13,6 @@ mod extended;
 #[cfg(feature = "graph_son")]
 pub mod graphson;
 
-#[cfg(feature = "serde")]
-pub mod de;
-#[cfg(feature = "serde")]
-pub mod ser;
-
 use bigdecimal::BigDecimal;
 #[cfg(feature = "extended")]
 use chrono::{DateTime, Duration, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
@@ -27,8 +22,8 @@ use extended::chrono::{Instant, MonthDay, OffsetTime, Period, Year, YearMonth, Z
 
 use num::BigInt;
 use structure::enums::P;
-use structure::set::Set;
 use structure::map::MapKeys;
+use structure::set::Set;
 pub use structure::Binding;
 
 use std::collections::HashMap;
@@ -55,7 +50,7 @@ use uuid::Uuid;
 /// All possible Values supported in the [graphbinary serialization format](https://tinkerpop.apache.org/docs/current/dev/io/#graphbinary)
 #[derive(Debug, PartialEq, Clone)]
 #[non_exhaustive]
-pub enum GremlinValue<C=()> {
+pub enum GremlinValue {
     Int(i32),
     Long(i64),
     String(String),
@@ -102,7 +97,7 @@ pub enum GremlinValue<C=()> {
     TraversalMetrics(TraversalMetrics),
     Merge(Merge),
     UnspecifiedNullObject,
-    Custom(C),
+    // Custom(C),
     #[cfg(feature = "extended")]
     Char(char),
     #[cfg(feature = "extended")]
@@ -308,7 +303,7 @@ impl Display for GremlinValue {
             GremlinValue::ZonedDateTime(val) => write!(f, "OffsetDateTime::{val}"),
             #[cfg(feature = "extended")]
             GremlinValue::ZoneOffset(val) => write!(f, "ZoneOffset::{val}"),
-            GremlinValue::Custom(_) => todo!(),
+            // GremlinValue::Custom(_) => todo!(),
         }
     }
 }

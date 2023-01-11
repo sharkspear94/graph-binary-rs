@@ -352,18 +352,11 @@ fn struct_to_gb() {
 #[test]
 fn struct_to_gb2() {
     #[derive(Debug, Serialize)]
-    struct TestStruct {
-        test: i32,
-        abc: bool,
-    }
+    struct TestStruct(i32);
 
-    let test = TestStruct { test: 1, abc: true };
-
+    let test = TestStruct(1);
     let gb = to_graph_binary(&test).unwrap();
-
-    let map = HashMap::from([("test".into(), 1.into()), ("abc".into(), true.into())]);
-
-    let expected = GremlinValue::Map(map);
+    let expected = GremlinValue::Int(1.into());
 
     assert_eq!(expected, gb);
 }

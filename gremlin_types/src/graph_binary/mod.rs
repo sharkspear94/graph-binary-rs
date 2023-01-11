@@ -27,9 +27,14 @@ use bigdecimal::BigDecimal;
 use num::BigInt;
 use uuid::Uuid;
 
+#[cfg(feature = "serde")]
+pub mod de;
 mod enums;
+#[cfg(feature = "extended")]
 mod extended;
 mod primitivs;
+#[cfg(feature = "serde")]
+pub mod ser;
 mod std_collections;
 mod structures;
 
@@ -241,7 +246,7 @@ impl Encode for GremlinValue {
             GremlinValue::ZonedDateTime(val) => val.encode(writer),
             #[cfg(feature = "extended")]
             GremlinValue::ZoneOffset(val) => val.encode(writer),
-            GremlinValue::Custom(_) => todo!(),
+            // GremlinValue::Custom(_) => todo!(),
         }
     }
 }

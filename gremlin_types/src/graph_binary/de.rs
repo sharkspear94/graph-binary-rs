@@ -151,34 +151,34 @@ impl<'de> MapAccess<'de> for MapDeser {
     }
 }
 
+// #[test]
+// fn struct_from_gremlin_v() {
+//     use std::collections::HashMap;
+
+//     #[derive(Debug, Deserialize, PartialEq)]
+//     struct TestStruct {
+//         test: Vec<u8>,
+//         abc: bool,
+//         milli: i16,
+//     }
+
+//     let gb = GremlinValue::Map(HashMap::from([
+//         ("test".into(), vec![0x01_u8, 2, 3].into()),
+//         ("abc".into(), true.into()),
+//         ("milli".into(), 1_i16.into()),
+//     ]));
+
+//     let expected = TestStruct {
+//         test: vec![1, 2, 3],
+//         abc: true,
+//         milli: 1,
+//     };
+//     let test_struct = from_gremlin(gb).unwrap();
+//     assert_eq!(expected, test_struct)
+// }
+
 #[test]
-fn test_struct_from_gb() {
-    use std::collections::HashMap;
-
-    #[derive(Debug, Deserialize, PartialEq)]
-    struct TestStruct {
-        test: Vec<u8>,
-        abc: bool,
-        milli: i16,
-    }
-
-    let gb = GremlinValue::Map(HashMap::from([
-        ("test".into(), vec![0x01_u8, 2, 3].into()),
-        ("abc".into(), true.into()),
-        ("milli".into(), 1_i16.into()),
-    ]));
-
-    let expected = TestStruct {
-        test: vec![1, 2, 3],
-        abc: true,
-        milli: 1,
-    };
-    let test_struct = crate::de::from_gremlin(gb).unwrap();
-    assert_eq!(expected, test_struct)
-}
-
-#[test]
-fn test_new_type_struct_from_gb() {
+fn struct_from_gremlin_v() {
     use std::collections::HashMap;
     #[derive(Debug, Deserialize, PartialEq)]
     struct TestStruct {
@@ -200,12 +200,12 @@ fn test_new_type_struct_from_gb() {
         milli: 123,
     };
 
-    let test_struct = crate::de::from_gremlin(gb).unwrap();
+    let test_struct = from_gremlin(gb).unwrap();
     assert_eq!(expected, test_struct)
 }
 
 #[test]
-fn struct_from_gb() {
+fn new_type_struct_gremlin_v() {
     #[derive(Debug, Deserialize, PartialEq)]
     struct TestStruct(Vec<u8>);
 
@@ -213,6 +213,6 @@ fn struct_from_gb() {
 
     let expected = TestStruct(vec![1_u8, 2, 3]);
 
-    let test_struct = crate::de::from_gremlin(gb).unwrap();
+    let test_struct = from_gremlin(gb).unwrap();
     assert_eq!(expected, test_struct)
 }

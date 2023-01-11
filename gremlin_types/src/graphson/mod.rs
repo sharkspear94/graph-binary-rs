@@ -1,14 +1,18 @@
 use std::{collections::HashMap, net::IpAddr};
 
 use bigdecimal::BigDecimal;
+#[cfg(feature = "extended")]
 use chrono::{DateTime, Duration, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 use num::BigInt;
 use serde_json::json;
 use uuid::Uuid;
 
+#[cfg(feature = "extended")]
+use crate::extended::chrono::{
+    Instant, MonthDay, OffsetTime, Period, Year, YearMonth, ZonedDateTime,
+};
 use crate::{
     error::GraphSonError,
-    extended::chrono::{Instant, MonthDay, OffsetTime, Period, Year, YearMonth, ZonedDateTime},
     structure::{
         bytebuffer::ByteBuffer,
         bytecode::Bytecode,
@@ -36,6 +40,11 @@ mod primitivs;
 mod std_collections;
 mod structures;
 
+// #[cfg(feature = "serde")]
+// pub mod de;
+// #[cfg(feature = "serde")]
+// pub mod ser;
+
 pub trait EncodeGraphSON {
     fn encode_v3(&self) -> serde_json::Value;
 
@@ -58,7 +67,6 @@ pub trait DecodeGraphSON {
         Self: std::marker::Sized;
 }
 
-#[cfg(feature = "graph_son")]
 impl EncodeGraphSON for GremlinValue {
     fn encode_v3(&self) -> serde_json::Value {
         match self {
@@ -240,7 +248,6 @@ impl EncodeGraphSON for GremlinValue {
     }
 }
 
-#[cfg(feature = "graph_son")]
 impl DecodeGraphSON for GremlinValue {
     fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
     where
@@ -621,7 +628,6 @@ pub(crate) fn get_val_by_key_v1<T: DecodeGraphSON>(
     T::decode_v1(val)
 }
 
-#[cfg(feature = "graph_son")]
 pub(crate) fn validate_type_entry(
     map: &serde_json::Map<String, serde_json::Value>,
     type_value: &str,
