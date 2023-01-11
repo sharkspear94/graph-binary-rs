@@ -29,7 +29,10 @@ use crate::{
     Binding, GremlinValue,
 };
 
-pub mod extended;
+mod enums;
+#[cfg(feature = "extended")]
+mod extended;
+mod primitivs;
 mod std_collections;
 mod structures;
 

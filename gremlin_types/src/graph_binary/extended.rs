@@ -499,3 +499,35 @@ fn date_time_offset_decode() {
     let res = DateTime::decode(&mut &buf[..]).unwrap();
     assert_eq!(res, expected)
 }
+
+#[test]
+fn char_decode_utf8() {
+    let reader = [0x80_u8, 0x0, 0xe2, 0x99, 0xa5];
+    let c = char::decode(&mut &reader[..]).unwrap();
+
+    assert_eq!('♥', c)
+}
+
+#[test]
+fn char_decode() {
+    let reader = [0x80_u8, 0x0, 65];
+    let c = char::decode(&mut &reader[..]).unwrap();
+
+    assert_eq!('A', c)
+}
+
+#[test]
+fn char_decode_2() {
+    let reader = [0x80_u8, 0x0, 0xc3, 0x9f];
+    let c = char::decode(&mut &reader[..]).unwrap();
+
+    assert_eq!('ß', c)
+}
+
+#[test]
+fn char_decode_3() {
+    let reader = [0x80_u8, 0x0, 0xf0, 0x9f, 0xa6, 0x80];
+    let c = char::decode(&mut &reader[..]).unwrap();
+
+    assert_eq!('🦀', c)
+}

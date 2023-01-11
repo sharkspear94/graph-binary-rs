@@ -12,11 +12,11 @@ use crate::structure::enums::{
 };
 use crate::structure::graph::Graph;
 use crate::structure::lambda::Lambda;
-use crate::structure::set::Set;
 use crate::structure::map::MapKeys;
 use crate::structure::metrics::{Metrics, TraversalMetrics};
 use crate::structure::path::Path;
 use crate::structure::property::Property;
+use crate::structure::set::Set;
 use crate::structure::traverser::{TraversalStrategy, Traverser};
 use crate::structure::vertex::Vertex;
 use crate::structure::vertex_property::VertexProperty;
@@ -27,9 +27,11 @@ use bigdecimal::BigDecimal;
 use num::BigInt;
 use uuid::Uuid;
 
-pub mod extended;
+mod enums;
+mod extended;
+mod primitivs;
 mod std_collections;
-pub mod structures;
+mod structures;
 
 #[cfg(feature = "extended")]
 use crate::extended::chrono::{
