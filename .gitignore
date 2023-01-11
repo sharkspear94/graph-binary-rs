@@ -5,3 +5,4 @@ test.sh
 /gremlin_types/Cargo.lock
 /driver/target
 /driver/Cargo.lock
+.vscode
