@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use bigdecimal::BigDecimal;
 use num::BigInt;
+use uuid::Uuid;
 
 use crate::{
     error::{DecodeError, EncodeError},
@@ -12,6 +13,7 @@ use crate::{
         bytecode::{Bytecode, Source, Step},
         edge::Edge,
         graph::{Graph, GraphEdge},
+        id::ElementId,
         lambda::Lambda,
         map::MapKeys,
         metrics::{Metrics, TraversalMetrics},
@@ -26,6 +28,82 @@ use crate::{
 };
 
 use super::{Decode, Encode, ValueFlag};
+
+impl Encode for ElementId {
+    fn type_code() -> u8 {
+        unimplemented!()
+    }
+
+    fn partial_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+        match self {
+            ElementId::String(val) => val.partial_encode(writer),
+            ElementId::Int(val) => val.partial_encode(writer),
+            ElementId::Long(val) => val.partial_encode(writer),
+            ElementId::Uuid(val) => val.partial_encode(writer),
+        }
+    }
+
+    fn encode<W: std::io::Write>(&self, writer: &mut W) -> Result<(), EncodeError> {
+        match self {
+            ElementId::String(val) => {
+                writer.write_all(&[CoreType::String.into(), ValueFlag::Set.into()])?;
+                val.partial_encode(writer)
+            }
+            ElementId::Int(val) => {
+                writer.write_all(&[CoreType::Int32.into(), ValueFlag::Set.into()])?;
+                val.partial_encode(writer)
+            }
+            ElementId::Long(val) => {
+                writer.write_all(&[CoreType::Long.into(), ValueFlag::Set.into()])?;
+                val.partial_encode(writer)
+            }
+            ElementId::Uuid(val) => {
+                writer.write_all(&[CoreType::Uuid.into(), ValueFlag::Set.into()])?;
+                val.partial_encode(writer)
+            }
+        }
+    }
+}
+
+impl Decode for ElementId {
+    fn expected_type_code() -> u8 {
+        todo!()
+    }
+
+    fn partial_decode<R: std::io::Read>(_reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        unimplemented!("ElementID cannot be partial_decoded")
+    }
+
+    fn decode<R: std::io::Read>(reader: &mut R) -> Result<Self, DecodeError>
+    where
+        Self: std::marker::Sized,
+    {
+        let mut buf = [255_u8; 2];
+        reader.read_exact(&mut buf)?;
+
+        let identifier = CoreType::try_from(buf[0])?;
+        let value_flag = ValueFlag::try_from(buf[1])?;
+
+        match (identifier, value_flag) {
+            (_, ValueFlag::Null) => Err(DecodeError::DecodeError(format!(
+                "ElementID cannot be decoded with valueflag being null"
+            ))),
+            (CoreType::String, ValueFlag::Set) => {
+                Ok(ElementId::String(String::partial_decode(reader)?))
+            }
+            (CoreType::Int32, ValueFlag::Set) => Ok(ElementId::Int(i32::partial_decode(reader)?)),
+            (CoreType::Long, ValueFlag::Set) => Ok(ElementId::Long(i64::partial_decode(reader)?)),
+            (CoreType::Uuid, ValueFlag::Set) => Ok(ElementId::Uuid(Uuid::partial_decode(reader)?)),
+            (core, _) => Err(DecodeError::DecodeError(format!(
+                "ElementID cannot be decoded from type identifier: {}",
+                Into::<u8>::into(core)
+            ))),
+        }
+    }
+}
 
 impl Encode for BigInt {
     fn type_code() -> u8 {
@@ -276,21 +354,21 @@ impl Decode for Edge {
     where
         Self: std::marker::Sized,
     {
-        let id = GremlinValue::decode(reader)?;
+        let id = ElementId::decode(reader)?;
         let label = String::partial_decode(reader)?;
-        let in_v_id = GremlinValue::decode(reader)?;
+        let in_v_id = ElementId::decode(reader)?;
         let in_v_label = String::partial_decode(reader)?;
-        let out_v_id = GremlinValue::decode(reader)?;
+        let out_v_id = ElementId::decode(reader)?;
         let out_v_label = String::partial_decode(reader)?;
         let parent = Option::<Vertex>::decode(reader)?;
         let properties = Option::<Vec<Property>>::decode(reader)?;
 
         Ok(Edge {
-            id: Box::new(id),
+            id: id,
             label,
-            in_v_id: Box::new(in_v_id),
+            in_v_id: in_v_id,
             in_v_label,
-            out_v_id: Box::new(out_v_id),
+            out_v_id: out_v_id,
             out_v_label,
             parent,
             properties,
@@ -307,11 +385,11 @@ impl Decode for GraphEdge {
     where
         Self: std::marker::Sized,
     {
-        let id = GremlinValue::decode(reader)?;
+        let id = ElementId::decode(reader)?;
         let label = String::partial_decode(reader)?;
-        let in_v_id = GremlinValue::decode(reader)?;
+        let in_v_id = ElementId::decode(reader)?;
         let in_v_label = Option::<String>::decode(reader)?;
-        let out_v_id = GremlinValue::decode(reader)?;
+        let out_v_id = ElementId::decode(reader)?;
         let out_v_label = Option::<String>::decode(reader)?;
         let parent = Option::<Vertex>::decode(reader)?;
         let properties = Vec::<Property>::partial_decode(reader)?;
@@ -392,18 +470,18 @@ impl Decode for Graph {
         let v_len = i32::partial_decode(reader)? as usize;
         let mut v_vec = Vec::with_capacity(v_len);
         for _ in 0..v_len {
-            let v_id = GremlinValue::decode(reader)?;
+            let v_id = ElementId::decode(reader)?;
             let v_label = String::partial_decode(reader)?;
             let p_len = i32::partial_decode(reader)? as usize;
             let mut p_vec = Vec::with_capacity(p_len);
             for _ in 0..p_len {
-                let p_id = GremlinValue::decode(reader)?;
+                let p_id = ElementId::decode(reader)?;
                 let p_label = String::partial_decode(reader)?;
                 let p_value = GremlinValue::decode(reader)?;
                 let p_parent = Option::<Vertex>::decode(reader)?;
                 let p_properties = Option::<Vec<Property>>::partial_decode(reader)?;
                 p_vec.push(VertexProperty {
-                    id: Box::new(p_id),
+                    id: p_id,
                     label: p_label,
                     value: Box::new(p_value),
                     parent: p_parent,
@@ -411,7 +489,7 @@ impl Decode for Graph {
                 });
             }
             v_vec.push(Vertex {
-                id: Box::new(v_id),
+                id: v_id,
                 label: v_label,
                 properties: Some(p_vec),
             });
@@ -628,7 +706,7 @@ impl Decode for Vertex {
     where
         Self: std::marker::Sized,
     {
-        let id = Box::new(GremlinValue::decode(reader)?);
+        let id = ElementId::decode(reader)?;
         let label = String::partial_decode(reader)?;
         let properties = Option::<Vec<VertexProperty>>::decode(reader)?;
 
@@ -667,14 +745,14 @@ impl Decode for VertexProperty {
     where
         Self: std::marker::Sized,
     {
-        let id = GremlinValue::decode(reader)?;
+        let id = ElementId::decode(reader)?;
         let label = String::partial_decode(reader)?;
         let value = GremlinValue::decode(reader)?;
         let parent = Option::<Vertex>::decode(reader)?;
         let properties = Option::<Vec<Property>>::decode(reader)?;
 
         Ok(VertexProperty {
-            id: Box::new(id),
+            id: id,
             label,
             value: Box::new(value),
             parent,
@@ -836,7 +914,6 @@ impl Decode for TraversalStrategy {
     }
 }
 
-#[cfg(feature = "graph_binary")]
 impl Encode for MapKeys {
     fn type_code() -> u8 {
         unimplemented!()
@@ -858,7 +935,6 @@ impl Encode for MapKeys {
     }
 }
 
-#[cfg(feature = "graph_binary")]
 impl Decode for MapKeys {
     fn expected_type_code() -> u8 {
         unimplemented!("MapKeys is a collection of different GrapBinary Keys")
@@ -980,11 +1056,11 @@ fn edge_none_encode_gb() {
     ];
 
     let e = Edge {
-        id: Box::new(9_i32.into()),
+        id: 9_i32.into(),
         label: "created".to_string(),
-        in_v_id: Box::new(3_i64.into()),
+        in_v_id: 3_i64.into(),
         in_v_label: "software".to_string(),
-        out_v_id: Box::new(1_i64.into()),
+        out_v_id: 1_i64.into(),
         out_v_label: "person".to_string(),
         parent: None,
         properties: None,
@@ -1011,11 +1087,11 @@ fn edge_decode_gb() {
 
     // assert!(p.is_ok());
     let expected = Edge {
-        id: Box::new(9_i32.into()),
+        id: 9_i32.into(),
         label: "created".to_string(),
-        in_v_id: Box::new(3_i64.into()),
+        in_v_id: 3_i64.into(),
         in_v_label: "software".to_string(),
-        out_v_id: Box::new(1_i64.into()),
+        out_v_id: 1_i64.into(),
         out_v_label: "person".to_string(),
         parent: None,
         properties: None,
@@ -1047,18 +1123,18 @@ fn encode_gb() {
 
     let v_s = vec![
         Vertex {
-            id: Box::new(1_i64.into()),
+            id: 1_i64.into(),
             label: "person".to_string(),
             properties: Some(vec![
                 VertexProperty {
-                    id: Box::new(0i64.into()),
+                    id: 0i64.into(),
                     label: "name".to_string(),
                     value: Box::new("marko".into()),
                     parent: None,
                     properties: Some(Vec::new()),
                 },
                 VertexProperty {
-                    id: Box::new(2i64.into()),
+                    id: 2i64.into(),
                     label: "age".to_string(),
                     value: Box::new(29_i32.into()),
                     parent: None,
@@ -1067,18 +1143,18 @@ fn encode_gb() {
             ]),
         },
         Vertex {
-            id: Box::new(2_i64.into()),
+            id: 2_i64.into(),
             label: "person".to_string(),
             properties: Some(vec![
                 VertexProperty {
-                    id: Box::new(3i64.into()),
+                    id: 3i64.into(),
                     label: "name".to_string(),
                     value: Box::new("vadas".into()),
                     parent: None,
                     properties: Some(Vec::new()),
                 },
                 VertexProperty {
-                    id: Box::new(4i64.into()),
+                    id: 4i64.into(),
                     label: "age".to_string(),
                     value: Box::new(27_i32.into()),
                     parent: None,
@@ -1138,18 +1214,18 @@ fn decode_gb() {
 
     let v_s = vec![
         Vertex {
-            id: Box::new(1_i64.into()),
+            id: 1_i64.into(),
             label: "person".to_string(),
             properties: Some(vec![
                 VertexProperty {
-                    id: Box::new(0i64.into()),
+                    id: 0i64.into(),
                     label: "name".to_string(),
                     value: Box::new("marko".into()),
                     parent: None,
                     properties: Some(Vec::new()),
                 },
                 VertexProperty {
-                    id: Box::new(2i64.into()),
+                    id: 2i64.into(),
                     label: "age".to_string(),
                     value: Box::new(29_i32.into()),
                     parent: None,
@@ -1158,18 +1234,18 @@ fn decode_gb() {
             ]),
         },
         Vertex {
-            id: Box::new(2_i64.into()),
+            id: 2_i64.into(),
             label: "person".to_string(),
             properties: Some(vec![
                 VertexProperty {
-                    id: Box::new(3i64.into()),
+                    id: 3i64.into(),
                     label: "name".to_string(),
                     value: Box::new("vadas".into()),
                     parent: None,
                     properties: Some(Vec::new()),
                 },
                 VertexProperty {
-                    id: Box::new(4i64.into()),
+                    id: 4i64.into(),
                     label: "age".to_string(),
                     value: Box::new(27_i32.into()),
                     parent: None,
@@ -1375,7 +1451,7 @@ fn vertex_none_encode() {
         0x65, 0x72, 0x73, 0x6f, 0x6e, 0xfe, 0x1,
     ];
     let v = Vertex {
-        id: Box::new(1_i64.into()),
+        id: 1_i64.into(),
         label: String::from("person"),
         properties: None,
     };
@@ -1396,7 +1472,7 @@ fn vertex_decode_none() {
     assert!(v.is_ok());
 
     let expected = Vertex {
-        id: Box::new(1_i64.into()),
+        id: 1_i64.into(),
         label: String::from("person"),
         properties: None,
     };

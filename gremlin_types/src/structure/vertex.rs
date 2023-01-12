@@ -1,31 +1,31 @@
 use std::fmt::Display;
 
-use crate::{conversion, GremlinValue};
+use crate::conversion;
 
-use super::vertex_property::VertexProperty;
+use super::{id::ElementId, vertex_property::VertexProperty};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Vertex {
-    pub id: Box<GremlinValue>,
+    pub id: ElementId,
     pub label: String,
     pub properties: Option<Vec<VertexProperty>>,
 }
 
 impl Vertex {
     #[must_use]
-    pub fn new<ID: Into<GremlinValue>>(
-        id: ID,
+    pub fn new(
+        id: impl Into<ElementId>,
         label: &str,
         properties: Option<Vec<VertexProperty>>,
     ) -> Self {
         Vertex {
-            id: Box::new(id.into()),
+            id: id.into(),
             label: label.to_owned(),
             properties,
         }
     }
     #[must_use]
-    pub fn id(&self) -> &GremlinValue {
+    pub fn id(&self) -> &ElementId {
         &self.id
     }
 

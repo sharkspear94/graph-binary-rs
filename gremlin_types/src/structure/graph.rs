@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
-use crate::{conversion, GremlinValue};
+use crate::conversion;
 
-use super::{edge::Edge, property::Property, vertex::Vertex};
+use super::{edge::Edge, id::ElementId, property::Property, vertex::Vertex};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Graph {
@@ -27,11 +27,11 @@ impl Display for Graph {
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct GraphEdge {
-    pub id: GremlinValue,
+    pub id: ElementId,
     pub label: String,
-    pub in_v_id: GremlinValue,
+    pub in_v_id: ElementId,
     pub in_v_label: Option<String>,
-    pub out_v_id: GremlinValue,
+    pub out_v_id: ElementId,
     pub out_v_label: Option<String>,
     pub parent: Option<Vertex>,
     pub properties: Vec<Property>,
@@ -44,11 +44,11 @@ impl From<Edge> for GraphEdge {
             v = e.properties.unwrap();
         }
         GraphEdge {
-            id: *e.id,
+            id: e.id,
             label: e.label,
-            in_v_id: *e.in_v_id,
+            in_v_id: e.in_v_id,
             in_v_label: Some(e.in_v_label),
-            out_v_id: *e.out_v_id,
+            out_v_id: e.out_v_id,
             out_v_label: Some(e.out_v_label),
             parent: e.parent,
             properties: v,
@@ -84,7 +84,5 @@ impl Display for GraphEdge {
         write!(f, "]")
     }
 }
-
-
 
 conversion!(Graph, Graph);

@@ -27,14 +27,10 @@ use bigdecimal::BigDecimal;
 use num::BigInt;
 use uuid::Uuid;
 
-#[cfg(feature = "serde")]
-pub mod de;
 mod enums;
 #[cfg(feature = "extended")]
 mod extended;
 mod primitivs;
-#[cfg(feature = "serde")]
-pub mod ser;
 mod std_collections;
 mod structures;
 
@@ -45,22 +41,30 @@ use crate::extended::chrono::{
 #[cfg(feature = "extended")]
 use chrono::{DateTime, Duration, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 
-pub fn from_file(path: &std::path::Path) -> Result<GremlinValue, DecodeError> {
-    let file = File::open(path).unwrap();
+pub fn from_file<T: Decode>(path: &std::path::Path) -> Result<T, DecodeError> {
+    let file = File::open(path).map_err(|err| DecodeError::DecodeError(err.to_string()))?;
     let mut buf = BufReader::new(file);
-    GremlinValue::decode(&mut buf)
+    T::decode(&mut buf)
 }
 
-pub fn from_slice(slice: &mut &[u8]) -> Result<GremlinValue, DecodeError> {
-    GremlinValue::decode(slice)
+pub fn from_slice<T: Decode>(slice: &mut &[u8]) -> Result<T, DecodeError> {
+    T::decode(slice)
 }
 
-pub fn to_file(gremlin_value: GremlinValue, file: File) -> Result<(), EncodeError> {
+pub fn from_reader<R: Read, T: Decode>(reader: &mut R) -> Result<T, DecodeError> {
+    T::decode(reader)
+}
+
+pub fn to_file(value: impl Encode, file: File) -> Result<(), EncodeError> {
     let mut writer = BufWriter::new(file);
-    gremlin_value.encode(&mut writer)
+    value.encode(&mut writer)
 }
 
-pub fn encode_null_object<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
+pub fn to_writer<W: Write, T: Encode>(value: T, writer: &mut W) -> Result<(), EncodeError> {
+    value.encode(writer)
+}
+
+pub(super) fn encode_null_object<W: Write>(writer: &mut W) -> Result<(), EncodeError> {
     writer.write_all(&[
         CoreType::UnspecifiedNullObject.into(),
         ValueFlag::Null.into(),
@@ -149,7 +153,7 @@ impl Decode for GremlinValue {
     where
         Self: std::marker::Sized,
     {
-        decode(reader)
+        decode_gremlin_value(reader)
     }
 }
 
@@ -251,7 +255,7 @@ impl Encode for GremlinValue {
     }
 }
 
-fn decode<R: Read>(reader: &mut R) -> Result<GremlinValue, DecodeError> {
+fn decode_gremlin_value<R: Read>(reader: &mut R) -> Result<GremlinValue, DecodeError> {
     let mut buf = [255_u8; 2];
     reader.read_exact(&mut buf)?;
 

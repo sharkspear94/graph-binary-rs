@@ -2,11 +2,11 @@ use std::fmt::Display;
 
 use crate::{conversion, GremlinValue};
 
-use super::{property::Property, vertex::Vertex};
+use super::{id::ElementId, property::Property, vertex::Vertex};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct VertexProperty {
-    pub id: Box<GremlinValue>, // TODO needs refinment
+    pub id: ElementId, // TODO needs refinment
     pub label: String,
     pub value: Box<GremlinValue>,
     pub parent: Option<Vertex>,
@@ -15,14 +15,14 @@ pub struct VertexProperty {
 
 impl VertexProperty {
     pub fn new(
-        id: impl Into<GremlinValue>,
+        id: impl Into<ElementId>,
         label: &str,
         value: impl Into<GremlinValue>,
         parent: Option<Vertex>,
         properties: Option<Vec<Property>>,
     ) -> Self {
         VertexProperty {
-            id: Box::new(id.into()),
+            id: id.into(),
             label: label.to_string(),
             value: Box::new(value.into()),
             parent,

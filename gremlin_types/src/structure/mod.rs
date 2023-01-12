@@ -5,6 +5,7 @@ pub mod set;
 
 pub mod vertex;
 
+pub mod id;
 pub mod property;
 
 mod binding;

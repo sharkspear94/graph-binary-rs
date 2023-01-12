@@ -3,6 +3,7 @@ use std::str::FromStr;
 
 use bigdecimal::BigDecimal;
 use num::BigInt;
+use uuid::Uuid;
 
 use crate::error::GraphSonError;
 use crate::graphson::{validate_type, DecodeGraphSON, EncodeGraphSON};
@@ -12,6 +13,7 @@ use crate::structure::bytebuffer::ByteBuffer;
 use crate::structure::bytecode::{Bytecode, Source, Step};
 use crate::structure::edge::Edge;
 use crate::structure::graph::{Graph, GraphEdge};
+use crate::structure::id::ElementId;
 use crate::structure::lambda::Lambda;
 use crate::structure::map::MapKeys;
 use crate::structure::metrics::{Metrics, TraversalMetrics};
@@ -26,6 +28,100 @@ use crate::{Binding, GremlinValue};
 use serde_json::{json, Map};
 
 use super::{get_val_by_key_v1, get_val_by_key_v2, get_val_by_key_v3};
+
+impl EncodeGraphSON for ElementId {
+    fn encode_v3(&self) -> serde_json::Value {
+        match self {
+            ElementId::String(val) => val.encode_v3(),
+            ElementId::Int(val) => val.encode_v3(),
+            ElementId::Long(val) => val.encode_v3(),
+            ElementId::Uuid(val) => val.encode_v3(),
+        }
+    }
+
+    fn encode_v2(&self) -> serde_json::Value {
+        match self {
+            ElementId::String(val) => val.encode_v2(),
+            ElementId::Int(val) => val.encode_v2(),
+            ElementId::Long(val) => val.encode_v2(),
+            ElementId::Uuid(val) => val.encode_v2(),
+        }
+    }
+
+    fn encode_v1(&self) -> serde_json::Value {
+        match self {
+            ElementId::String(val) => val.encode_v1(),
+            ElementId::Int(val) => val.encode_v1(),
+            ElementId::Long(val) => val.encode_v1(),
+            ElementId::Uuid(val) => val.encode_v1(),
+        }
+    }
+}
+
+impl DecodeGraphSON for ElementId {
+    fn decode_v3(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
+    where
+        Self: std::marker::Sized,
+    {
+        match j_val {
+            serde_json::Value::String(s) => Ok(ElementId::String(s.clone())),
+            serde_json::Value::Object(o) => {
+                match o
+                    .get("@type")
+                    .and_then(|s| s.as_str())
+                    .ok_or_else(|| GraphSonError::KeyNotFound("@type".to_string()))?
+                {
+                    "g:Int32" => Ok(ElementId::Int(i32::decode_v3(j_val)?)),
+                    "g:Int64" => Ok(ElementId::Long(i64::decode_v3(j_val)?)),
+                    "g:UUID" => Ok(ElementId::Uuid(Uuid::decode_v3(j_val)?)),
+                    rest => Err(GraphSonError::WrongTypeIdentifier {
+                        expected: String::from("ElementID expected String, int, long, uuid"),
+                        found: rest.to_string(),
+                    }),
+                }
+            }
+            rest => Err(GraphSonError::WrongJsonType(format!(
+                "ElementID expected String or Object, got: {}",
+                rest
+            ))),
+        }
+    }
+
+    fn decode_v2(j_val: &serde_json::Value) -> Result<Self, GraphSonError>
+    where
+        Self: std::marker::Sized,
+    {
+        match j_val {
+            serde_json::Value::String(s) => Ok(ElementId::String(s.clone())),
+            serde_json::Value::Object(o) => {
+                match o
+                    .get("@type")
+                    .and_then(|s| s.as_str())
+                    .ok_or_else(|| GraphSonError::KeyNotFound("@type".to_string()))?
+                {
+                    "g:Int32" => Ok(ElementId::Int(i32::decode_v2(j_val)?)),
+                    "g:Int64" => Ok(ElementId::Long(i64::decode_v2(j_val)?)),
+                    "g:UUID" => Ok(ElementId::Uuid(Uuid::decode_v2(j_val)?)),
+                    rest => Err(GraphSonError::WrongTypeIdentifier {
+                        expected: String::from("ElementID expected String, int, long, uuid"),
+                        found: rest.to_string(),
+                    }),
+                }
+            }
+            rest => Err(GraphSonError::WrongJsonType(format!(
+                "ElementID expected String or Object, got: {}",
+                rest
+            ))),
+        }
+    }
+
+    fn decode_v1(_j_val: &serde_json::Value) -> Result<Self, GraphSonError>
+    where
+        Self: std::marker::Sized,
+    {
+        todo!()
+    }
+}
 
 impl EncodeGraphSON for BigInt {
     fn encode_v3(&self) -> serde_json::Value {
@@ -420,11 +516,11 @@ impl DecodeGraphSON for Edge {
             .transpose()?;
 
         Ok(Edge {
-            id: Box::new(id),
+            id: id,
             label,
-            in_v_id: Box::new(in_v_id),
+            in_v_id: in_v_id,
             in_v_label,
-            out_v_id: Box::new(out_v_id),
+            out_v_id: out_v_id,
             out_v_label,
             parent: None,
             properties,
@@ -458,11 +554,11 @@ impl DecodeGraphSON for Edge {
             .transpose()?;
 
         Ok(Edge {
-            id: Box::new(id),
+            id: id,
             label,
-            in_v_id: Box::new(in_v_id),
+            in_v_id: in_v_id,
             in_v_label,
-            out_v_id: Box::new(out_v_id),
+            out_v_id: out_v_id,
             out_v_label,
             parent: None,
             properties,
@@ -1188,7 +1284,7 @@ impl DecodeGraphSON for Vertex {
             })
             .transpose()?;
         Ok(Vertex {
-            id: Box::new(id),
+            id: id,
             label,
             properties,
         })
@@ -1216,7 +1312,7 @@ impl DecodeGraphSON for Vertex {
             .transpose()?;
 
         Ok(Vertex {
-            id: Box::new(id),
+            id: id,
             label,
             properties,
         })
@@ -1328,7 +1424,7 @@ impl DecodeGraphSON for VertexProperty {
             .transpose()?;
 
         Ok(VertexProperty {
-            id: Box::new(id),
+            id,
             label,
             value: Box::new(value),
             parent: None,
@@ -1360,11 +1456,11 @@ impl DecodeGraphSON for VertexProperty {
             .transpose()?;
 
         Ok(VertexProperty {
-            id: Box::new(id),
+            id,
             label,
             value: Box::new(value),
             parent: Some(Vertex {
-                id: Box::new(vertex_id),
+                id: vertex_id,
                 label: String::default(),
                 properties: None,
             }),
@@ -1508,11 +1604,11 @@ impl DecodeGraphSON for EitherParent {
             let in_v_id = get_val_by_key_v2(value_object, "inV", "EitherParent")?;
 
             Ok(EitherParent::Edge(Edge {
-                id: Box::new(id),
+                id,
                 label,
-                in_v_id: Box::new(in_v_id),
+                in_v_id,
                 in_v_label: Default::default(),
-                out_v_id: Box::new(out_v_id),
+                out_v_id,
                 out_v_label: Default::default(),
                 parent: None,
                 properties: None,
@@ -1524,7 +1620,7 @@ impl DecodeGraphSON for EitherParent {
             // let out_v_id = get_val_by_key_v2(value_object, "outV", "EitherParent")?;
             // let in_v_id = get_val_by_key_v2(value_object, "inV", "EitherParent")?;
             Ok(EitherParent::VertexProperty(VertexProperty {
-                id: Box::new(id),
+                id,
                 label,
                 value: Box::new(GremlinValue::UnspecifiedNullObject),
                 parent: None,
@@ -1845,11 +1941,11 @@ fn bytecode_decode_int_parameter_v3() {
 #[test]
 fn edge_encode_v3() {
     let e = Edge {
-        id: Box::new(13.into()),
+        id: 13.into(),
         label: "develops".to_string(),
-        in_v_id: Box::new(10.into()),
+        in_v_id: 10.into(),
         in_v_label: "software".to_string(),
-        out_v_id: Box::new(1.into()),
+        out_v_id: 1.into(),
         out_v_label: "person".to_string(),
         parent: None,
         properties: Some(vec![Property {
@@ -1868,11 +1964,11 @@ fn edge_encode_v3() {
 #[test]
 fn edge_encode_v3_without_props() {
     let e = Edge {
-        id: Box::new(13.into()),
+        id: 13.into(),
         label: "develops".to_string(),
-        in_v_id: Box::new(10.into()),
+        in_v_id: 10.into(),
         in_v_label: "software".to_string(),
-        out_v_id: Box::new(1.into()),
+        out_v_id: 1.into(),
         out_v_label: "person".to_string(),
         parent: None,
         properties: None,
@@ -1887,11 +1983,11 @@ fn edge_encode_v3_without_props() {
 #[test]
 fn edge_decode_v3() {
     let expected = Edge {
-        id: Box::new(13.into()),
+        id: 13.into(),
         label: "develops".to_string(),
-        in_v_id: Box::new(10.into()),
+        in_v_id: 10.into(),
         in_v_label: "software".to_string(),
-        out_v_id: Box::new(1.into()),
+        out_v_id: 1.into(),
         out_v_label: "person".to_string(),
         parent: None,
         properties: Some(vec![Property {
@@ -1942,11 +2038,11 @@ fn edge_decode_v3() {
 #[test]
 fn edge_decode_v3_without_props() {
     let expected = Edge {
-        id: Box::new(13.into()),
+        id: 13.into(),
         label: "develops".to_string(),
-        in_v_id: Box::new(10.into()),
+        in_v_id: 10.into(),
         in_v_label: "software".to_string(),
-        out_v_id: Box::new(1.into()),
+        out_v_id: 1.into(),
         out_v_label: "person".to_string(),
         parent: None,
         properties: None,
@@ -1981,11 +2077,11 @@ fn edge_decode_v3_without_props() {
 #[test]
 fn edge_encode_v2() {
     let e = Edge {
-        id: Box::new(13.into()),
+        id: 13.into(),
         label: "develops".to_string(),
-        in_v_id: Box::new(10.into()),
+        in_v_id: 10.into(),
         in_v_label: "software".to_string(),
-        out_v_id: Box::new(1.into()),
+        out_v_id: 1.into(),
         out_v_label: "person".to_string(),
         parent: None,
         properties: Some(vec![Property {
@@ -2004,11 +2100,11 @@ fn edge_encode_v2() {
 #[test]
 fn edge_encode_v2_without_props() {
     let e = Edge {
-        id: Box::new(13.into()),
+        id: 13.into(),
         label: "develops".to_string(),
-        in_v_id: Box::new(10.into()),
+        in_v_id: 10.into(),
         in_v_label: "software".to_string(),
-        out_v_id: Box::new(1.into()),
+        out_v_id: 1.into(),
         out_v_label: "person".to_string(),
         parent: None,
         properties: None,
@@ -2023,11 +2119,11 @@ fn edge_encode_v2_without_props() {
 #[test]
 fn edge_decode_v2() {
     let expected = Edge {
-        id: Box::new(13.into()),
+        id: 13.into(),
         label: "develops".to_string(),
-        in_v_id: Box::new(10.into()),
+        in_v_id: 10.into(),
         in_v_label: "software".to_string(),
-        out_v_id: Box::new(1.into()),
+        out_v_id: 1.into(),
         out_v_label: "person".to_string(),
         parent: None,
         properties: Some(vec![Property {
@@ -2072,11 +2168,11 @@ fn edge_decode_v2() {
 #[test]
 fn edge_decode_v2_without_props() {
     let expected = Edge {
-        id: Box::new(13.into()),
+        id: 13.into(),
         label: "develops".to_string(),
-        in_v_id: Box::new(10.into()),
+        in_v_id: 10.into(),
         in_v_label: "software".to_string(),
-        out_v_id: Box::new(1.into()),
+        out_v_id: 1.into(),
         out_v_label: "person".to_string(),
         parent: None,
         properties: None,
@@ -2503,18 +2599,18 @@ fn path_decode_v2() {
 #[test]
 fn vertex_encode_v3() {
     let v = Vertex {
-        id: Box::new(1_i32.into()),
+        id: 1_i32.into(),
         label: String::from("person"),
         properties: Some(vec![
             VertexProperty {
-                id: Box::new(0i64.into()),
+                id: 0i64.into(),
                 label: "name".into(),
                 value: Box::new("marko".into()),
                 parent: None,
                 properties: None,
             },
             VertexProperty {
-                id: Box::new(8i64.into()),
+                id: 8i64.into(),
                 label: "location".into(),
                 value: Box::new("brussels".into()),
                 parent: None,
@@ -2532,7 +2628,7 @@ fn vertex_encode_v3() {
                 ]),
             },
             VertexProperty {
-                id: Box::new(6i64.into()),
+                id: 6i64.into(),
                 label: "location".into(),
                 value: Box::new("san diego".into()),
                 parent: None,
@@ -2659,7 +2755,7 @@ fn vertex_decode_v3() {
       }"#;
 
     let expected = Vertex {
-        id: Box::new(1_i32.into()),
+        id: 1_i32.into(),
         label: String::from("person"),
         properties: Some(vec![
             VertexProperty::new(0i64, "name", "marko", None, None),
@@ -2716,12 +2812,10 @@ fn vertex_decode_v3() {
         }
     });
 
-    v.properties.as_mut().unwrap().sort_by(|p1, p2| {
-        p1.id
-            .get_ref::<i64>()
-            .unwrap()
-            .cmp(p2.id.get_ref::<i64>().unwrap())
-    });
+    v.properties
+        .as_mut()
+        .unwrap()
+        .sort_by(|p1, p2| p1.id.as_i64().unwrap().cmp(&p2.id.as_i64().unwrap()));
     assert_eq!(v, expected)
 }
 
@@ -2739,7 +2833,7 @@ fn vertex_decode_v3_without_props() {
       }"#;
 
     let expected = Vertex {
-        id: Box::new(1_i32.into()),
+        id: 1_i32.into(),
         label: String::from("person"),
         properties: None,
     };
@@ -2751,18 +2845,18 @@ fn vertex_decode_v3_without_props() {
 #[test]
 fn vertex_encode_v2() {
     let v = Vertex {
-        id: Box::new(1_i32.into()),
+        id: 1_i32.into(),
         label: String::from("person"),
         properties: Some(vec![
             VertexProperty {
-                id: Box::new(0i64.into()),
+                id: 0i64.into(),
                 label: "name".into(),
                 value: Box::new("marko".into()),
                 parent: None,
                 properties: None,
             },
             VertexProperty {
-                id: Box::new(8i64.into()),
+                id: 8i64.into(),
                 label: "location".into(),
                 value: Box::new("brussels".into()),
                 parent: None,
@@ -2780,7 +2874,7 @@ fn vertex_encode_v2() {
                 ]),
             },
             VertexProperty {
-                id: Box::new(6i64.into()),
+                id: 6i64.into(),
                 label: "location".into(),
                 value: Box::new("san diego".into()),
                 parent: None,
@@ -2927,7 +3021,7 @@ fn vertex_decode_v2() {
       }"#;
 
     let expected = Vertex {
-        id: Box::new(1_i32.into()),
+        id: 1_i32.into(),
         label: String::from("person"),
         properties: Some(vec![
             VertexProperty::new(0i64, "name", "marko", Some(Vertex::new(1, "", None)), None),
@@ -2984,12 +3078,10 @@ fn vertex_decode_v2() {
         }
     });
 
-    v.properties.as_mut().unwrap().sort_by(|p1, p2| {
-        p1.id
-            .get_ref::<i64>()
-            .unwrap()
-            .cmp(p2.id.get_ref::<i64>().unwrap())
-    });
+    v.properties
+        .as_mut()
+        .unwrap()
+        .sort_by(|p1, p2| p1.id.as_i64().unwrap().cmp(&p2.id.as_i64().unwrap()));
     assert_eq!(v, expected)
 }
 
@@ -3007,7 +3099,7 @@ fn vertex_decode_v2_without_props() {
       }"#;
 
     let expected = Vertex {
-        id: Box::new(1_i32.into()),
+        id: 1_i32.into(),
         label: String::from("person"),
         properties: None,
     };
@@ -3090,11 +3182,11 @@ fn property_decode_v2() {
         key: "since".to_string(),
         value: Box::new(2009.into()),
         parent: EitherParent::Edge(Edge {
-            id: Box::new(13.into()),
+            id: 13.into(),
             label: "develops".to_string(),
-            in_v_id: Box::new(10.into()),
+            in_v_id: 10.into(),
             in_v_label: "".to_string(),
-            out_v_id: Box::new(1.into()),
+            out_v_id: 1.into(),
             out_v_label: Default::default(),
             parent: None,
             properties: None,
@@ -3109,11 +3201,11 @@ fn property_encode_v2() {
         key: "since".to_string(),
         value: Box::new(2009.into()),
         parent: EitherParent::Edge(Edge {
-            id: Box::new(13.into()),
+            id: 13.into(),
             label: "develops".to_string(),
-            in_v_id: Box::new(10.into()),
+            in_v_id: 10.into(),
             in_v_label: "".to_string(),
-            out_v_id: Box::new(1.into()),
+            out_v_id: 1.into(),
             out_v_label: Default::default(),
             parent: None,
             properties: None,
@@ -3261,12 +3353,7 @@ fn traverser_decode_v3() {
         .properties
         .as_mut()
         .unwrap()
-        .sort_by(|p1, p2| {
-            p1.id
-                .get_ref::<i64>()
-                .unwrap()
-                .cmp(p2.id.get_ref::<i64>().unwrap())
-        });
+        .sort_by(|p1, p2| p1.id.as_i64().unwrap().cmp(&p2.id.as_i64().unwrap()));
     assert_eq!(res, expected)
 }
 
@@ -3396,7 +3483,7 @@ fn traverser_decode_v2() {
         bulk: 1,
         value: Box::new(
             Vertex {
-                id: Box::new(1_i32.into()),
+                id: 1_i32.into(),
                 label: String::from("person"),
                 properties: Some(vec![
                     VertexProperty::new(
@@ -3474,11 +3561,6 @@ fn traverser_decode_v2() {
         .properties
         .as_mut()
         .unwrap()
-        .sort_by(|p1, p2| {
-            p1.id
-                .get_ref::<i64>()
-                .unwrap()
-                .cmp(p2.id.get_ref::<i64>().unwrap())
-        });
+        .sort_by(|p1, p2| p1.id.as_i64().unwrap().cmp(&p2.id.as_i64().unwrap()));
     assert_eq!(res, expected)
 }

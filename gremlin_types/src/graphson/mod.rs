@@ -40,11 +40,6 @@ mod primitivs;
 mod std_collections;
 mod structures;
 
-// #[cfg(feature = "serde")]
-// pub mod de;
-// #[cfg(feature = "serde")]
-// pub mod ser;
-
 pub trait EncodeGraphSON {
     fn encode_v3(&self) -> serde_json::Value;
 

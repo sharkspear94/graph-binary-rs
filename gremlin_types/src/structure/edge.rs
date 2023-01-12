@@ -1,38 +1,38 @@
 use std::fmt::Display;
 
-use crate::{conversion, GremlinValue};
+use crate::conversion;
 
-use super::{property::Property, vertex::Vertex};
+use super::{id::ElementId, property::Property, vertex::Vertex};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Edge {
-    pub id: Box<GremlinValue>,
+    pub id: ElementId,
     pub label: String,
-    pub in_v_id: Box<GremlinValue>,
+    pub in_v_id: ElementId,
     pub in_v_label: String,
-    pub out_v_id: Box<GremlinValue>,
+    pub out_v_id: ElementId,
     pub out_v_label: String,
     pub parent: Option<Vertex>,
     pub properties: Option<Vec<Property>>,
 }
 
 impl Edge {
-    #[must_use]
-    pub fn new(label: &str) -> Self {
-        Edge {
-            id: Box::new(GremlinValue::UnspecifiedNullObject),
-            label: label.to_string(),
-            in_v_id: Box::new(GremlinValue::UnspecifiedNullObject),
-            in_v_label: Default::default(),
-            out_v_id: Box::new(GremlinValue::UnspecifiedNullObject),
-            out_v_label: Default::default(),
-            parent: None,
-            properties: None,
-        }
-    }
+    // #[must_use]
+    // pub fn new(label: &str) -> Self {
+    //     Edge {
+    //         id: Box::new(GremlinValue::UnspecifiedNullObject),
+    //         label: label.to_string(),
+    //         in_v_id: Box::new(GremlinValue::UnspecifiedNullObject),
+    //         in_v_label: Default::default(),
+    //         out_v_id: Box::new(GremlinValue::UnspecifiedNullObject),
+    //         out_v_label: Default::default(),
+    //         parent: None,
+    //         properties: None,
+    //     }
+    // }
 
-    pub fn out_v<T: Into<GremlinValue>>(&mut self, id: T, out_label: &str) -> &mut Self {
-        self.out_v_id = Box::new(id.into());
+    pub fn out_v<T: Into<ElementId>>(&mut self, id: T, out_label: &str) -> &mut Self {
+        self.out_v_id = id.into();
         self.out_v_label = out_label.to_string();
         self
     }
@@ -42,8 +42,8 @@ impl Edge {
         self.out_v_label = v.label;
         self
     }
-    pub fn in_v<T: Into<GremlinValue>>(&mut self, id: T, in_label: &str) -> &mut Self {
-        self.in_v_id = Box::new(id.into());
+    pub fn in_v<T: Into<ElementId>>(&mut self, id: T, in_label: &str) -> &mut Self {
+        self.in_v_id = id.into();
         self.in_v_label = in_label.to_string();
         self
     }
