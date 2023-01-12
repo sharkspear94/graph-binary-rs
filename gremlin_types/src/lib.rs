@@ -5,7 +5,13 @@ mod macros;
 mod specs;
 pub mod structure;
 
+// #[cfg(feature = "custom")]
 pub mod custom;
+
+#[cfg(feature = "serde")]
+pub mod de;
+#[cfg(feature = "serde")]
+pub mod ser;
 
 #[cfg(feature = "extended")]
 mod extended;
