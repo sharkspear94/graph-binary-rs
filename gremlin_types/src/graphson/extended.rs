@@ -1,5 +1,5 @@
 use std::{
-    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+    net::{IpAddr, Ipv4Addr},
     str::FromStr,
 };
 
@@ -1195,6 +1195,7 @@ fn ip_decode_v3() {
 
 #[test]
 fn ip_v6_decode_v3() {
+    use std::net::Ipv6Addr;
     let s = r#"{
         "@type" : "gx:InetAddress",
         "@value" : "2001:0db8:85a3:08d3:1319:8a2e:0370:7347"
