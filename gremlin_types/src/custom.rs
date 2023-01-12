@@ -1,5 +1,5 @@
 use crate::{
-    graph_binary::{Decode, Encode},
+    binary::{Decode, Encode},
     specs::CoreType,
     structure::bytebuffer::ByteBuffer,
 };

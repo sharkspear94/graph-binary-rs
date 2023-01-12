@@ -1,6 +1,6 @@
-pub mod error;
 #[cfg(feature = "graph_binary")]
-pub mod graph_binary;
+pub mod binary;
+pub mod error;
 mod macros;
 mod specs;
 pub mod structure;
