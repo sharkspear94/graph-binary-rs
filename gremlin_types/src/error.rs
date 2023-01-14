@@ -1,6 +1,8 @@
 use std::{io, num::TryFromIntError, str::Utf8Error, string::FromUtf8Error};
 use thiserror::Error;
 
+use crate::structure::bytebuffer::ByteBuffer;
+
 #[derive(Error, Debug)]
 pub enum EncodeError {
     #[error("writing into Writer")]
@@ -11,6 +13,17 @@ pub enum EncodeError {
 
     #[error("try from int error")]
     TryConvert(#[from] TryFromIntError),
+}
+
+#[derive(Error, Debug)]
+pub enum CustomError {
+    #[error("custom name does not match, expected: `{expected}`, found: `{found}`")]
+    CustomName { expected: String, found: String },
+    #[error("custom type info does not match, expected: `{expected}`, found: `{found}`")]
+    CustomTypeInfo {
+        expected: ByteBuffer,
+        found: ByteBuffer,
+    },
 }
 
 #[derive(Error, Debug)]
@@ -47,7 +60,7 @@ pub enum GraphSonError {
     SerdeJson(#[from] serde_json::error::Error),
     #[error("parsing string")]
     Parse(String),
-    #[error("@type value expected `{expected}` but found `{found}`")]
+    #[error("@type value expected `{expected}` but found: `{found}`")]
     WrongTypeIdentifier { expected: String, found: String },
     #[error("expected key {0} not found")]
     KeyNotFound(String),

@@ -4,7 +4,7 @@ use std::vec;
 
 use crate::error::GremlinError;
 use gremlin_types::error::{DecodeError, EncodeError};
-use gremlin_types::graph_binary::{Decode, Encode};
+use gremlin_types::binary::{Decode, Encode};
 use gremlin_types::structure::bytecode::Bytecode;
 use gremlin_types::structure::enums::T;
 use gremlin_types::structure::lambda::Lambda;

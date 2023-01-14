@@ -5,7 +5,7 @@ mod macros;
 mod specs;
 pub mod structure;
 
-// #[cfg(feature = "custom")]
+#[cfg(feature = "custom")]
 pub mod custom;
 
 #[cfg(feature = "serde")]
@@ -23,6 +23,8 @@ use bigdecimal::BigDecimal;
 #[cfg(feature = "extended")]
 use chrono::{DateTime, Duration, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime};
 
+#[cfg(feature = "custom")]
+use custom::Custom;
 #[cfg(feature = "extended")]
 use extended::chrono::{Instant, MonthDay, OffsetTime, Period, Year, YearMonth, ZonedDateTime};
 
@@ -84,6 +86,7 @@ pub enum GremlinValue {
     Operator(Operator),
     Order(Order),
     Pick(Pick),
+
     Pop(Pop),
     Lambda(Lambda),
     P(P<GremlinValue>),
@@ -103,7 +106,8 @@ pub enum GremlinValue {
     TraversalMetrics(TraversalMetrics),
     Merge(Merge),
     UnspecifiedNullObject,
-    // Custom(C),
+    #[cfg(feature = "custom")]
+    Custom(Custom),
     #[cfg(feature = "extended")]
     Char(char),
     #[cfg(feature = "extended")]
@@ -309,7 +313,8 @@ impl Display for GremlinValue {
             GremlinValue::ZonedDateTime(val) => write!(f, "OffsetDateTime::{val}"),
             #[cfg(feature = "extended")]
             GremlinValue::ZoneOffset(val) => write!(f, "ZoneOffset::{val}"),
-            // GremlinValue::Custom(_) => todo!(),
+            #[cfg(feature = "custom")]
+            GremlinValue::Custom(c) => todo!(),
         }
     }
 }

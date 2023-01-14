@@ -6,7 +6,7 @@ use driver::{
     *,
 };
 use gremlin_types::{
-    graph_binary::Decode,
+    binary::Decode,
     structure::{
         bytecode::Bytecode,
         enums::{Order, TextP, P, T},

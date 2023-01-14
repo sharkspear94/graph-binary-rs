@@ -125,15 +125,3 @@ fn test_iter() {
     assert_eq!(iter.next(), Some(&1.into()));
     assert_eq!(iter.next(), None)
 }
-#[test]
-fn iter() {
-    let t = Traverser {
-        bulk: 3,
-        value: Box::new(1.into()),
-    };
-    let mut iter = t.iter();
-    assert_eq!(iter.next(), Some(&1.into()));
-    assert_eq!(iter.next(), Some(&1.into()));
-    assert_eq!(iter.next(), Some(&1.into()));
-    assert_eq!(iter.next(), None)
-}

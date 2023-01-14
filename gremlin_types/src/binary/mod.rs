@@ -1,8 +1,9 @@
+#[cfg(feature = "custom")]
+use crate::custom::Custom;
+use crate::error::{DecodeError, EncodeError};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Write};
-
-use crate::error::{DecodeError, EncodeError};
 
 use crate::structure::bulkset::BulkSet;
 use crate::structure::bytebuffer::ByteBuffer;
@@ -250,6 +251,8 @@ impl Encode for GremlinValue {
             GremlinValue::ZonedDateTime(val) => val.encode(writer),
             #[cfg(feature = "extended")]
             GremlinValue::ZoneOffset(val) => val.encode(writer),
+            #[cfg(feature = "custom")]
+            GremlinValue::Custom(c) => c.encode(writer),
             // GremlinValue::Custom(_) => todo!(),
         }
     }
@@ -370,6 +373,8 @@ fn decode_gremlin_value<R: Read>(reader: &mut R) -> Result<GremlinValue, DecodeE
         (CoreType::ZoneOffset, _) => Ok(GremlinValue::ZoneOffset(FixedOffset::partial_decode(
             reader,
         )?)),
+        #[cfg(feature = "custom")]
+        (CoreType::Custom, _) => Ok(GremlinValue::Custom(Custom::partial_decode(reader)?)),
         _ => Err(DecodeError::DecodeError(format!(""))),
     }
 }
