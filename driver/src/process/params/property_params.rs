@@ -1,4 +1,4 @@
-use gremlin_types::{
+use tinkerpop_io::{
     structure::{bytecode::Bytecode, enums::Cardinality, map::MapKeys},
     GremlinValue,
 };

@@ -486,7 +486,7 @@ fn map_decode_graphson_v2() {
 }
 
 #[test]
-fn map_decode_v2_gremlin_types() {
+fn map_decode_v2_tinkterpop_io_rs() {
     use crate::GremlinValue;
     let str = r#"{
         "dur" : {

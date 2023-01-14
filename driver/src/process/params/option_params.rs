@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use gremlin_types::{
+use tinkerpop_io::{
     structure::{bytecode::Bytecode, map::MapKeys},
     GremlinValue,
 };

@@ -1,4 +1,4 @@
-use gremlin_types::structure::{bytecode::Bytecode, enums::Scope};
+use tinkerpop_io::structure::{bytecode::Bytecode, enums::Scope};
 
 pub trait TailParams {
     fn bytecode(self, step: &str, bc: &mut Bytecode);

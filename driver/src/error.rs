@@ -3,9 +3,9 @@ use thiserror::{self, Error};
 #[derive(Error, Debug)]
 pub enum GremlinError {
     #[error("reading from Reader")]
-    Decode(#[from] gremlin_types::error::DecodeError),
+    Decode(#[from] tinkerpop_io::error::DecodeError),
     #[error("reading from Reader")]
-    Encode(#[from] gremlin_types::error::EncodeError),
+    Encode(#[from] tinkerpop_io::error::EncodeError),
     #[error("reading from Reader")]
-    GraphSon(#[from] gremlin_types::error::GraphSonError),
+    GraphSon(#[from] tinkerpop_io::error::GraphSonError),
 }

@@ -1,10 +1,10 @@
 use std::marker::PhantomData;
 
-use gremlin_types::{
+use serde::Deserialize;
+use tinkerpop_io::{
     structure::{bytecode::Bytecode, edge::Edge, vertex::Vertex},
     GremlinValue,
 };
-use serde::Deserialize;
 
 use super::{
     params::{add_element_params::AddElementParams, sack_params::WithSackParam},

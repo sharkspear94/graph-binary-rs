@@ -12,7 +12,7 @@ serde = {version = "1.0",features = ["derive"]}
 thiserror = "1.0"
 lazy_static = "1.4"
 websocket = "0.26"
-gremlin_types = {path = "../gremlin_types"}
+tinkerpop_io = {path = "../tinkerpop_io"}
 r2d2 = "0.8"
 
 [dev-dependencies]

@@ -375,7 +375,7 @@ fn decode_gremlin_value<R: Read>(reader: &mut R) -> Result<GremlinValue, DecodeE
         )?)),
         #[cfg(feature = "custom")]
         (CoreType::Custom, _) => Ok(GremlinValue::Custom(Custom::partial_decode(reader)?)),
-        _ => Err(DecodeError::DecodeError(format!(""))),
+        // _ => Err(DecodeError::DecodeError(format!(""))),
     }
 }
 

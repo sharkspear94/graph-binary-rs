@@ -1,4 +1,4 @@
-use gremlin_types::structure::bytecode::Bytecode;
+use tinkerpop_io::structure::bytecode::Bytecode;
 
 use crate::process::traversal::GraphTraversal;
 

@@ -1,4 +1,4 @@
-use gremlin_types::{
+use tinkerpop_io::{
     structure::{bytecode::Bytecode, enums::Direction, lambda::Lambda},
     GremlinValue,
 };
@@ -165,7 +165,8 @@ impl BytecodeTraversal {
     }
 
     pub fn match_(mut self, match_traversal: BytecodeTraversal) -> Self {
-        self.0.push_new_step("match", vec![match_traversal.0.into()]);
+        self.0
+            .push_new_step("match", vec![match_traversal.0.into()]);
         self
     }
 
@@ -448,7 +449,8 @@ impl BytecodeTraversal {
     }
 
     pub fn subgraph(mut self, side_effect_key: &str) -> Self {
-        self.0.push_new_step("subgraph", vec![side_effect_key.into()]);
+        self.0
+            .push_new_step("subgraph", vec![side_effect_key.into()]);
         self
     }
 
@@ -484,7 +486,8 @@ impl BytecodeTraversal {
     }
 
     pub fn union(mut self, union_traversal: BytecodeTraversal) -> Self {
-        self.0.push_new_step("union", vec![union_traversal.0.into()]);
+        self.0
+            .push_new_step("union", vec![union_traversal.0.into()]);
         self
     }
 
@@ -519,7 +522,8 @@ impl BytecodeTraversal {
     }
 
     pub fn local<E2>(mut self, local_traversal: BytecodeTraversal) -> Self {
-        self.0.push_new_step("local", vec![local_traversal.0.into()]);
+        self.0
+            .push_new_step("local", vec![local_traversal.0.into()]);
         self
     }
 

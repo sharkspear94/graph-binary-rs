@@ -1,4 +1,4 @@
-use gremlin_types::{structure::bytecode::Bytecode, GremlinValue};
+use tinkerpop_io::{structure::bytecode::Bytecode, GremlinValue};
 
 pub trait ObjectParam {
     fn bytecode(&self, step: &str, bc: &mut Bytecode);

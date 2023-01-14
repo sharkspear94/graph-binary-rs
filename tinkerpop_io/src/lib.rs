@@ -145,7 +145,7 @@ impl GremlinValue {
     /// Returns None if `GremlinValue` enum holds another Type
     ///
     /// ```
-    /// # use gremlin_types::GremlinValue;
+    /// # use tinkerpop_io::GremlinValue;
     ///
     /// let gb1 = GremlinValue::Boolean(true);
     /// assert_eq!(Some(true),gb1.get());
@@ -163,7 +163,7 @@ impl GremlinValue {
     /// Returns None if `GremlinValue` enum holds another Type
     ///
     /// ```
-    /// # use gremlin_types::GremlinValue;
+    /// # use tinkerpop_io::GremlinValue;
     ///
     /// let gb1 = GremlinValue::Boolean(true);
     /// assert_eq!(Some(true),gb1.get());
@@ -180,7 +180,7 @@ impl GremlinValue {
     /// Returns None if `GremlinValue` enum holds another Type
     ///
     /// ```
-    /// # use gremlin_types::GremlinValue;
+    /// # use tinkerpop_io::GremlinValue;
     ///
     /// let gb = GremlinValue::String("Janus".to_string());
     ///
@@ -198,7 +198,7 @@ impl GremlinValue {
     /// Returns None if `GremlinValue` enum holds another Type
     ///
     /// ```
-    /// # use gremlin_types::GremlinValue;
+    /// # use tinkerpop_io::GremlinValue;
     ///
     /// let mut gb = GremlinValue::String("Janus".to_string());
     ///

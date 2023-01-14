@@ -5,7 +5,8 @@ use driver::{
     process::{graph_traversal_source::GraphTraversalSource, traversal::__},
     *,
 };
-use gremlin_types::{
+use serde::Deserialize;
+use tinkerpop_io::{
     binary::Decode,
     structure::{
         bytecode::Bytecode,
@@ -13,7 +14,6 @@ use gremlin_types::{
         lambda::Lambda,
     },
 };
-use serde::Deserialize;
 use websocket::{dataframe::Opcode, ws::Message, *};
 
 #[test]

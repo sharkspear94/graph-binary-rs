@@ -1,4 +1,4 @@
-use gremlin_types::structure::bytecode::Bytecode;
+use tinkerpop_io::structure::bytecode::Bytecode;
 
 pub trait SingleStringParam {
     fn bytecode(self, step: &str, bc: &mut Bytecode);

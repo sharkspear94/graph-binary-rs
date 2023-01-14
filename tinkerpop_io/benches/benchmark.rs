@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use gremlin_types::{
+use tinkerpop_io_rs::{
     binary::{Decode, Encode},
     graphson::DecodeGraphSON,
     structure::metrics::TraversalMetrics,

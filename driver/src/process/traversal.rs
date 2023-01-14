@@ -1,6 +1,7 @@
 use std::{collections::HashMap, marker::PhantomData, vec};
 
-use gremlin_types::{
+use serde::Deserialize;
+use tinkerpop_io::{
     structure::{
         bytecode::Bytecode,
         edge::Edge,
@@ -12,7 +13,6 @@ use gremlin_types::{
     },
     GremlinValue,
 };
-use serde::Deserialize;
 use uuid::Uuid;
 
 use params::dedup_params::DedupStepParams;

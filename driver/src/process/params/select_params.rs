@@ -1,4 +1,4 @@
-use gremlin_types::structure::{
+use tinkerpop_io::structure::{
     bytecode::Bytecode,
     enums::{Column, Pop},
 };

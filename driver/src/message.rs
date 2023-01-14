@@ -3,14 +3,14 @@ use std::fmt::Display;
 use std::vec;
 
 use crate::error::GremlinError;
-use gremlin_types::error::{DecodeError, EncodeError};
-use gremlin_types::binary::{Decode, Encode};
-use gremlin_types::structure::bytecode::Bytecode;
-use gremlin_types::structure::enums::T;
-use gremlin_types::structure::lambda::Lambda;
-use gremlin_types::structure::map::MapKeys;
-use gremlin_types::structure::traverser::Traverser;
-use gremlin_types::GremlinValue;
+use tinkerpop_io::binary::{Decode, Encode};
+use tinkerpop_io::error::{DecodeError, EncodeError};
+use tinkerpop_io::structure::bytecode::Bytecode;
+use tinkerpop_io::structure::enums::T;
+use tinkerpop_io::structure::lambda::Lambda;
+use tinkerpop_io::structure::map::MapKeys;
+use tinkerpop_io::structure::traverser::Traverser;
+use tinkerpop_io::GremlinValue;
 use uuid::Uuid;
 
 #[derive(Debug, PartialEq)]

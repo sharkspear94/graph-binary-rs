@@ -1,8 +1,8 @@
 /target
 Cargo.lock
 test.sh
-/gremlin_types/target
-/gremlin_types/Cargo.lock
+/tinkerpop-io/target
+/tinkerpop-io/Cargo.lock
 /driver/target
 /driver/Cargo.lock
 .vscode
