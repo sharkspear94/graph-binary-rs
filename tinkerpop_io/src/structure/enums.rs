@@ -321,34 +321,34 @@ impl<T: Into<GremlinValue>> P<T> {
     }
 
     #[must_use]
-    pub fn between(first: T, second: T) -> P<T> {
+    pub fn between(start: T, end: T) -> P<T> {
         P {
             predicate: "between".to_string(),
-            value: vec![first.into(), second.into()],
+            value: vec![start.into(), end.into()],
             marker: PhantomData,
         }
     }
 
     #[must_use]
-    pub fn inside(first: T, second: T) -> P<T> {
+    pub fn inside(start: T, end: T) -> P<T> {
         P {
             predicate: "inside".to_string(),
-            value: vec![first.into(), second.into()],
+            value: vec![start.into(), end.into()],
             marker: PhantomData,
         }
     }
 
     #[must_use]
-    pub fn outside(first: T, second: T) -> P<T> {
+    pub fn outside(start: T, end: T) -> P<T> {
         P {
             predicate: "outside".to_string(),
-            value: vec![first.into(), second.into()],
+            value: vec![start.into(), end.into()],
             marker: PhantomData,
         }
     }
 
     #[must_use]
-    pub fn within(values: Vec<T>) -> P<T> {
+    pub fn within(values: impl IntoIterator<Item = T>) -> P<T> {
         P {
             predicate: "within".to_string(),
             value: values.into_iter().map(Into::into).collect(),
@@ -357,7 +357,7 @@ impl<T: Into<GremlinValue>> P<T> {
     }
 
     #[must_use]
-    pub fn without(values: Vec<T>) -> P<T> {
+    pub fn without(values: impl IntoIterator<Item = T>) -> P<T> {
         P {
             predicate: "without".to_string(),
             value: values.into_iter().map(Into::into).collect(),
