@@ -95,7 +95,7 @@ impl serde::Serializer for GremlinValueSerializer {
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        Ok(GremlinValue::ByteBuffer(ByteBuffer::new(v)))
+        Ok(GremlinValue::ByteBuffer(ByteBuffer::new(v.to_vec())))
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
