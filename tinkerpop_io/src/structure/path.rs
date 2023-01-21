@@ -11,6 +11,15 @@ pub struct Path {
     pub(crate) objects: Vec<GremlinValue>, // List<T>
 }
 
+impl Path {
+    pub fn labels(&self) -> &Vec<Set<String>> {
+        &self.labels
+    }
+    pub fn objects(&self) -> &Vec<GremlinValue> {
+        &self.objects
+    }
+}
+
 impl Display for Path {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (labels, object) in self.labels.iter().zip(&self.objects) {
