@@ -314,7 +314,7 @@ impl Display for GremlinValue {
             #[cfg(feature = "extended")]
             GremlinValue::ZoneOffset(val) => write!(f, "ZoneOffset::{val}"),
             #[cfg(feature = "custom")]
-            GremlinValue::Custom(c) => todo!(),
+            GremlinValue::Custom(val) => write!(f, "Custom::{val}"),
         }
     }
 }
