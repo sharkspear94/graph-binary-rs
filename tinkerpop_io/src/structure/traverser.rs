@@ -25,6 +25,14 @@ impl Traverser {
     pub fn value(&self) -> &GremlinValue {
         &self.value
     }
+
+    #[must_use]
+    pub fn iter(&self) -> TraverserIter {
+        TraverserIter {
+            bulk: self.bulk as usize,
+            val: &self.value,
+        }
+    }
 }
 
 impl Display for Traverser {
@@ -36,16 +44,6 @@ impl Display for Traverser {
 pub struct TraverserIter<'a> {
     bulk: usize,
     val: &'a GremlinValue,
-}
-
-impl Traverser {
-    #[must_use]
-    pub fn iter(&self) -> TraverserIter {
-        TraverserIter {
-            bulk: self.bulk as usize,
-            val: &self.value,
-        }
-    }
 }
 
 impl<'a> Iterator for TraverserIter<'a> {
