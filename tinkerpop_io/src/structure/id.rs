@@ -19,6 +19,13 @@ impl ElementId {
             _ => None,
         }
     }
+    
+    pub fn as_string_mut(&mut self) -> Option<&mut String> {
+        match self {
+            ElementId::String(val) => Some(val),
+            _ => None,
+        }
+    }
     pub fn as_i32(&self) -> Option<i32> {
         match self {
             ElementId::Int(val) => Some(*val),
