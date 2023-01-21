@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{error::CustomError, specs::CoreType, structure::bytebuffer::ByteBuffer};
 
 use crate::binary::{Decode, Encode};
@@ -72,5 +74,15 @@ impl Decode for Custom {
             type_info,
             blob,
         })
+    }
+}
+
+impl Display for Custom {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "name: {}, type_info: {}, blob: {}",
+            self.name, self.type_info, self.blob
+        )
     }
 }
