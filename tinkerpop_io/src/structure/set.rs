@@ -27,6 +27,44 @@ impl<T> Set<T> {
     pub fn inner(self) -> Vec<T> {
         self.0
     }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, T> {
+        self.0.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, T> {
+        self.0.iter_mut()
+    }
+}
+
+impl<T> IntoIterator for Set<T> {
+    type Item = T;
+
+    type IntoIter = std::vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a Set<T> {
+    type Item = &'a T;
+
+    type IntoIter = std::slice::Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut Set<T> {
+    type Item = &'a mut T;
+
+    type IntoIter = std::slice::IterMut<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter_mut()
+    }
 }
 
 impl<T: Display> Display for Set<T> {
