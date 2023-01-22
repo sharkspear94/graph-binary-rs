@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use tinkerpop_io_rs::{
+use tinkerpop_io::{
     binary::{Decode, Encode},
     graphson::DecodeGraphSON,
     structure::metrics::TraversalMetrics,

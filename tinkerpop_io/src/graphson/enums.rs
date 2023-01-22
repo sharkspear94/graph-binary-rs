@@ -37,6 +37,7 @@ impl<T> EncodeGraphSON for P<T> {
                     "value":  self.value.iter().map(EncodeGraphSON::encode_v3).collect::<Vec<serde_json::Value>>()
                 }
             }),
+            //TODO replace with unreachable
             _ => panic!("predicate in P not known"),
         }
     }
@@ -64,6 +65,7 @@ impl<T> EncodeGraphSON for P<T> {
                     "value":  self.value.iter().map(EncodeGraphSON::encode_v2).collect::<Vec<serde_json::Value>>()
                 }
             }),
+            //TODO replace with unreachable
             _ => panic!("predicate in P not known"),
         }
     }

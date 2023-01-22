@@ -364,11 +364,11 @@ impl Decode for Edge {
         let properties = Option::<Vec<Property>>::decode(reader)?;
 
         Ok(Edge {
-            id: id,
+            id,
             label,
-            in_v_id: in_v_id,
+            in_v_id,
             in_v_label,
-            out_v_id: out_v_id,
+            out_v_id,
             out_v_label,
             parent,
             properties,

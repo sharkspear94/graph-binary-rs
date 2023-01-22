@@ -161,18 +161,18 @@ where
         let value_object = validate_type(j_val, "g:Map")?;
 
         let mut map_len = 0;
-        let iter = value_object
+        let k_v_pairs = value_object
             .as_array()
             .map(|array| {
                 map_len = array.len() / 2;
-                array.iter()
+                array
             })
             .ok_or_else(|| GraphSonError::WrongJsonType("array".to_string()))?;
 
         let mut map = HashMap::with_capacity(map_len);
-        for (k, v) in iter.clone().zip(iter.skip(1)).step_by(2) {
-            let key = K::decode_v3(k)?;
-            let val = V::decode_v3(v)?;
+        for chunk in k_v_pairs.chunks_exact(2) {
+            let key = K::decode_v3(&chunk[0])?;
+            let val = V::decode_v3(&chunk[1])?;
             map.insert(key, val);
         }
 

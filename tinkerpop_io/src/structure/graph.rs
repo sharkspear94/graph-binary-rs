@@ -10,6 +10,24 @@ pub struct Graph {
     pub(crate) edges: Vec<GraphEdge>,
 }
 
+impl Graph {
+    pub fn vertices(&self) -> &Vec<Vertex> {
+        &self.vertices
+    }
+
+    pub fn vertices_mut(&mut self) -> &mut Vec<Vertex> {
+        &mut self.vertices
+    }
+
+    // pub fn edges(&self) -> &Vec<GraphEdge> {
+    //     &self.edges
+    // }
+
+    // pub fn edges_mut(&mut self) -> &mut Vec<GraphEdge> {
+    //     &mut self.edges
+    // }
+}
+
 impl Display for Graph {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "vertexes:[")?;
